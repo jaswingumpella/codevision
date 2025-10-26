@@ -1,0 +1,17 @@
+# Maven
+/backend/target/
+
+# IDEs
+/.idea/
+*.iml
+
+# Logs
+*.log
+
+# Frontend build artifacts
+/frontend/node_modules/
+/frontend/dist/
+/frontend/.vite/
+
+# H2 Database files
+/backend/data/
