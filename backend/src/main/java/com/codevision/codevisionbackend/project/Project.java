@@ -29,6 +29,18 @@ public class Project {
     @Column(name = "last_analyzed_at", nullable = false)
     private OffsetDateTime lastAnalyzedAt;
 
+    @Column(name = "build_group_id")
+    private String buildGroupId;
+
+    @Column(name = "build_artifact_id")
+    private String buildArtifactId;
+
+    @Column(name = "build_version")
+    private String buildVersion;
+
+    @Column(name = "build_java_version")
+    private String buildJavaVersion;
+
     public Project(String repoUrl, String projectName, OffsetDateTime lastAnalyzedAt) {
         this.repoUrl = repoUrl;
         this.projectName = projectName;

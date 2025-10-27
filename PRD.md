@@ -203,14 +203,11 @@ This applies to:
 * Only Java (no Kotlin/Groovy)
 * Only Maven projects
 
-**User code filter**
+**User code heuristic**
 
-* First-class code is anything under:
-
-  * `com.barclays.*`
-  * `com.codeviz2.*`
-
-All other packages are considered external unless the package literal includes `codeviz2`.
+* All Java sources are ingested; no packages are excluded.
+* We flag classes whose package starts with `com.barclays` or `com.codeviz2` as “first-party” (`userCode = true`) so diagrams and tables can highlight them.
+* Additional prefixes can be introduced via configuration in later iterations.
 
 **Class Metadata**
 For each class found:
@@ -486,7 +483,7 @@ Produce rich architectural visualizations for onboarding, audit, and documentati
 1. **Class Diagram**
 
    * Classes, interfaces, relationships
-   * Only includes classes from `com.barclays.*` and `com.codeviz2.*`
+   * Includes all parsed classes; “user code” nodes can be emphasized using the heuristic flag.
 2. **Component Diagram**
 
    * High-level service wiring
@@ -502,9 +499,8 @@ Produce rich architectural visualizations for onboarding, audit, and documentati
 5. **Sequence Diagrams (Call Flow)**
 
    * Call chains traced across methods
-   * Internal calls between user-defined classes
+   * Internal calls between first-party classes (highlighted) and external classes (dimmed)
    * Outbound service calls (e.g. via `RestTemplate`, `WebClient`, Feign)
-   * External library calls ONLY IF the target package name contains `codeviz2`
    * Cycle-safe:
 
      * If a method call repeats within the current traversal path, insert a `"(cyclic reference...)"` node rather than recurse
@@ -543,7 +539,7 @@ Produce rich architectural visualizations for onboarding, audit, and documentati
   * “Download SVG” button
 * For Sequence tab:
 
-  * Toggle “Show external codeviz2 calls”
+  * Toggle “Show external calls” to hide/show interactions that leave first-party packages
 * For large codebases:
 
   * Support basic filtering / grouping (e.g. filter by package prefix)
@@ -756,8 +752,7 @@ All secured with `X-API-KEY: <value from application.yml>` unless noted.
 * List of detected outbound service calls (e.g. RestTemplate/WebClient targets)
 * Toggle:
 
-  * “Show external codeviz2 calls”
-    (External calls only included if package string contains `codeviz2`)
+  * “Show external calls” (hide or show interactions that touch non-first-party packages)
 
 **Diagrams**
 
@@ -993,7 +988,7 @@ All secured with `X-API-KEY: <value from application.yml>` unless noted.
 
 ### Iteration 2 – Source discovery & metadata
 
-* Parse Java sources (main + test), limited to `com.barclays.*` and `com.codeviz2.*`
+* Parse Java sources (main + test), ingesting all packages (flag first-party heuristically)
 * Extract class metadata + build info from POM
 * Add `class_metadata` + `project_snapshot`
 * Add `/project/{id}/overview`
@@ -1035,10 +1030,7 @@ All secured with `X-API-KEY: <value from application.yml>` unless noted.
   * Component
   * Use Case
   * ERD / DB Schema
-  * Sequence (call flow with cycle-safe traversal and selective inclusion of external calls:
-
-    * only user-defined packages
-    * plus external if package contains `codeviz2`)
+* Sequence (call flow with cycle-safe traversal; external calls can be toggled/filtered in the UI)
 * Persist in `diagram` table:
 
   * PlantUML source

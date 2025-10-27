@@ -36,3 +36,4 @@
 
 ## Next Iteration Preview
 - Begin source discovery and metadata scanning as outlined in Iteration 2 of `iterationPlan.md`.
+- _(This work has now been delivered; see [`docs/iteration-2-completion.md`](iteration-2-completion.md).)_

@@ -45,6 +45,17 @@ public class GitCloneService {
         }
     }
 
+    public void cleanupClone(Path directory) {
+        deleteDirectoryQuietly(directory);
+    }
+
+    public void cleanupClone(CloneResult cloneResult) {
+        if (cloneResult == null) {
+            return;
+        }
+        cleanupClone(cloneResult.directory());
+    }
+
     private CredentialsProvider resolveCredentialsProvider() {
         String username = gitAuthProperties.getUsername();
         String token = gitAuthProperties.getToken();

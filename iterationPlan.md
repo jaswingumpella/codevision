@@ -67,6 +67,8 @@ Be able to submit a repo URL, clone it (private or public), identify it as a pro
 
 ## Iteration 2 – Source discovery & metadata scan (no diagrams yet)
 
+**Status:** ✅ Completed – see [`docs/iteration-2-completion.md`](docs/iteration-2-completion.md) for delivery notes.
+
 ### Goal
 
 Extract basic structural metadata from the repo and persist it. Handle cyclic references safely in graphs.
@@ -84,9 +86,6 @@ Extract basic structural metadata from the repo and persist it. Handle cyclic re
     * Annotations
     * Implemented interfaces
     * Stereotype guess (Controller / Service / Repository / Entity / Config / Utility / Test / Other)
-  * Respect “user code” package filter:
-
-    * Only consider classes under `com.barclays.*` and `com.codeviz2.*` as first-class.
 
 * Add cyclic safety:
 
@@ -209,7 +208,7 @@ Discover all API surfaces and expose them in the UI.
 
 * If WSDL/XSD detected:
 
-  * For now, list discovered operations (no deep WSDL tree UI yet; that comes later).
+  * Show a dedicated SOAP view that lists discovered services/ports/operations and surfaces the raw WSDL/XSD schema text in a read-only panel (similar to the OpenAPI viewer).
 
 ### Persistence
 

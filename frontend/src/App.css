@@ -1,22 +1,34 @@
 .app {
   width: 100%;
+  max-width: 1120px;
+  margin: 0 auto;
   padding: 2rem;
   box-sizing: border-box;
 }
 
+.grid {
+  display: grid;
+  gap: 2rem;
+}
+
+@media (min-width: 960px) {
+  .grid {
+    grid-template-columns: 380px 1fr;
+    align-items: stretch;
+  }
+}
+
 .card {
-  max-width: 420px;
-  margin: 0 auto;
   background: #ffffff;
   padding: 2.5rem 2rem;
   border-radius: 18px;
-  box-shadow: 0 20px 45px rgba(15, 36, 94, 0.1);
+  box-shadow: 0 20px 45px rgba(15, 36, 94, 0.08);
   display: flex;
   flex-direction: column;
   gap: 1rem;
 }
 
-.card h1 {
+.analyze-card h1 {
   margin: 0;
   font-size: 1.8rem;
   color: #17213a;
@@ -37,11 +49,13 @@ input {
   border-radius: 10px;
   padding: 0.75rem 0.9rem;
   font-size: 1rem;
+  transition: border 0.2s ease, box-shadow 0.2s ease;
 }
 
 input:focus {
-  outline: 2px solid #4c6fff;
-  border-color: transparent;
+  outline: none;
+  border-color: #4c6fff;
+  box-shadow: 0 0 0 3px rgba(76, 111, 255, 0.15);
 }
 
 button {
@@ -53,7 +67,7 @@ button {
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s ease;
+  transition: background 0.2s ease, transform 0.2s ease;
 }
 
 button[disabled] {
@@ -63,6 +77,7 @@ button[disabled] {
 
 button:not([disabled]):hover {
   background: #3b59d4;
+  transform: translateY(-1px);
 }
 
 .error {
@@ -82,4 +97,106 @@ button:not([disabled]):hover {
 
 .success h2 {
   margin-top: 0;
+}
+
+.overview-card {
+  min-height: 100%;
+  padding: 2.5rem;
+}
+
+.overview-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  min-height: 100%;
+}
+
+.overview-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+@media (min-width: 640px) {
+  .overview-header {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+}
+
+.overview-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: #17213a;
+}
+
+.overview-hint {
+  margin: 0;
+  color: #5d6c90;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.35rem 0.9rem;
+  background: rgba(76, 111, 255, 0.12);
+  color: #314075;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.overview-section h3 {
+  margin: 0 0 0.6rem;
+  color: #1f2a44;
+  font-size: 1.1rem;
+}
+
+.stat-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+.stat {
+  background: #f5f7fd;
+  border-radius: 14px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.stat-label {
+  font-size: 0.85rem;
+  color: #4b587d;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.stat-value {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #1a2849;
+}
+
+.openapi-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.openapi-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.75rem;
+  border-radius: 8px;
+  background: #f1f3fb;
+  color: #2a3656;
+  font-weight: 500;
 }

@@ -11,7 +11,9 @@ body {
 
 #root {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   min-height: 100vh;
+  padding: 3rem 1.5rem;
+  box-sizing: border-box;
 }

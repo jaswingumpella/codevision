@@ -9,7 +9,16 @@ export default defineConfig({
       '/analyze': {
         target: 'http://localhost:8080',
         changeOrigin: true
+      },
+      '/project': {
+        target: 'http://localhost:8080',
+        changeOrigin: true
       }
     }
+  },
+  test: {
+    environment: 'jsdom',
+    setupFiles: './src/setupTests.js',
+    globals: true
   }
 });

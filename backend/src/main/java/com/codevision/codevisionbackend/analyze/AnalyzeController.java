@@ -1,8 +1,5 @@
 package com.codevision.codevisionbackend.analyze;
 
-import com.codevision.codevisionbackend.git.GitCloneService;
-import com.codevision.codevisionbackend.project.Project;
-import com.codevision.codevisionbackend.project.ProjectService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -14,18 +11,17 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/analyze")
 public class AnalyzeController {
 
-    private final GitCloneService gitCloneService;
-    private final ProjectService projectService;
+    public static final String STATUS_ANALYZED_METADATA = "ANALYZED_METADATA";
 
-    public AnalyzeController(GitCloneService gitCloneService, ProjectService projectService) {
-        this.gitCloneService = gitCloneService;
-        this.projectService = projectService;
+    private final AnalysisService analysisService;
+
+    public AnalyzeController(AnalysisService analysisService) {
+        this.analysisService = analysisService;
     }
 
     @PostMapping
     public ResponseEntity<AnalyzeResponse> analyze(@Valid @RequestBody AnalyzeRequest request) {
-        var cloneResult = gitCloneService.cloneRepository(request.getRepoUrl());
-        Project project = projectService.overwriteProject(request.getRepoUrl(), cloneResult.projectName());
-        return ResponseEntity.ok(new AnalyzeResponse(project.getId(), "ANALYZED_BASE"));
+        AnalysisOutcome outcome = analysisService.analyze(request.getRepoUrl());
+        return ResponseEntity.ok(new AnalyzeResponse(outcome.project().getId(), STATUS_ANALYZED_METADATA));
     }
 }

@@ -30,4 +30,4 @@ git:
     token: ""
 
 security:
-  apiKey: changeme
+  apiKey: 
