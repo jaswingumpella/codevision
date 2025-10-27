@@ -1,0 +1,99 @@
+openapi: 3.0.3
+info:
+  title: CodeVision API
+  version: 0.3.0
+  description: |
+    API for initiating repository analysis and retrieving project overview metadata
+    produced by the CodeVision ingestion backend.
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+tags:
+  - name: Analysis
+    description: Endpoints used to trigger repository analysis workflows.
+  - name: Project
+    description: Endpoints that expose stored project overview information.
+paths:
+  /analyze:
+    post:
+      operationId: analyzeRepository
+      tags:
+        - Analysis
+      summary: Trigger analysis for a repository
+      description: Starts a background analysis workflow for the supplied repository URL.
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./components/schemas.yaml#/AnalyzeRequest
+            examples:
+              analyzeRequest:
+                $ref: ./examples/analyze-post-request.json
+      responses:
+        '200':
+          description: Analysis request accepted and the snapshot metadata has been persisted.
+          content:
+            application/json:
+              schema:
+                $ref: ./components/schemas.yaml#/AnalyzeResponse
+              examples:
+                analyzeResponse:
+                  $ref: ./examples/analyze-post-response.json
+        '400':
+          description: The request payload failed validation.
+        '401':
+          description: Missing or invalid API key.
+  /project/{projectId}/overview:
+    get:
+      operationId: getProjectOverview
+      tags:
+        - Project
+      summary: Retrieve project overview snapshot
+      description: Returns the most recently stored overview snapshot for the selected project.
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          description: Unique identifier of the project.
+          schema:
+            type: integer
+            format: int64
+          examples:
+            projectId:
+              $ref: ./examples/project-overview-request.json
+      responses:
+        '200':
+          description: Snapshot metadata was found.
+          content:
+            application/json:
+              schema:
+                $ref: ./components/schemas.yaml#/ParsedDataResponse
+              examples:
+                projectOverview:
+                  $ref: ./examples/project-overview-response.json
+        '404':
+          description: No overview snapshot is available for the supplied identifier.
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-KEY
+  schemas:
+    AnalyzeRequest:
+      $ref: ./components/schemas.yaml#/AnalyzeRequest
+    AnalyzeResponse:
+      $ref: ./components/schemas.yaml#/AnalyzeResponse
+    BuildInfo:
+      $ref: ./components/schemas.yaml#/BuildInfo
+    ClassMetadataSummary:
+      $ref: ./components/schemas.yaml#/ClassMetadataSummary
+    MetadataDump:
+      $ref: ./components/schemas.yaml#/MetadataDump
+    OpenApiSpec:
+      $ref: ./components/schemas.yaml#/OpenApiSpec
+    ParsedDataResponse:
+      $ref: ./components/schemas.yaml#/ParsedDataResponse

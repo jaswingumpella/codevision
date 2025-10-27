@@ -28,5 +28,21 @@
         <openapi.generator.version>7.5.0</openapi.generator.version>
         <swagger.annotations.version>2.2.21</swagger.annotations.version>
         <jackson.nullable.version>0.2.6</jackson.nullable.version>
+        <spring-boot.run.skip>true</spring-boot.run.skip>
     </properties>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-maven-plugin</artifactId>
+                    <version>3.2.5</version>
+                    <configuration>
+                        <skip>${spring-boot.run.skip}</skip>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
 </project>

@@ -1,0 +1,12 @@
+README.md
+pom.xml
+src/main/java/com/codevision/codevisionbackend/api/generated/AnalysisApi.java
+src/main/java/com/codevision/codevisionbackend/api/generated/ApiUtil.java
+src/main/java/com/codevision/codevisionbackend/api/generated/ProjectApi.java
+src/main/java/com/codevision/codevisionbackend/api/model/AnalyzeRequest.java
+src/main/java/com/codevision/codevisionbackend/api/model/AnalyzeResponse.java
+src/main/java/com/codevision/codevisionbackend/api/model/BuildInfo.java
+src/main/java/com/codevision/codevisionbackend/api/model/ClassMetadataSummary.java
+src/main/java/com/codevision/codevisionbackend/api/model/MetadataDump.java
+src/main/java/com/codevision/codevisionbackend/api/model/OpenApiSpec.java
+src/main/java/com/codevision/codevisionbackend/api/model/ParsedDataResponse.java

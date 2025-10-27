@@ -1,0 +1,12 @@
+com/codevision/codevisionbackend/analyze/AnalyzeControllerTest$StubAnalysisService.class
+com/codevision/codevisionbackend/analyze/AnalyzeControllerTest.class
+com/codevision/codevisionbackend/project/ProjectOverviewControllerTest$StubProjectSnapshotService.class
+com/codevision/codevisionbackend/analyze/AnalysisServiceTest.class
+com/codevision/codevisionbackend/project/ProjectOverviewControllerTest.class
+com/codevision/codevisionbackend/analyze/scanner/JavaSourceScannerTest.class
+com/codevision/codevisionbackend/project/ProjectSnapshotDumpTest.class
+com/codevision/codevisionbackend/project/ProjectSnapshotServiceTest.class
+com/codevision/codevisionbackend/analyze/AnalysisServiceTest$StubGitCloneService.class
+com/codevision/codevisionbackend/analyze/scanner/BuildMetadataExtractorTest.class
+com/codevision/codevisionbackend/analyze/scanner/YamlScannerTest.class
+com/codevision/codevisionbackend/project/ProjectServiceTest.class
