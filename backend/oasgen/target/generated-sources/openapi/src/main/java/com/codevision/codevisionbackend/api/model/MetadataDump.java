@@ -3,6 +3,8 @@ package com.codevision.codevisionbackend.api.model;
 import java.net.URI;
 import java.util.Objects;
 import com.codevision.codevisionbackend.api.model.OpenApiSpec;
+import com.codevision.codevisionbackend.api.model.SoapServiceSummary;
+import com.codevision.codevisionbackend.api.model.SpecDocument;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import java.util.ArrayList;
@@ -22,11 +24,20 @@ import jakarta.annotation.Generated;
  * MetadataDump
  */
 
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2025-10-27T02:19:03.945888-04:00[America/New_York]", comments = "Generator version: 7.5.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2025-10-27T08:11:19.051018-04:00[America/New_York]", comments = "Generator version: 7.5.0")
 public class MetadataDump {
 
   @Valid
   private List<@Valid OpenApiSpec> openApiSpecs = new ArrayList<>();
+
+  @Valid
+  private List<@Valid SpecDocument> wsdlDocuments = new ArrayList<>();
+
+  @Valid
+  private List<@Valid SpecDocument> xsdDocuments = new ArrayList<>();
+
+  @Valid
+  private List<@Valid SoapServiceSummary> soapServices = new ArrayList<>();
 
   public MetadataDump openApiSpecs(List<@Valid OpenApiSpec> openApiSpecs) {
     this.openApiSpecs = openApiSpecs;
@@ -56,6 +67,90 @@ public class MetadataDump {
     this.openApiSpecs = openApiSpecs;
   }
 
+  public MetadataDump wsdlDocuments(List<@Valid SpecDocument> wsdlDocuments) {
+    this.wsdlDocuments = wsdlDocuments;
+    return this;
+  }
+
+  public MetadataDump addWsdlDocumentsItem(SpecDocument wsdlDocumentsItem) {
+    if (this.wsdlDocuments == null) {
+      this.wsdlDocuments = new ArrayList<>();
+    }
+    this.wsdlDocuments.add(wsdlDocumentsItem);
+    return this;
+  }
+
+  /**
+   * Collection of WSDL documents discovered in the repository.
+   * @return wsdlDocuments
+  */
+  @Valid 
+  @Schema(name = "wsdlDocuments", description = "Collection of WSDL documents discovered in the repository.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @JsonProperty("wsdlDocuments")
+  public List<@Valid SpecDocument> getWsdlDocuments() {
+    return wsdlDocuments;
+  }
+
+  public void setWsdlDocuments(List<@Valid SpecDocument> wsdlDocuments) {
+    this.wsdlDocuments = wsdlDocuments;
+  }
+
+  public MetadataDump xsdDocuments(List<@Valid SpecDocument> xsdDocuments) {
+    this.xsdDocuments = xsdDocuments;
+    return this;
+  }
+
+  public MetadataDump addXsdDocumentsItem(SpecDocument xsdDocumentsItem) {
+    if (this.xsdDocuments == null) {
+      this.xsdDocuments = new ArrayList<>();
+    }
+    this.xsdDocuments.add(xsdDocumentsItem);
+    return this;
+  }
+
+  /**
+   * Collection of XSD schema artifacts related to SOAP services.
+   * @return xsdDocuments
+  */
+  @Valid 
+  @Schema(name = "xsdDocuments", description = "Collection of XSD schema artifacts related to SOAP services.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @JsonProperty("xsdDocuments")
+  public List<@Valid SpecDocument> getXsdDocuments() {
+    return xsdDocuments;
+  }
+
+  public void setXsdDocuments(List<@Valid SpecDocument> xsdDocuments) {
+    this.xsdDocuments = xsdDocuments;
+  }
+
+  public MetadataDump soapServices(List<@Valid SoapServiceSummary> soapServices) {
+    this.soapServices = soapServices;
+    return this;
+  }
+
+  public MetadataDump addSoapServicesItem(SoapServiceSummary soapServicesItem) {
+    if (this.soapServices == null) {
+      this.soapServices = new ArrayList<>();
+    }
+    this.soapServices.add(soapServicesItem);
+    return this;
+  }
+
+  /**
+   * Summary of SOAP services, ports, and operations extracted from WSDL files.
+   * @return soapServices
+  */
+  @Valid 
+  @Schema(name = "soapServices", description = "Summary of SOAP services, ports, and operations extracted from WSDL files.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @JsonProperty("soapServices")
+  public List<@Valid SoapServiceSummary> getSoapServices() {
+    return soapServices;
+  }
+
+  public void setSoapServices(List<@Valid SoapServiceSummary> soapServices) {
+    this.soapServices = soapServices;
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) {
@@ -65,12 +160,15 @@ public class MetadataDump {
       return false;
     }
     MetadataDump metadataDump = (MetadataDump) o;
-    return Objects.equals(this.openApiSpecs, metadataDump.openApiSpecs);
+    return Objects.equals(this.openApiSpecs, metadataDump.openApiSpecs) &&
+        Objects.equals(this.wsdlDocuments, metadataDump.wsdlDocuments) &&
+        Objects.equals(this.xsdDocuments, metadataDump.xsdDocuments) &&
+        Objects.equals(this.soapServices, metadataDump.soapServices);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(openApiSpecs);
+    return Objects.hash(openApiSpecs, wsdlDocuments, xsdDocuments, soapServices);
   }
 
   @Override
@@ -78,6 +176,9 @@ public class MetadataDump {
     StringBuilder sb = new StringBuilder();
     sb.append("class MetadataDump {\n");
     sb.append("    openApiSpecs: ").append(toIndentedString(openApiSpecs)).append("\n");
+    sb.append("    wsdlDocuments: ").append(toIndentedString(wsdlDocuments)).append("\n");
+    sb.append("    xsdDocuments: ").append(toIndentedString(xsdDocuments)).append("\n");
+    sb.append("    soapServices: ").append(toIndentedString(soapServices)).append("\n");
     sb.append("}");
     return sb.toString();
   }

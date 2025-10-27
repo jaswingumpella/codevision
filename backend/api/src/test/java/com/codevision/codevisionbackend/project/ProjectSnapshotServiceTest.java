@@ -1,5 +1,6 @@
 package com.codevision.codevisionbackend.project;
 
+import com.codevision.codevisionbackend.analyze.AssetInventory;
 import com.codevision.codevisionbackend.analyze.BuildInfo;
 import com.codevision.codevisionbackend.analyze.MetadataDump;
 import com.codevision.codevisionbackend.analyze.ParsedDataResponse;
@@ -68,7 +69,9 @@ class ProjectSnapshotServiceTest {
                 OffsetDateTime.now(),
                 BuildInfo.empty(),
                 List.of(),
-                MetadataDump.empty());
+                MetadataDump.empty(),
+                List.of(),
+                AssetInventory.empty());
 
         projectSnapshotService.saveSnapshot(detached, parsed);
 
@@ -144,6 +147,8 @@ class ProjectSnapshotServiceTest {
                 project.getLastAnalyzedAt(),
                 BuildInfo.empty(),
                 List.of(),
-                MetadataDump.empty());
+                MetadataDump.empty(),
+                List.of(),
+                AssetInventory.empty());
     }
 }

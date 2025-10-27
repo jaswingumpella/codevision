@@ -12,10 +12,14 @@ public record ParsedDataResponse(
         OffsetDateTime analyzedAt,
         BuildInfo buildInfo,
         List<ClassMetadataSummary> classes,
-        MetadataDump metadataDump) {
+        MetadataDump metadataDump,
+        List<ApiEndpointSummary> apiEndpoints,
+        AssetInventory assets) {
 
     public ParsedDataResponse {
         classes = classes == null ? List.of() : List.copyOf(classes);
         metadataDump = metadataDump == null ? MetadataDump.empty() : metadataDump;
+        apiEndpoints = apiEndpoints == null ? List.of() : List.copyOf(apiEndpoints);
+        assets = assets == null ? AssetInventory.empty() : assets;
     }
 }

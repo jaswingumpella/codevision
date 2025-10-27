@@ -2,6 +2,8 @@ package com.codevision.codevisionbackend.api.model;
 
 import java.net.URI;
 import java.util.Objects;
+import com.codevision.codevisionbackend.api.model.ApiEndpoint;
+import com.codevision.codevisionbackend.api.model.AssetInventory;
 import com.codevision.codevisionbackend.api.model.BuildInfo;
 import com.codevision.codevisionbackend.api.model.ClassMetadataSummary;
 import com.codevision.codevisionbackend.api.model.MetadataDump;
@@ -27,7 +29,7 @@ import jakarta.annotation.Generated;
  * ParsedDataResponse
  */
 
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2025-10-27T02:19:03.945888-04:00[America/New_York]", comments = "Generator version: 7.5.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2025-10-27T08:11:19.051018-04:00[America/New_York]", comments = "Generator version: 7.5.0")
 public class ParsedDataResponse {
 
   private Long projectId;
@@ -45,6 +47,11 @@ public class ParsedDataResponse {
   private List<@Valid ClassMetadataSummary> classes = new ArrayList<>();
 
   private MetadataDump metadataDump;
+
+  @Valid
+  private List<@Valid ApiEndpoint> apiEndpoints = new ArrayList<>();
+
+  private AssetInventory assets;
 
   public ParsedDataResponse() {
     super();
@@ -208,6 +215,54 @@ public class ParsedDataResponse {
     this.metadataDump = metadataDump;
   }
 
+  public ParsedDataResponse apiEndpoints(List<@Valid ApiEndpoint> apiEndpoints) {
+    this.apiEndpoints = apiEndpoints;
+    return this;
+  }
+
+  public ParsedDataResponse addApiEndpointsItem(ApiEndpoint apiEndpointsItem) {
+    if (this.apiEndpoints == null) {
+      this.apiEndpoints = new ArrayList<>();
+    }
+    this.apiEndpoints.add(apiEndpointsItem);
+    return this;
+  }
+
+  /**
+   * Catalog of API endpoints discovered in the project.
+   * @return apiEndpoints
+  */
+  @Valid 
+  @Schema(name = "apiEndpoints", description = "Catalog of API endpoints discovered in the project.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @JsonProperty("apiEndpoints")
+  public List<@Valid ApiEndpoint> getApiEndpoints() {
+    return apiEndpoints;
+  }
+
+  public void setApiEndpoints(List<@Valid ApiEndpoint> apiEndpoints) {
+    this.apiEndpoints = apiEndpoints;
+  }
+
+  public ParsedDataResponse assets(AssetInventory assets) {
+    this.assets = assets;
+    return this;
+  }
+
+  /**
+   * Get assets
+   * @return assets
+  */
+  @Valid 
+  @Schema(name = "assets", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @JsonProperty("assets")
+  public AssetInventory getAssets() {
+    return assets;
+  }
+
+  public void setAssets(AssetInventory assets) {
+    this.assets = assets;
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) {
@@ -223,12 +278,14 @@ public class ParsedDataResponse {
         Objects.equals(this.analyzedAt, parsedDataResponse.analyzedAt) &&
         Objects.equals(this.buildInfo, parsedDataResponse.buildInfo) &&
         Objects.equals(this.classes, parsedDataResponse.classes) &&
-        Objects.equals(this.metadataDump, parsedDataResponse.metadataDump);
+        Objects.equals(this.metadataDump, parsedDataResponse.metadataDump) &&
+        Objects.equals(this.apiEndpoints, parsedDataResponse.apiEndpoints) &&
+        Objects.equals(this.assets, parsedDataResponse.assets);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(projectId, projectName, repoUrl, analyzedAt, buildInfo, classes, metadataDump);
+    return Objects.hash(projectId, projectName, repoUrl, analyzedAt, buildInfo, classes, metadataDump, apiEndpoints, assets);
   }
 
   @Override
@@ -242,6 +299,8 @@ public class ParsedDataResponse {
     sb.append("    buildInfo: ").append(toIndentedString(buildInfo)).append("\n");
     sb.append("    classes: ").append(toIndentedString(classes)).append("\n");
     sb.append("    metadataDump: ").append(toIndentedString(metadataDump)).append("\n");
+    sb.append("    apiEndpoints: ").append(toIndentedString(apiEndpoints)).append("\n");
+    sb.append("    assets: ").append(toIndentedString(assets)).append("\n");
     sb.append("}");
     return sb.toString();
   }

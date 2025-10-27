@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.codevision.codevisionbackend.analyze.ApiEndpointSummary;
+import com.codevision.codevisionbackend.analyze.AssetInventory;
 import com.codevision.codevisionbackend.analyze.MetadataDump;
 import com.codevision.codevisionbackend.analyze.ParsedDataResponse;
 import com.codevision.codevisionbackend.api.ApiModelMapper;
@@ -37,7 +39,9 @@ class ProjectOverviewControllerTest {
                 OffsetDateTime.now(),
                 new BuildInfo("com.barclays", "demo", "1.0.0", "21"),
                 List.of(),
-                MetadataDump.empty());
+                MetadataDump.empty(),
+                List.of(),
+                AssetInventory.empty());
         snapshotService.setSnapshot(Optional.of(response));
 
         ResponseEntity<com.codevision.codevisionbackend.api.model.ParsedDataResponse> result =
@@ -57,6 +61,30 @@ class ProjectOverviewControllerTest {
 
         assertEquals(HttpStatus.NOT_FOUND, result.getStatusCode());
         assertNull(result.getBody());
+    }
+
+    @Test
+    void getApiEndpointsReturnsCatalogWhenPresent() {
+        ApiEndpointSummary endpoint = new ApiEndpointSummary(
+                "REST", "GET", "/demo", "com.example.Controller", "getDemo", List.of());
+        ParsedDataResponse response = new ParsedDataResponse(
+                12L,
+                "demo",
+                "https://example.com/repo.git",
+                OffsetDateTime.now(),
+                BuildInfo.empty(),
+                List.of(),
+                MetadataDump.empty(),
+                List.of(endpoint),
+                AssetInventory.empty());
+        snapshotService.setSnapshot(Optional.of(response));
+
+        ResponseEntity<com.codevision.codevisionbackend.api.model.ProjectApiEndpointsResponse> result =
+                controller.getProjectApiEndpoints(12L);
+
+        assertEquals(HttpStatus.OK, result.getStatusCode());
+        assertTrue(result.hasBody());
+        assertEquals(1, result.getBody().getEndpoints().size());
     }
 
     private static class StubProjectSnapshotService extends ProjectSnapshotService {

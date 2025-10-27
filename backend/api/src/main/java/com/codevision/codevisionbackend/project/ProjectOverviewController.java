@@ -36,4 +36,22 @@ public class ProjectOverviewController implements ProjectApi {
                     return ResponseEntity.notFound().build();
                 });
     }
+
+    @Override
+    public ResponseEntity<com.codevision.codevisionbackend.api.model.ProjectApiEndpointsResponse> getProjectApiEndpoints(
+            @PathVariable("projectId") Long projectId) {
+        log.info("Fetching API endpoints for project id={}", projectId);
+        return projectSnapshotService.fetchSnapshot(projectId)
+                .map(snapshot -> apiModelMapper.toApiEndpointsResponse(projectId, snapshot.apiEndpoints()))
+                .map(response -> {
+                    log.info("Found {} endpoints for project id={}",
+                            response.getEndpoints() != null ? response.getEndpoints().size() : 0,
+                            projectId);
+                    return ResponseEntity.ok(response);
+                })
+                .orElseGet(() -> {
+                    log.warn("No endpoint catalog found for project id={}", projectId);
+                    return ResponseEntity.notFound().build();
+                });
+    }
 }

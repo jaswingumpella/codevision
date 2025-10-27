@@ -1,14 +1,22 @@
 package com.codevision.codevisionbackend.analyze;
 
+import com.codevision.codevisionbackend.analyze.scanner.ApiEndpointRecord;
+import com.codevision.codevisionbackend.analyze.scanner.ApiScanner;
+import com.codevision.codevisionbackend.analyze.scanner.AssetScanner;
 import com.codevision.codevisionbackend.analyze.scanner.BuildMetadataExtractor;
 import com.codevision.codevisionbackend.analyze.scanner.BuildMetadataExtractor.BuildMetadata;
 import com.codevision.codevisionbackend.analyze.scanner.ClassMetadataRecord;
+import com.codevision.codevisionbackend.analyze.scanner.ImageAssetRecord;
 import com.codevision.codevisionbackend.analyze.scanner.JavaSourceScanner;
 import com.codevision.codevisionbackend.analyze.scanner.YamlScanner;
 import com.codevision.codevisionbackend.git.GitCloneService;
 import com.codevision.codevisionbackend.project.Project;
 import com.codevision.codevisionbackend.project.ProjectService;
 import com.codevision.codevisionbackend.project.ProjectSnapshotService;
+import com.codevision.codevisionbackend.project.api.ApiEndpoint;
+import com.codevision.codevisionbackend.project.api.ApiEndpointRepository;
+import com.codevision.codevisionbackend.project.asset.AssetImage;
+import com.codevision.codevisionbackend.project.asset.AssetImageRepository;
 import com.codevision.codevisionbackend.project.metadata.ClassMetadata;
 import com.codevision.codevisionbackend.project.metadata.ClassMetadataRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -29,8 +37,12 @@ public class AnalysisService {
     private final BuildMetadataExtractor buildMetadataExtractor;
     private final JavaSourceScanner javaSourceScanner;
     private final YamlScanner yamlScanner;
+    private final ApiScanner apiScanner;
+    private final AssetScanner assetScanner;
     private final ProjectService projectService;
     private final ClassMetadataRepository classMetadataRepository;
+    private final ApiEndpointRepository apiEndpointRepository;
+    private final AssetImageRepository assetImageRepository;
     private final ProjectSnapshotService projectSnapshotService;
     private final ObjectMapper objectMapper;
 
@@ -39,16 +51,24 @@ public class AnalysisService {
             BuildMetadataExtractor buildMetadataExtractor,
             JavaSourceScanner javaSourceScanner,
             YamlScanner yamlScanner,
+            ApiScanner apiScanner,
+            AssetScanner assetScanner,
             ProjectService projectService,
             ClassMetadataRepository classMetadataRepository,
+            ApiEndpointRepository apiEndpointRepository,
+            AssetImageRepository assetImageRepository,
             ProjectSnapshotService projectSnapshotService,
             ObjectMapper objectMapper) {
         this.gitCloneService = gitCloneService;
         this.buildMetadataExtractor = buildMetadataExtractor;
         this.javaSourceScanner = javaSourceScanner;
         this.yamlScanner = yamlScanner;
+        this.apiScanner = apiScanner;
+        this.assetScanner = assetScanner;
         this.projectService = projectService;
         this.classMetadataRepository = classMetadataRepository;
+        this.apiEndpointRepository = apiEndpointRepository;
+        this.assetImageRepository = assetImageRepository;
         this.projectSnapshotService = projectSnapshotService;
         this.objectMapper = objectMapper;
     }
@@ -80,11 +100,26 @@ public class AnalysisService {
             replaceClassMetadata(persistedProject, classRecords);
             MetadataDump metadataDump = yamlScanner.scan(cloneResult.directory());
             log.debug(
-                    "Collected {} OpenAPI specs for {}",
-                    metadataDump.openApiSpecs() != null ? metadataDump.openApiSpecs().size() : 0,
+                    "Collected {} metadata artifacts for {}",
+                    (metadataDump.openApiSpecs() != null ? metadataDump.openApiSpecs().size() : 0)
+                            + (metadataDump.wsdlDocuments() != null ? metadataDump.wsdlDocuments().size() : 0)
+                            + (metadataDump.xsdDocuments() != null ? metadataDump.xsdDocuments().size() : 0),
                     repoUrl);
+            List<ApiEndpointRecord> apiEndpoints =
+                    apiScanner.scan(cloneResult.directory(), buildMetadata.moduleRoots(), metadataDump);
+            log.info("Discovered {} API endpoints for {}", apiEndpoints.size(), repoUrl);
+            replaceApiEndpoints(persistedProject, apiEndpoints);
+            List<ImageAssetRecord> imageAssets = assetScanner.scan(cloneResult.directory());
+            log.info("Discovered {} image assets for {}", imageAssets.size(), repoUrl);
+            replaceAssetImages(persistedProject, imageAssets);
             ParsedDataResponse parsedData =
-                    assembleParsedData(persistedProject, buildMetadata.buildInfo(), classRecords, metadataDump);
+                    assembleParsedData(
+                            persistedProject,
+                            buildMetadata.buildInfo(),
+                            classRecords,
+                            metadataDump,
+                            apiEndpoints,
+                            imageAssets);
             projectSnapshotService.saveSnapshot(persistedProject, parsedData);
             log.info(
                     "Completed analysis for {} with projectId={}", repoUrl, persistedProject.getId());
@@ -115,11 +150,11 @@ public class AnalysisService {
         entity.setPackageName(record.packageName());
         entity.setClassName(record.className());
         entity.setStereotype(record.stereotype());
-        entity.setSourceSet(record.sourceSet().name());
-        entity.setRelativePath(record.relativePath());
-        entity.setUserCode(record.userCode());
-        entity.setAnnotationsJson(writeJson(record.annotations()));
-        entity.setInterfacesJson(writeJson(record.implementedInterfaces()));
+       entity.setSourceSet(record.sourceSet().name());
+       entity.setRelativePath(record.relativePath());
+       entity.setUserCode(record.userCode());
+        entity.setAnnotationsJson(writeJsonValue(record.annotations()));
+        entity.setInterfacesJson(writeJsonValue(record.implementedInterfaces()));
         return entity;
     }
 
@@ -127,7 +162,9 @@ public class AnalysisService {
             Project project,
             BuildInfo buildInfo,
             List<ClassMetadataRecord> classRecords,
-            MetadataDump metadataDump) {
+            MetadataDump metadataDump,
+            List<ApiEndpointRecord> apiEndpoints,
+            List<ImageAssetRecord> imageAssets) {
         List<ClassMetadataSummary> classSummaries = classRecords.stream()
                 .map(record -> new ClassMetadataSummary(
                         record.fullyQualifiedName(),
@@ -141,6 +178,25 @@ public class AnalysisService {
                         record.implementedInterfaces()))
                 .toList();
 
+        List<ApiEndpointSummary> endpointSummaries = apiEndpoints.stream()
+                .map(record -> new ApiEndpointSummary(
+                        record.protocol(),
+                        record.httpMethod(),
+                        record.pathOrOperation(),
+                        record.controllerClass(),
+                        record.controllerMethod(),
+                        record.specArtifacts().stream()
+                                .map(artifact -> new ApiEndpointSummary.ApiSpecArtifact(
+                                        artifact.type(), artifact.name(), artifact.reference()))
+                                .toList()))
+                .toList();
+
+        List<AssetInventory.ImageAsset> images = imageAssets.stream()
+                .map(asset -> new AssetInventory.ImageAsset(
+                        asset.fileName(), asset.relativePath(), asset.sizeBytes(), asset.sha256()))
+                .toList();
+        AssetInventory assetInventory = images.isEmpty() ? AssetInventory.empty() : new AssetInventory(images);
+
         return new ParsedDataResponse(
                 project.getId(),
                 project.getProjectName(),
@@ -148,15 +204,65 @@ public class AnalysisService {
                 project.getLastAnalyzedAt(),
                 buildInfo,
                 classSummaries,
-                metadataDump);
+                metadataDump,
+                endpointSummaries,
+                assetInventory);
     }
 
-    private String writeJson(List<String> values) {
+    private String writeJsonValue(Object value) {
         try {
-            return objectMapper.writeValueAsString(values);
+            return objectMapper.writeValueAsString(value);
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("Failed to serialize metadata values", e);
         }
+    }
+
+    private void replaceApiEndpoints(Project project, List<ApiEndpointRecord> endpointRecords) {
+        apiEndpointRepository.deleteByProject(project);
+        if (endpointRecords.isEmpty()) {
+            log.info("No API endpoints to persist for projectId={}", project.getId());
+            return;
+        }
+        List<ApiEndpoint> entities = endpointRecords.stream()
+                .map(record -> mapEndpoint(project, record))
+                .toList();
+        apiEndpointRepository.saveAll(entities);
+        log.info("Persisted {} API endpoints for projectId={}", entities.size(), project.getId());
+    }
+
+    private ApiEndpoint mapEndpoint(Project project, ApiEndpointRecord record) {
+        ApiEndpoint entity = new ApiEndpoint();
+        entity.setProject(project);
+        entity.setProtocol(record.protocol());
+        entity.setHttpMethod(record.httpMethod());
+        entity.setPathOrOperation(record.pathOrOperation());
+        entity.setControllerClass(record.controllerClass());
+        entity.setControllerMethod(record.controllerMethod());
+        entity.setSpecArtifactsJson(writeJsonValue(record.specArtifacts()));
+        return entity;
+    }
+
+    private void replaceAssetImages(Project project, List<ImageAssetRecord> imageAssets) {
+        assetImageRepository.deleteByProject(project);
+        if (imageAssets.isEmpty()) {
+            log.info("No image assets to persist for projectId={}", project.getId());
+            return;
+        }
+        List<AssetImage> entities = imageAssets.stream()
+                .map(asset -> mapAsset(project, asset))
+                .toList();
+        assetImageRepository.saveAll(entities);
+        log.info("Persisted {} image assets for projectId={}", entities.size(), project.getId());
+    }
+
+    private AssetImage mapAsset(Project project, ImageAssetRecord asset) {
+        AssetImage entity = new AssetImage();
+        entity.setProject(project);
+        entity.setFileName(asset.fileName());
+        entity.setRelativePath(asset.relativePath());
+        entity.setSizeBytes(asset.sizeBytes());
+        entity.setSha256(asset.sha256());
+        return entity;
     }
 
     private void cleanupClone(GitCloneService.CloneResult cloneResult) {
@@ -172,6 +278,8 @@ public class AnalysisService {
             log.info("Purging existing project data for repo {} (projectId={})", repoUrl, existing.getId());
             projectSnapshotService.deleteSnapshot(existing);
             classMetadataRepository.deleteByProject(existing);
+            apiEndpointRepository.deleteByProject(existing);
+            assetImageRepository.deleteByProject(existing);
             projectService.delete(existing);
         });
     }

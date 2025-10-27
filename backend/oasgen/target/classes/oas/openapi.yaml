@@ -76,6 +76,30 @@ paths:
                   $ref: ./examples/project-overview-response.json
         '404':
           description: No overview snapshot is available for the supplied identifier.
+  /project/{projectId}/api-endpoints:
+    get:
+      operationId: getProjectApiEndpoints
+      tags:
+        - Project
+      summary: Retrieve API endpoint catalog
+      description: Returns all API endpoints discovered for the selected project grouped by protocol.
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          description: Unique identifier of the project.
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Endpoint catalog retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: ./components/schemas.yaml#/ProjectApiEndpointsResponse
+        '404':
+          description: No catalog is available for the supplied identifier.
 components:
   securitySchemes:
     ApiKeyAuth:
@@ -97,3 +121,19 @@ components:
       $ref: ./components/schemas.yaml#/OpenApiSpec
     ParsedDataResponse:
       $ref: ./components/schemas.yaml#/ParsedDataResponse
+    SpecDocument:
+      $ref: ./components/schemas.yaml#/SpecDocument
+    SoapServiceSummary:
+      $ref: ./components/schemas.yaml#/SoapServiceSummary
+    SoapPortSummary:
+      $ref: ./components/schemas.yaml#/SoapPortSummary
+    ApiEndpoint:
+      $ref: ./components/schemas.yaml#/ApiEndpoint
+    ApiSpecArtifact:
+      $ref: ./components/schemas.yaml#/ApiSpecArtifact
+    AssetInventory:
+      $ref: ./components/schemas.yaml#/AssetInventory
+    ImageAsset:
+      $ref: ./components/schemas.yaml#/ImageAsset
+    ProjectApiEndpointsResponse:
+      $ref: ./components/schemas.yaml#/ProjectApiEndpointsResponse

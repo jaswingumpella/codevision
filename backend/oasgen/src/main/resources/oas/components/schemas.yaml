@@ -86,6 +86,21 @@ MetadataDump:
       description: Collection of OpenAPI specification files detected within the repository.
       items:
         $ref: '#/OpenApiSpec'
+    wsdlDocuments:
+      type: array
+      description: Collection of WSDL documents discovered in the repository.
+      items:
+        $ref: '#/SpecDocument'
+    xsdDocuments:
+      type: array
+      description: Collection of XSD schema artifacts related to SOAP services.
+      items:
+        $ref: '#/SpecDocument'
+    soapServices:
+      type: array
+      description: Summary of SOAP services, ports, and operations extracted from WSDL files.
+      items:
+        $ref: '#/SoapServiceSummary'
 
 OpenApiSpec:
   type: object
@@ -99,6 +114,124 @@ OpenApiSpec:
     content:
       type: string
       description: Raw YAML or JSON content extracted from the specification file.
+
+SpecDocument:
+  type: object
+  required:
+    - fileName
+    - content
+  properties:
+    fileName:
+      type: string
+      description: Source file name for the document.
+    content:
+      type: string
+      description: Raw text content of the document.
+
+SoapServiceSummary:
+  type: object
+  required:
+    - fileName
+    - serviceName
+  properties:
+    fileName:
+      type: string
+      description: WSDL document file name from which this summary was derived.
+    serviceName:
+      type: string
+      description: Name of the SOAP service.
+    ports:
+      type: array
+      description: Ports exposed by the SOAP service.
+      items:
+        $ref: '#/SoapPortSummary'
+
+SoapPortSummary:
+  type: object
+  required:
+    - portName
+  properties:
+    portName:
+      type: string
+      description: Name of the SOAP port.
+    operations:
+      type: array
+      description: Operation names exposed by the port.
+      items:
+        type: string
+
+ApiEndpoint:
+  type: object
+  required:
+    - protocol
+    - pathOrOperation
+    - controllerClass
+  properties:
+    protocol:
+      type: string
+      description: Protocol classification of the endpoint (REST, SOAP, SERVLET, JAXRS).
+    httpMethod:
+      type: string
+      description: HTTP method, when applicable.
+    pathOrOperation:
+      type: string
+      description: Resolved path or operation identifier exposed by the endpoint.
+    controllerClass:
+      type: string
+      description: Fully qualified class that declares the endpoint.
+    controllerMethod:
+      type: string
+      description: Method handling the endpoint invocation.
+    specArtifacts:
+      type: array
+      description: Related specification artifacts such as OpenAPI or WSDL documents.
+      items:
+        $ref: '#/ApiSpecArtifact'
+
+ApiSpecArtifact:
+  type: object
+  required:
+    - type
+    - name
+  properties:
+    type:
+      type: string
+      description: Artifact type, e.g. OPENAPI, WSDL, XSD, SERVLET_MAPPING.
+    name:
+      type: string
+      description: Human friendly label for the artifact.
+    reference:
+      type: string
+      description: Identifier used to resolve the artifact content.
+
+AssetInventory:
+  type: object
+  properties:
+    images:
+      type: array
+      description: Image assets discovered in the repository.
+      items:
+        $ref: '#/ImageAsset'
+
+ImageAsset:
+  type: object
+  required:
+    - fileName
+    - relativePath
+  properties:
+    fileName:
+      type: string
+      description: Image file name.
+    relativePath:
+      type: string
+      description: Path to the asset relative to the repository root.
+    sizeBytes:
+      type: integer
+      format: int64
+      description: File size in bytes.
+    sha256:
+      type: string
+      description: SHA-256 hash of the asset for integrity verification.
 
 ParsedDataResponse:
   type: object
@@ -132,3 +265,26 @@ ParsedDataResponse:
         $ref: '#/ClassMetadataSummary'
     metadataDump:
       $ref: '#/MetadataDump'
+    apiEndpoints:
+      type: array
+      description: Catalog of API endpoints discovered in the project.
+      items:
+        $ref: '#/ApiEndpoint'
+    assets:
+      $ref: '#/AssetInventory'
+
+ProjectApiEndpointsResponse:
+  type: object
+  required:
+    - projectId
+    - endpoints
+  properties:
+    projectId:
+      type: integer
+      format: int64
+      description: Identifier of the associated project.
+    endpoints:
+      type: array
+      description: Endpoint catalog for the project.
+      items:
+        $ref: '#/ApiEndpoint'

@@ -174,7 +174,9 @@ public class ProjectSnapshotService {
                 fromSnapshot.analyzedAt(),
                 fromSnapshot.buildInfo(),
                 classSummaries,
-                fromSnapshot.metadataDump());
+                fromSnapshot.metadataDump(),
+                fromSnapshot.apiEndpoints(),
+                fromSnapshot.assets());
     }
 
     private ClassMetadataSummary toSummary(ClassMetadata metadata) {

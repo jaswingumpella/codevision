@@ -2,6 +2,7 @@ package com.codevision.codevisionbackend.analyze;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import com.codevision.codevisionbackend.analyze.AssetInventory;
 import com.codevision.codevisionbackend.api.ApiModelMapper;
 import com.codevision.codevisionbackend.api.model.AnalyzeRequest;
 import com.codevision.codevisionbackend.api.model.AnalyzeResponse;
@@ -40,7 +41,9 @@ class AnalyzeControllerTest {
                 project.getLastAnalyzedAt(),
                 new BuildInfo("com.barclays", "demo", "1.0.0", "21"),
                 List.of(),
-                MetadataDump.empty());
+                MetadataDump.empty(),
+                List.of(),
+                AssetInventory.empty());
         analysisService.setNextOutcome(new AnalysisOutcome(project, data));
 
         ResponseEntity<AnalyzeResponse> response = controller.analyzeRepository(request);
@@ -56,7 +59,7 @@ class AnalyzeControllerTest {
         private AnalysisOutcome nextOutcome;
 
         StubAnalysisService() {
-            super(null, null, null, null, null, null, null, new ObjectMapper());
+            super(null, null, null, null, null, null, null, null, null, null, null, new ObjectMapper());
         }
 
         void setNextOutcome(AnalysisOutcome outcome) {

@@ -39,7 +39,8 @@ public class BuildMetadataExtractor {
         if (!Files.exists(rootPom)) {
             log.info("No pom.xml found at {}. Attempting nested module detection.", rootPom);
             discoverNestedModules(normalizedRoot, moduleRoots);
-            return new BuildMetadata(BuildInfo.empty(), List.copyOf(moduleRoots));
+            BuildInfo inferred = inferBuildInfoFromModules(moduleRoots);
+            return new BuildMetadata(inferred, List.copyOf(moduleRoots));
         }
 
         try {
@@ -59,6 +60,27 @@ public class BuildMetadataExtractor {
             log.warn("Failed reading build metadata from {}", rootPom, e);
             return new BuildMetadata(BuildInfo.empty(), List.copyOf(moduleRoots));
         }
+    }
+
+    private BuildInfo inferBuildInfoFromModules(Set<Path> moduleRoots) {
+        for (Path moduleRoot : moduleRoots) {
+            Path pom = moduleRoot.resolve("pom.xml");
+            if (!Files.exists(pom)) {
+                continue;
+            }
+            Model model = readModelQuietly(pom);
+            if (model == null) {
+                continue;
+            }
+            String groupId = resolveGroupId(model);
+            String artifactId = safeTrim(model.getArtifactId());
+            String version = resolveVersion(model);
+            String javaVersion = resolveJavaVersion(model);
+            if (groupId != null || artifactId != null || version != null || javaVersion != null) {
+                return new BuildInfo(groupId, artifactId, version, javaVersion);
+            }
+        }
+        return BuildInfo.empty();
     }
 
     private void discoverNestedModules(Path root, Set<Path> moduleRoots) {

@@ -1,8 +1,12 @@
 package com.codevision.codevisionbackend.api;
 
+import com.codevision.codevisionbackend.analyze.ApiEndpointSummary;
+import com.codevision.codevisionbackend.analyze.AssetInventory;
 import com.codevision.codevisionbackend.analyze.BuildInfo;
 import com.codevision.codevisionbackend.analyze.ClassMetadataSummary;
 import com.codevision.codevisionbackend.analyze.MetadataDump;
+import com.codevision.codevisionbackend.analyze.MetadataDump.SoapPortSummary;
+import com.codevision.codevisionbackend.analyze.MetadataDump.SoapServiceSummary;
 import com.codevision.codevisionbackend.analyze.ParsedDataResponse;
 import java.net.URI;
 import java.util.List;
@@ -49,6 +53,19 @@ public class ApiModelMapper {
             response.setMetadataDump(toMetadataDump(metadataDump));
         }
 
+        List<ApiEndpointSummary> endpoints = snapshot.apiEndpoints();
+        if (endpoints != null) {
+            response.setApiEndpoints(endpoints.stream()
+                    .filter(Objects::nonNull)
+                    .map(this::toApiEndpoint)
+                    .collect(Collectors.toList()));
+        }
+
+        AssetInventory assets = snapshot.assets();
+        if (assets != null) {
+            response.setAssets(toAssetInventory(assets));
+        }
+
         return response;
     }
 
@@ -84,6 +101,27 @@ public class ApiModelMapper {
                     .map(this::toOpenApiSpec)
                     .collect(Collectors.toList()));
         }
+        List<MetadataDump.SpecDocument> wsdlDocs = metadataDump.wsdlDocuments();
+        if (wsdlDocs != null) {
+            mapped.setWsdlDocuments(wsdlDocs.stream()
+                    .filter(Objects::nonNull)
+                    .map(this::toSpecDocument)
+                    .collect(Collectors.toList()));
+        }
+        List<MetadataDump.SpecDocument> xsdDocs = metadataDump.xsdDocuments();
+        if (xsdDocs != null) {
+            mapped.setXsdDocuments(xsdDocs.stream()
+                    .filter(Objects::nonNull)
+                    .map(this::toSpecDocument)
+                    .collect(Collectors.toList()));
+        }
+        List<SoapServiceSummary> soapServices = metadataDump.soapServices();
+        if (soapServices != null) {
+            mapped.setSoapServices(soapServices.stream()
+                    .filter(Objects::nonNull)
+                    .map(this::toSoapServiceSummary)
+                    .collect(Collectors.toList()));
+        }
         return mapped;
     }
 
@@ -91,6 +129,92 @@ public class ApiModelMapper {
         return new com.codevision.codevisionbackend.api.model.OpenApiSpec()
                 .fileName(spec.fileName())
                 .content(spec.content());
+    }
+
+    private com.codevision.codevisionbackend.api.model.SpecDocument toSpecDocument(MetadataDump.SpecDocument doc) {
+        return new com.codevision.codevisionbackend.api.model.SpecDocument()
+                .fileName(doc.fileName())
+                .content(doc.content());
+    }
+
+    private com.codevision.codevisionbackend.api.model.SoapServiceSummary toSoapServiceSummary(SoapServiceSummary summary) {
+        com.codevision.codevisionbackend.api.model.SoapServiceSummary mapped =
+                new com.codevision.codevisionbackend.api.model.SoapServiceSummary()
+                        .fileName(summary.fileName())
+                        .serviceName(summary.serviceName());
+        List<SoapPortSummary> ports = summary.ports();
+        if (ports != null) {
+            mapped.setPorts(ports.stream()
+                    .filter(Objects::nonNull)
+                    .map(this::toSoapPortSummary)
+                    .collect(Collectors.toList()));
+        }
+        return mapped;
+    }
+
+    private com.codevision.codevisionbackend.api.model.SoapPortSummary toSoapPortSummary(SoapPortSummary summary) {
+        return new com.codevision.codevisionbackend.api.model.SoapPortSummary()
+                .portName(summary.portName())
+                .operations(summary.operations());
+    }
+
+    private com.codevision.codevisionbackend.api.model.ApiEndpoint toApiEndpoint(ApiEndpointSummary summary) {
+        com.codevision.codevisionbackend.api.model.ApiEndpoint mapped =
+                new com.codevision.codevisionbackend.api.model.ApiEndpoint()
+                        .protocol(summary.protocol())
+                        .httpMethod(summary.httpMethod())
+                        .pathOrOperation(summary.pathOrOperation())
+                        .controllerClass(summary.controllerClass())
+                        .controllerMethod(summary.controllerMethod());
+        if (summary.specArtifacts() != null) {
+            mapped.setSpecArtifacts(summary.specArtifacts().stream()
+                    .filter(Objects::nonNull)
+                    .map(this::toApiSpecArtifact)
+                    .collect(Collectors.toList()));
+        }
+        return mapped;
+    }
+
+    private com.codevision.codevisionbackend.api.model.ApiSpecArtifact toApiSpecArtifact(
+            ApiEndpointSummary.ApiSpecArtifact artifact) {
+        return new com.codevision.codevisionbackend.api.model.ApiSpecArtifact()
+                .type(artifact.type())
+                .name(artifact.name())
+                .reference(artifact.reference());
+    }
+
+    private com.codevision.codevisionbackend.api.model.AssetInventory toAssetInventory(AssetInventory assets) {
+        com.codevision.codevisionbackend.api.model.AssetInventory mapped =
+                new com.codevision.codevisionbackend.api.model.AssetInventory();
+        if (assets.images() != null) {
+            mapped.setImages(assets.images().stream()
+                    .filter(Objects::nonNull)
+                    .map(this::toImageAsset)
+                    .collect(Collectors.toList()));
+        }
+        return mapped;
+    }
+
+    private com.codevision.codevisionbackend.api.model.ImageAsset toImageAsset(AssetInventory.ImageAsset asset) {
+        return new com.codevision.codevisionbackend.api.model.ImageAsset()
+                .fileName(asset.fileName())
+                .relativePath(asset.relativePath())
+                .sizeBytes(asset.sizeBytes())
+                .sha256(asset.sha256());
+    }
+
+    public com.codevision.codevisionbackend.api.model.ProjectApiEndpointsResponse toApiEndpointsResponse(
+            Long projectId, List<ApiEndpointSummary> endpoints) {
+        com.codevision.codevisionbackend.api.model.ProjectApiEndpointsResponse response =
+                new com.codevision.codevisionbackend.api.model.ProjectApiEndpointsResponse()
+                        .projectId(projectId);
+        if (endpoints != null) {
+            response.setEndpoints(endpoints.stream()
+                    .filter(Objects::nonNull)
+                    .map(this::toApiEndpoint)
+                    .collect(Collectors.toList()));
+        }
+        return response;
     }
 
     private URI toUri(String value) {

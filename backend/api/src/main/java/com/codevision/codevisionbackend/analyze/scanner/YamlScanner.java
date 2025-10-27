@@ -21,7 +21,14 @@ import org.springframework.stereotype.Component;
 public class YamlScanner {
 
     private static final Logger log = LoggerFactory.getLogger(YamlScanner.class);
-    private static final Set<String> IGNORED_DIRECTORIES = Set.of(".git", "target", "build", "node_modules", ".idea", ".gradle");
+    private static final Set<String> IGNORED_DIRECTORIES =
+            Set.of(".git", "target", "build", "node_modules", ".idea", ".gradle");
+
+    private final WsdlInspector wsdlInspector;
+
+    public YamlScanner(WsdlInspector wsdlInspector) {
+        this.wsdlInspector = wsdlInspector;
+    }
 
     public MetadataDump scan(Path repoRoot) {
         if (!Files.exists(repoRoot)) {
@@ -29,6 +36,10 @@ public class YamlScanner {
         }
 
         List<MetadataDump.OpenApiSpec> openApiSpecs = new ArrayList<>();
+        List<MetadataDump.SpecDocument> wsdlDocuments = new ArrayList<>();
+        List<MetadataDump.SpecDocument> xsdDocuments = new ArrayList<>();
+        List<MetadataDump.SoapServiceSummary> soapServices = new ArrayList<>();
+
         FileVisitor<Path> visitor = new SimpleFileVisitor<>() {
 
             private final Set<Path> visitedDirectories = new HashSet<>();
@@ -51,9 +62,24 @@ public class YamlScanner {
                 if (!attrs.isRegularFile()) {
                     return FileVisitResult.CONTINUE;
                 }
+
                 String filename = file.getFileName().toString();
-                if (isOpenApiFile(filename)) {
-                    readOpenApi(file).ifPresent(openApiSpecs::add);
+                String normalized = filename.toLowerCase(Locale.ROOT);
+                try {
+                    if (isOpenApiFile(normalized)) {
+                        readFile(file).ifPresent(content -> openApiSpecs.add(
+                                new MetadataDump.OpenApiSpec(filename, content)));
+                    } else if (normalized.endsWith(".wsdl")) {
+                        readFile(file).ifPresent(content -> {
+                            wsdlDocuments.add(new MetadataDump.SpecDocument(filename, content));
+                            soapServices.addAll(wsdlInspector.inspect(content, filename));
+                        });
+                    } else if (normalized.endsWith(".xsd")) {
+                        readFile(file)
+                                .ifPresent(content -> xsdDocuments.add(new MetadataDump.SpecDocument(filename, content)));
+                    }
+                } catch (Exception ex) {
+                    log.debug("Failed processing file {}: {}", file, ex.getMessage());
                 }
                 return FileVisitResult.CONTINUE;
             }
@@ -62,24 +88,23 @@ public class YamlScanner {
         try {
             Files.walkFileTree(repoRoot, visitor);
         } catch (IOException e) {
-            log.warn("Failed walking YAML files at {}: {}", repoRoot, e.getMessage());
+            log.warn("Failed walking YAML/XML files at {}: {}", repoRoot, e.getMessage());
         }
 
-        if (openApiSpecs.isEmpty()) {
+        if (openApiSpecs.isEmpty() && wsdlDocuments.isEmpty() && xsdDocuments.isEmpty() && soapServices.isEmpty()) {
             return MetadataDump.empty();
         }
-        return new MetadataDump(openApiSpecs);
+
+        return new MetadataDump(openApiSpecs, wsdlDocuments, xsdDocuments, soapServices);
     }
 
-    private boolean isOpenApiFile(String filename) {
-        String normalized = filename.toLowerCase(Locale.ROOT);
-        return normalized.startsWith("openapi") && (normalized.endsWith(".yml") || normalized.endsWith(".yaml"));
+    private boolean isOpenApiFile(String normalizedName) {
+        return normalizedName.startsWith("openapi") && (normalizedName.endsWith(".yml") || normalizedName.endsWith(".yaml"));
     }
 
-    private java.util.Optional<MetadataDump.OpenApiSpec> readOpenApi(Path file) {
+    private java.util.Optional<String> readFile(Path file) {
         try {
-            String content = Files.readString(file);
-            return java.util.Optional.of(new MetadataDump.OpenApiSpec(file.getFileName().toString(), content));
+            return java.util.Optional.of(Files.readString(file));
         } catch (IOException e) {
             log.debug("Failed reading {}: {}", file, e.getMessage());
             return java.util.Optional.empty();

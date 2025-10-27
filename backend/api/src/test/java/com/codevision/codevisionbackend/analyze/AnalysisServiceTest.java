@@ -10,10 +10,14 @@ import static org.mockito.Mockito.when;
 import com.codevision.codevisionbackend.analyze.BuildInfo;
 import com.codevision.codevisionbackend.analyze.MetadataDump;
 import com.codevision.codevisionbackend.analyze.ParsedDataResponse;
+import com.codevision.codevisionbackend.analyze.scanner.ApiEndpointRecord;
+import com.codevision.codevisionbackend.analyze.scanner.ApiScanner;
+import com.codevision.codevisionbackend.analyze.scanner.AssetScanner;
 import com.codevision.codevisionbackend.analyze.scanner.BuildMetadataExtractor;
 import com.codevision.codevisionbackend.analyze.scanner.BuildMetadataExtractor.BuildMetadata;
 import com.codevision.codevisionbackend.analyze.scanner.ClassMetadataRecord;
 import com.codevision.codevisionbackend.analyze.scanner.ClassMetadataRecord.SourceSet;
+import com.codevision.codevisionbackend.analyze.scanner.ImageAssetRecord;
 import com.codevision.codevisionbackend.analyze.scanner.JavaSourceScanner;
 import com.codevision.codevisionbackend.analyze.scanner.YamlScanner;
 import com.codevision.codevisionbackend.git.GitCloneService.CloneResult;
@@ -21,6 +25,8 @@ import com.codevision.codevisionbackend.git.GitCloneService;
 import com.codevision.codevisionbackend.project.Project;
 import com.codevision.codevisionbackend.project.ProjectService;
 import com.codevision.codevisionbackend.project.ProjectSnapshotService;
+import com.codevision.codevisionbackend.project.api.ApiEndpointRepository;
+import com.codevision.codevisionbackend.project.asset.AssetImageRepository;
 import com.codevision.codevisionbackend.project.metadata.ClassMetadata;
 import com.codevision.codevisionbackend.project.metadata.ClassMetadataRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -50,10 +56,22 @@ class AnalysisServiceTest {
     private YamlScanner yamlScanner;
 
     @Mock
+    private ApiScanner apiScanner;
+
+    @Mock
+    private AssetScanner assetScanner;
+
+    @Mock
     private ProjectService projectService;
 
     @Mock
     private ClassMetadataRepository classMetadataRepository;
+
+    @Mock
+    private ApiEndpointRepository apiEndpointRepository;
+
+    @Mock
+    private AssetImageRepository assetImageRepository;
 
     @Mock
     private ProjectSnapshotService projectSnapshotService;
@@ -71,8 +89,12 @@ class AnalysisServiceTest {
                 buildMetadataExtractor,
                 javaSourceScanner,
                 yamlScanner,
+                apiScanner,
+                assetScanner,
                 projectService,
                 classMetadataRepository,
+                apiEndpointRepository,
+                assetImageRepository,
                 projectSnapshotService,
                 new ObjectMapper());
 
@@ -97,8 +119,16 @@ class AnalysisServiceTest {
                 true));
         when(javaSourceScanner.scan(repoDir, metadata.moduleRoots())).thenReturn(classRecords);
 
-        MetadataDump metadataDump = new MetadataDump(List.of());
+        MetadataDump metadataDump = new MetadataDump(List.of(), List.of(), List.of(), List.of());
         when(yamlScanner.scan(repoDir)).thenReturn(metadataDump);
+
+        List<ApiEndpointRecord> endpointRecords = List.of(new ApiEndpointRecord(
+                "REST", "GET", "/demo", "com.barclays.demo.Controller", "getDemo", List.of()));
+        when(apiScanner.scan(repoDir, metadata.moduleRoots(), metadataDump)).thenReturn(endpointRecords);
+
+        List<ImageAssetRecord> imageAssets =
+                List.of(new ImageAssetRecord("diagram.png", "docs/diagram.png", 512L, "abc123"));
+        when(assetScanner.scan(repoDir)).thenReturn(imageAssets);
 
         when(projectService.overwriteProject("https://example.com/repo.git", "demo-app", buildInfo)).thenReturn(project);
 
@@ -109,11 +139,17 @@ class AnalysisServiceTest {
         assertEquals(project.getId(), parsedData.projectId());
         assertEquals(buildInfo, parsedData.buildInfo());
         assertEquals(1, parsedData.classes().size());
+        assertEquals(1, parsedData.apiEndpoints().size());
+        assertEquals(1, parsedData.assets().images().size());
 
         verify(classMetadataRepository).deleteByProject(project);
         verify(classMetadataRepository)
                 .saveAll(Mockito.<List<ClassMetadata>>argThat(list -> list.size() == 1
                         && "com.barclays.demo.Controller".equals(list.get(0).getFullyQualifiedName())));
+        verify(apiEndpointRepository).deleteByProject(project);
+        verify(apiEndpointRepository).saveAll(Mockito.anyList());
+        verify(assetImageRepository).deleteByProject(project);
+        verify(assetImageRepository).saveAll(Mockito.anyList());
 
         ArgumentCaptor<ParsedDataResponse> snapshotCaptor = ArgumentCaptor.forClass(ParsedDataResponse.class);
         verify(projectSnapshotService).saveSnapshot(eq(project), snapshotCaptor.capture());
