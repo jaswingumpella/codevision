@@ -151,7 +151,7 @@ Extract basic structural metadata from the repo and persist it. Handle cyclic re
 
 ---
 
-## Iteration 3 – API & asset surfacing *(Status: 🚧 In progress)*
+## Iteration 3 – API & asset surfacing *(Status: ✅ Completed – see [`docs/iteration-3-completion.md`](docs/iteration-3-completion.md))*
 
 ### Goal
 

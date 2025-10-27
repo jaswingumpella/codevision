@@ -4,7 +4,10 @@ CodeVision ingests a Git repository, extracts structural metadata, and surfaces 
 
 ## Backend (Spring Boot)
 
-The backend lives in [`backend/`](backend/). It exposes a synchronous `/analyze` endpoint that clones a Git repository, extracts build/class metadata, and records a snapshot in an H2 database. A companion `/project/{id}/overview` endpoint returns the latest `ParsedDataResponse` for UI and integrations.
+The backend lives in [`backend/`](backend/). It exposes a synchronous `/analyze` endpoint that clones a Git repository, extracts build/class/API metadata, and records a snapshot in an H2 database. Companion endpoints return the stored data for the UI and integrations:
+
+- `GET /project/{id}/overview` – the latest `ParsedDataResponse`.
+- `GET /project/{id}/api-endpoints` – the persisted API catalog (requires the API key when security is enabled).
 
 ### Prerequisites
 
@@ -92,14 +95,13 @@ The service starts on `http://localhost:8080`.
 
 The frontend lives in [`frontend/`](frontend/). It provides a single-page workflow to submit repository URLs and, after analysis completes, renders the project overview (build metadata, class totals, OpenAPI summaries).
 
-### Overview panel behaviour today
+### Overview experience
 
 - Build summary (group/artifact/version/java release).
 - Class coverage (total vs. main vs. test source sets).
-- Detected OpenAPI specifications (file name + download).
-- Upcoming in Iteration 3:
-  - SOAP WSDL/XSD viewer with service/port/operation breakdown.
-  - Media asset inventory (PNG/JPG/SVG/GIF) for documentation handoff.
+- API Specs tab with paginated tables for REST / SOAP / legacy endpoints, each annotated with spec artifacts.
+- Embedded viewers for OpenAPI YAML, WSDL, and XSD definitions plus synthesized SOAP service summaries.
+- Media asset inventory (PNG/JPG/SVG/GIF) listing repository diagrams and screenshots with size + relative path.
 
 ### Prerequisites
 
@@ -130,6 +132,7 @@ npm run build
 
 - Iteration 1 summary: [`docs/iteration-1-completion.md`](docs/iteration-1-completion.md)
 - Iteration 2 summary: [`docs/iteration-2-completion.md`](docs/iteration-2-completion.md)
+- Iteration 3 summary: [`docs/iteration-3-completion.md`](docs/iteration-3-completion.md)
 
 ## Database
 
@@ -138,6 +141,7 @@ The backend uses an on-disk H2 database stored under `backend/data/`. Key tables
 - `project` – canonical project record (`repo_url` unique)
 - `class_metadata` – flattened Java class inventory per project
 - `project_snapshot` – serialized `ParsedDataResponse` plus naming metadata
-- (Iteration 3 adds `api_endpoint` and `asset_image` as the API/asset work ships.)
+- `api_endpoint` – persisted REST/SOAP/legacy endpoint catalog
+- `asset_image` – discovered documentation assets (path, size, hash)
 
 Re-running `/analyze` with the same repository URL overwrites the project metadata and regenerates the snapshot/class records so the UI always reflects the latest scan.

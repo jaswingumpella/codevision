@@ -54,7 +54,7 @@
                         <configuration>
                             <inputSpec>${project.basedir}/src/main/resources/oas/openapi.yaml</inputSpec>
                             <generatorName>spring</generatorName>
-                            <output>${project.build.directory}/generated-sources/openapi</output>
+                            <output>${project.basedir}</output>
                             <modelPackage>com.codevision.codevisionbackend.api.model</modelPackage>
                             <apiPackage>com.codevision.codevisionbackend.api.generated</apiPackage>
                             <configOptions>
@@ -72,26 +72,8 @@
                                 <modelTests>false</modelTests>
                                 <apiDocs>false</apiDocs>
                                 <apiTests>false</apiTests>
+                                <supportingFiles>false</supportingFiles>
                             </globalProperties>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>build-helper-maven-plugin</artifactId>
-                <version>3.5.0</version>
-                <executions>
-                    <execution>
-                        <id>add-openapi-source</id>
-                        <phase>generate-sources</phase>
-                        <goals>
-                            <goal>add-source</goal>
-                        </goals>
-                        <configuration>
-                            <sources>
-                                <source>${project.build.directory}/generated-sources/openapi/src/main/java</source>
-                            </sources>
                         </configuration>
                     </execution>
                 </executions>

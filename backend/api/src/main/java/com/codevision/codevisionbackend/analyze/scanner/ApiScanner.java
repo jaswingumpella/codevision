@@ -52,11 +52,11 @@ import org.w3c.dom.NodeList;
 public class ApiScanner {
 
     private static final Logger log = LoggerFactory.getLogger(ApiScanner.class);
-    private static final Set<String> SPRING_CONTROLLER_ANNOTATIONS = Set.of("RestController", "Controller");
+    private static final Set<String> SPRING_CONTROLLER_ANNOTATIONS = Set.of("restcontroller", "controller");
     private static final Set<String> SPRING_ENDPOINT_ANNOTATIONS =
-            Set.of("GetMapping", "PostMapping", "PutMapping", "DeleteMapping", "PatchMapping", "RequestMapping");
-    private static final Set<String> SOAP_ENDPOINT_ANNOTATIONS = Set.of("Endpoint");
-    private static final Set<String> SOAP_METHOD_ANNOTATIONS = Set.of("PayloadRoot", "SoapAction");
+            Set.of("getmapping", "postmapping", "putmapping", "deletemapping", "patchmapping", "requestmapping");
+    private static final Set<String> SOAP_ENDPOINT_ANNOTATIONS = Set.of("endpoint", "webservice", "webserviceprovider");
+    private static final Set<String> SOAP_METHOD_ANNOTATIONS = Set.of("payloadroot", "soapaction", "webmethod");
     private static final Set<String> JAXRS_HTTP_METHODS = Set.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD");
     private static final String JAXRS_PATH = "Path";
     private static final String SERVLET_BASE_CLASS = "HttpServlet";
@@ -229,7 +229,8 @@ public class ApiScanner {
         }
 
         if (isSoapEndpoint(annotationNames)) {
-            collectSoapEndpoints(declaration, fullyQualifiedName, metadataDump, collector);
+            boolean jaxWsService = annotationNames.contains("webservice") || annotationNames.contains("webserviceprovider");
+            collectSoapEndpoints(declaration, fullyQualifiedName, metadataDump, jaxWsService, collector);
             return;
         }
 
@@ -347,6 +348,7 @@ public class ApiScanner {
             ClassOrInterfaceDeclaration declaration,
             String fullyQualifiedName,
             MetadataDump metadataDump,
+            boolean jaxWsService,
             List<ApiEndpointRecord> collector) {
         List<ApiEndpointRecord.ApiSpecArtifactRecord> artifacts = metadataDump != null
                 ? metadataDump.wsdlDocuments().stream()
@@ -356,9 +358,18 @@ public class ApiScanner {
 
         for (MethodDeclaration method : declaration.getMethods()) {
             List<AnnotationExpr> soapAnnotations = method.getAnnotations().stream()
-                    .filter(annotation -> SOAP_METHOD_ANNOTATIONS.contains(annotation.getName().getIdentifier()))
+                    .filter(annotation -> SOAP_METHOD_ANNOTATIONS.contains(annotation.getName().getIdentifier().toLowerCase(Locale.ROOT)))
                     .toList();
             if (soapAnnotations.isEmpty()) {
+                if (jaxWsService && method.isPublic()) {
+                    collector.add(new ApiEndpointRecord(
+                            "SOAP",
+                            null,
+                            method.getNameAsString(),
+                            fullyQualifiedName,
+                            method.getNameAsString(),
+                            artifacts));
+                }
                 continue;
             }
             String operation = extractSoapOperation(method.getNameAsString(), soapAnnotations);
@@ -483,16 +494,15 @@ public class ApiScanner {
     private List<SpringMapping> collectSpringMappings(NodeWithAnnotations<?> node, boolean includeHttpMethod) {
         List<SpringMapping> mappings = new ArrayList<>();
         for (AnnotationExpr annotation : node.getAnnotations()) {
-            String simpleName = annotation.getName().getIdentifier();
-            if (SPRING_ENDPOINT_ANNOTATIONS.contains(simpleName)) {
-                mappings.addAll(parseSpringAnnotation(annotation, includeHttpMethod));
+            String normalized = annotation.getName().getIdentifier().toLowerCase(Locale.ROOT);
+            if (SPRING_ENDPOINT_ANNOTATIONS.contains(normalized)) {
+                mappings.addAll(parseSpringAnnotation(annotation, includeHttpMethod, normalized));
             }
         }
         return mappings;
     }
 
-    private List<SpringMapping> parseSpringAnnotation(AnnotationExpr annotation, boolean includeHttpMethod) {
-        String name = annotation.getName().getIdentifier();
+    private List<SpringMapping> parseSpringAnnotation(AnnotationExpr annotation, boolean includeHttpMethod, String normalizedName) {
         List<String> paths = new ArrayList<>();
         List<String> methods = includeHttpMethod ? new ArrayList<>() : List.of("");
 
@@ -517,7 +527,7 @@ public class ApiScanner {
             paths.add("");
         }
         if (includeHttpMethod && methods.isEmpty()) {
-            methods = determineImplicitMethod(name);
+            methods = determineImplicitMethod(normalizedName);
         }
         if (methods.isEmpty()) {
             methods = List.of("");
@@ -534,11 +544,11 @@ public class ApiScanner {
 
     private List<String> determineImplicitMethod(String annotationName) {
         return switch (annotationName) {
-            case "GetMapping" -> List.of("GET");
-            case "PostMapping" -> List.of("POST");
-            case "PutMapping" -> List.of("PUT");
-            case "DeleteMapping" -> List.of("DELETE");
-            case "PatchMapping" -> List.of("PATCH");
+            case "getmapping" -> List.of("GET");
+            case "postmapping" -> List.of("POST");
+            case "putmapping" -> List.of("PUT");
+            case "deletemapping" -> List.of("DELETE");
+            case "patchmapping" -> List.of("PATCH");
             default -> List.of();
         };
     }
