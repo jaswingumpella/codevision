@@ -1,5 +1,7 @@
 # Maven
 /backend/target/
+/backend/*/target/
+/backend/api/data/
 
 # IDEs
 /.idea/

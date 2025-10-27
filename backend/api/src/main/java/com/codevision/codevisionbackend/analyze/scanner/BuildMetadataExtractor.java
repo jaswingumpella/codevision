@@ -1,6 +1,7 @@
 package com.codevision.codevisionbackend.analyze.scanner;
 
 import com.codevision.codevisionbackend.analyze.BuildInfo;
+import java.io.File;
 import java.io.IOException;
 import java.io.Reader;
 import java.nio.file.Files;
@@ -12,6 +13,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
+import java.util.stream.Stream;
 import org.apache.maven.model.Build;
 import org.apache.maven.model.Model;
 import org.apache.maven.model.Plugin;
@@ -26,6 +28,7 @@ public class BuildMetadataExtractor {
 
     private static final Logger log = LoggerFactory.getLogger(BuildMetadataExtractor.class);
     private static final String DEFAULT_JAVA_VERSION = "unknown";
+    private static final int MAX_POM_SCAN_DEPTH = 4;
 
     public BuildMetadata extract(Path repoRoot) {
         Path normalizedRoot = repoRoot.toAbsolutePath().normalize();
@@ -34,7 +37,8 @@ public class BuildMetadataExtractor {
 
         Path rootPom = normalizedRoot.resolve("pom.xml");
         if (!Files.exists(rootPom)) {
-            log.info("No pom.xml found at {}. Returning empty build metadata.", rootPom);
+            log.info("No pom.xml found at {}. Attempting nested module detection.", rootPom);
+            discoverNestedModules(normalizedRoot, moduleRoots);
             return new BuildMetadata(BuildInfo.empty(), List.copyOf(moduleRoots));
         }
 
@@ -54,6 +58,30 @@ public class BuildMetadataExtractor {
         } catch (IOException e) {
             log.warn("Failed reading build metadata from {}", rootPom, e);
             return new BuildMetadata(BuildInfo.empty(), List.copyOf(moduleRoots));
+        }
+    }
+
+    private void discoverNestedModules(Path root, Set<Path> moduleRoots) {
+        try (Stream<Path> stream = Files.walk(root, MAX_POM_SCAN_DEPTH)) {
+            stream.filter(path -> path.getFileName().toString().equals("pom.xml"))
+                    .forEach(pom -> {
+                        String normalized = pom.toString();
+                        if (normalized.contains(File.separator + "target" + File.separator)
+                                || normalized.contains(File.separator + ".git" + File.separator)) {
+                            return;
+                        }
+                        Path moduleDir = pom.getParent();
+                        if (moduleDir == null) {
+                            return;
+                        }
+                        moduleRoots.add(moduleDir);
+                        Model childModel = readModelQuietly(pom);
+                        if (childModel != null) {
+                            collectModules(moduleDir, childModel, moduleRoots, new LinkedHashSet<>());
+                        }
+                    });
+        } catch (IOException e) {
+            log.warn("Failed to walk repository {} for nested pom.xml files", root, e);
         }
     }
 

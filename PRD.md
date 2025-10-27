@@ -28,17 +28,20 @@ The product runs locally. There is no AI integration in the runtime. All logic i
    * JPA mappings
    * WSDL/XSD and SOAP `@Endpoint`s
    * OpenAPI YAML and generated interface contracts
-   * Application YAML/properties
-   * Gherkin `.feature` files
-   * Logging statements
-   * DAO/Repository database access patterns
+   * Static media/documentation assets (PNG/JPG/SVG/GIF) for downstream documentation bundles
+    * Application YAML/properties
+    * Gherkin `.feature` files
+    * Logging statements
+    * DAO/Repository database access patterns
 3. Generate:
 
    * REST/SOAP/legacy API endpoint catalog
    * Class diagrams, component diagrams, ERDs, sequence diagrams, use case diagrams
    * Database mapping view (entity ↔ DAO ↔ table)
+   * Spec viewers for OpenAPI and SOAP contracts (highlighting WSDL/XSD structure)
    * Logger Insights table (with PII/PCI risk flags)
    * PCI/PII scan report across all text files
+   * Media asset inventory (images, diagrams stored in the repo)
    * Full “project tech doc” export (HTML)
    * CSV and PDF security exports
 4. Persist results in H2:
@@ -179,6 +182,7 @@ This applies to:
 
   * Parse root `pom.xml`
   * Collect modules and analyze all of them
+  * If the root is an aggregator (no code), walk nested directories for additional `pom.xml` files and treat those as modules automatically
 
 **Outcome**
 

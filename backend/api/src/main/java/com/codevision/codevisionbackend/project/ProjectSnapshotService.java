@@ -11,11 +11,15 @@ import java.io.IOException;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class ProjectSnapshotService {
+
+    private static final Logger log = LoggerFactory.getLogger(ProjectSnapshotService.class);
 
     private final ProjectSnapshotRepository projectSnapshotRepository;
     private final ProjectRepository projectRepository;
@@ -36,6 +40,7 @@ public class ProjectSnapshotService {
 
     @Transactional
     public void saveSnapshot(Project project, ParsedDataResponse parsedData) {
+        log.debug("Saving snapshot for project candidate id={} repo={}", project.getId(), project.getRepoUrl());
         Project managedProject = resolveProject(project, parsedData);
         String snapshotJson = toJson(parsedData);
         OffsetDateTime now = OffsetDateTime.now();
@@ -66,6 +71,7 @@ public class ProjectSnapshotService {
         }
 
         projectSnapshotRepository.saveAndFlush(snapshot);
+        log.info("Snapshot persisted for projectId={} at {}", snapshot.getProjectId(), now);
     }
 
     @Transactional
@@ -77,7 +83,10 @@ public class ProjectSnapshotService {
         }
         projectSnapshotRepository
                 .findById(projectId)
-                .ifPresent(projectSnapshotRepository::delete);
+                .ifPresent(existing -> {
+                    projectSnapshotRepository.delete(existing);
+                    log.info("Deleted snapshot for projectId={}", projectId);
+                });
     }
 
     private Project resolveProject(Project project, ParsedDataResponse parsedData) {
@@ -91,12 +100,14 @@ public class ProjectSnapshotService {
         }
         String repoUrl = firstNonBlank(project.getRepoUrl(), parsedData != null ? parsedData.repoUrl() : null);
         if (repoUrl != null) {
+            log.debug("Resolving project by repoUrl={}", repoUrl);
             return projectRepository
                     .findByRepoUrl(repoUrl)
                     .orElseThrow(() -> new IllegalStateException("Project not found for repoUrl " + repoUrl));
         }
         String projectName = firstNonBlank(project.getProjectName(), parsedData != null ? parsedData.projectName() : null);
         if (projectName != null) {
+            log.debug("Resolving project by projectName={}", projectName);
             return projectRepository
                     .findByProjectName(projectName)
                     .orElseThrow(() -> new IllegalStateException("Project not found for projectName " + projectName));
@@ -121,13 +132,17 @@ public class ProjectSnapshotService {
 
     @Transactional(readOnly = true)
     public Optional<ParsedDataResponse> fetchSnapshot(Long projectId) {
-        return projectSnapshotRepository.findById(projectId).map(this::hydrateSnapshot);
+        return projectSnapshotRepository.findById(projectId).map(snapshot -> {
+            log.debug("Hydrating snapshot for projectId={}", projectId);
+            return hydrateSnapshot(snapshot);
+        });
     }
 
     private String toJson(ParsedDataResponse data) {
         try {
             return objectMapper.writeValueAsString(data);
         } catch (JsonProcessingException e) {
+            log.error("Failed to serialize snapshot for projectId={}", data != null ? data.projectId() : null, e);
             throw new IllegalStateException("Failed to serialize project snapshot", e);
         }
     }
@@ -136,6 +151,7 @@ public class ProjectSnapshotService {
         try {
             return objectMapper.readValue(snapshot.getSnapshotJson(), ParsedDataResponse.class);
         } catch (IOException e) {
+            log.error("Failed to deserialize snapshot for projectId={}", snapshot.getProjectId(), e);
             throw new IllegalStateException("Failed to deserialize project snapshot", e);
         }
     }

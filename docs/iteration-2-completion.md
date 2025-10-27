@@ -7,11 +7,11 @@
 
 ## Backend Deliverables
 - **Source scanning**
-  - `JavaSourceScanner` walks `src/main/java` and `src/test/java` for every Maven module discovered in the root POM.
+  - `JavaSourceScanner` walks `src/main/java` and `src/test/java` for every Maven module discovered via the root POM (or nested POMs when the root is purely an aggregator).
   - Each discovered type is parsed with JavaParser and translated into a `ClassMetadataRecord`, capturing FQN, package, inferred stereotype, source set (MAIN/TEST), annotations, implemented interfaces, and a `userCode` flag.
   - Cycle safety: graph traversals rely on adjacency lookups and `visited` tracking to avoid infinite recursion.
 - **Build metadata extraction**
-  - `BuildMetadataExtractor` reads the root `pom.xml` (and each module POM) to collect `groupId`, `artifactId`, `version`, Java release/target, and module directories.
+  - `BuildMetadataExtractor` reads the root `pom.xml` (or scans nested POMs if the repository is a module-only structure) to collect `groupId`, `artifactId`, `version`, Java release/target, and module directories.
 - **YAML/OpenAPI scan**
   - `YamlScanner` aggregates OpenAPI YAML assets into a `MetadataDump`.
 - **Persistence**
@@ -44,7 +44,8 @@
 
 ## Known Constraints
 - The `userCode` heuristic currently treats packages under `com.barclays` and `com.codeviz2` as first-party; all other packages are scanned and stored but flagged as external.
-- Maven projects without a root `pom.xml` (e.g., nested modules only) are not yet supported.
+- WSDL/XSD assets are captured in the metadata dump but are not yet rendered in the UI; the dedicated SOAP viewer is scheduled for Iteration 3.
+- Static media assets (images, diagrams checked into the repo) are not yet inventoried. Iteration 3 adds the first image-scanning pass.
 - Gradle builds remain out of scope until a later iteration.
 - The current UI only exposes OpenAPI YAML content; SOAP WSDL/XSD artifacts are captured but will surface in the dedicated viewer planned for Iteration 3.
 

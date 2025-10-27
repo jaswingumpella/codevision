@@ -143,6 +143,11 @@ function App() {
     setResult(null);
     setOverview(null);
 
+    console.info('Submitting analysis request', {
+      repoUrl,
+      hasApiKey: Boolean(apiKey)
+    });
+
     try {
       const response = await axios.post(
         '/analyze',
@@ -156,6 +161,7 @@ function App() {
       );
 
       const payload = response.data;
+      console.info('Analysis response received', payload);
       setResult({ ...payload, projectName });
 
       if (payload?.projectId) {
@@ -165,14 +171,21 @@ function App() {
               ...authHeaders()
             }
           });
+          console.info('Loaded project overview', {
+            projectId: payload.projectId,
+            classCount: overviewResponse.data?.classes?.length ?? 0
+          });
           setOverview(overviewResponse.data);
         } catch (fetchError) {
+          console.warn('Failed to load project overview', fetchError);
           setError(fetchError.response?.data || 'Analysis completed, but the overview failed to load.');
         }
       }
     } catch (err) {
+      console.error('Repository analysis failed', err);
       setError(err.response?.data || 'Failed to analyze repository');
     } finally {
+      console.debug('Analysis request finalized');
       setLoading(false);
     }
   };

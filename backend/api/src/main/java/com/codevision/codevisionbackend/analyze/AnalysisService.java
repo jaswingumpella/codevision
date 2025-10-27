@@ -55,10 +55,18 @@ public class AnalysisService {
 
     @Transactional
     public AnalysisOutcome analyze(String repoUrl) {
+        log.info("Starting analysis for {}", repoUrl);
         purgeExistingData(repoUrl);
         GitCloneService.CloneResult cloneResult = gitCloneService.cloneRepository(repoUrl);
         try {
+            log.debug("Repository {} cloned to {}", repoUrl, cloneResult.directory());
             BuildMetadata buildMetadata = buildMetadataExtractor.extract(cloneResult.directory());
+            log.info(
+                    "Extracted build metadata for {} (groupId={}, artifactId={}, version={})",
+                    repoUrl,
+                    buildMetadata.buildInfo().groupId(),
+                    buildMetadata.buildInfo().artifactId(),
+                    buildMetadata.buildInfo().version());
             Project persistedProject =
                     projectService.overwriteProject(repoUrl, cloneResult.projectName(), buildMetadata.buildInfo());
             if (persistedProject.getId() == null) {
@@ -68,11 +76,18 @@ public class AnalysisService {
             }
             List<ClassMetadataRecord> classRecords =
                     javaSourceScanner.scan(cloneResult.directory(), buildMetadata.moduleRoots());
+            log.info("Discovered {} class metadata records for {}", classRecords.size(), repoUrl);
             replaceClassMetadata(persistedProject, classRecords);
             MetadataDump metadataDump = yamlScanner.scan(cloneResult.directory());
+            log.debug(
+                    "Collected {} OpenAPI specs for {}",
+                    metadataDump.openApiSpecs() != null ? metadataDump.openApiSpecs().size() : 0,
+                    repoUrl);
             ParsedDataResponse parsedData =
                     assembleParsedData(persistedProject, buildMetadata.buildInfo(), classRecords, metadataDump);
             projectSnapshotService.saveSnapshot(persistedProject, parsedData);
+            log.info(
+                    "Completed analysis for {} with projectId={}", repoUrl, persistedProject.getId());
             return new AnalysisOutcome(persistedProject, parsedData);
         } finally {
             cleanupClone(cloneResult);
@@ -81,13 +96,16 @@ public class AnalysisService {
 
     private void replaceClassMetadata(Project project, List<ClassMetadataRecord> classRecords) {
         classMetadataRepository.deleteByProject(project);
+        log.debug("Cleared existing class metadata for projectId={}", project.getId());
         if (classRecords.isEmpty()) {
+            log.info("No class metadata records to persist for projectId={}", project.getId());
             return;
         }
         List<ClassMetadata> entities = classRecords.stream()
                 .map(record -> mapToEntity(project, record))
                 .collect(Collectors.toList());
         classMetadataRepository.saveAll(entities);
+        log.info("Persisted {} class metadata records for projectId={}", entities.size(), project.getId());
     }
 
     private ClassMetadata mapToEntity(Project project, ClassMetadataRecord record) {
@@ -151,6 +169,7 @@ public class AnalysisService {
 
     private void purgeExistingData(String repoUrl) {
         projectService.findByRepoUrl(repoUrl).ifPresent(existing -> {
+            log.info("Purging existing project data for repo {} (projectId={})", repoUrl, existing.getId());
             projectSnapshotService.deleteSnapshot(existing);
             classMetadataRepository.deleteByProject(existing);
             projectService.delete(existing);

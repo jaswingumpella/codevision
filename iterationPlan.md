@@ -151,11 +151,11 @@ Extract basic structural metadata from the repo and persist it. Handle cyclic re
 
 ---
 
-## Iteration 3 – API endpoint extraction (REST / SOAP / legacy)
+## Iteration 3 – API & asset surfacing *(Status: 🚧 In progress)*
 
 ### Goal
 
-Discover all API surfaces and expose them in the UI.
+Discover all API surfaces (REST + SOAP + legacy), surface their specifications, and inventory binary assets needed by downstream documentation.
 
 ### Backend
 
@@ -168,6 +168,7 @@ Discover all API surfaces and expose them in the UI.
   * SOAP endpoints:
 
     * Detect `@Endpoint`, extract operation names.
+    * If a WSDL/WSDD is present on disk, parse basic service/port metadata to enrich the response.
   * Legacy servlet:
 
     * Detect classes extending `HttpServlet`, expose `doGet/doPost/...` as endpoints.
@@ -182,6 +183,7 @@ Discover all API surfaces and expose them in the UI.
   * `pathOrOperation`
   * `controllerClass`
   * `controllerMethod`
+  * `specArtifacts` (references into metadata dump for OpenAPI/WSDL/XSD)
 
 * Persist into `api_endpoint` table (wipe+replace each analyze run).
 
@@ -200,26 +202,37 @@ Discover all API surfaces and expose them in the UI.
     * REST
     * SOAP
     * Legacy (Servlet / JAX-RS)
-  * Show table columns: Method | Path/Op | Class | Method
+  * Show table columns: Method | Path/Op | Class | Method | Spec
 
-* If OpenAPI YAML was found:
+* Spec viewers:
 
-  * Show a read-only viewer section for the raw OpenAPI YAML text (scrollable).
+  * Render OpenAPI YAML with syntax highlighting and download link.
+  * Render WSDL/XSD schema summary (service → port → operation) plus raw source viewer.
+  * Provide copy/download affordances for each spec artifact.
 
 * If WSDL/XSD detected:
 
   * Show a dedicated SOAP view that lists discovered services/ports/operations and surfaces the raw WSDL/XSD schema text in a read-only panel (similar to the OpenAPI viewer).
 
+* Static asset discovery:
+
+  * Add `AssetScanner` that inventories non-code documentation assets (PNG/JPG/SVG/GIF).
+  * Persist asset metadata (file name, relative path, size) and add `ParsedDataResponse.assets.images`.
+  * UI: add “Media Assets” subsection listing discovered images with download links.
+
 ### Persistence
 
 * Add `api_endpoint` table.
+* Add `asset_image` table (projectId, path, size, hash).
 * Extend snapshot JSON to include `apiEndpoints`.
 
 ### Done Criteria
 
-* UI shows all endpoints.
+* UI shows all endpoints (REST/SOAP/Legacy) with linked specs.
 * Interface-based controller methods are correctly resolved.
 * SOAP `@Endpoint` operations appear.
+* WSDL/XSD content is viewable alongside OpenAPI files.
+* Image assets from the repository are discoverable and listed in the UI/snapshot.
 * Snapshot JSON contains the same info.
 
 ---

@@ -1,6 +1,6 @@
 # CodeVision
 
-CodeVision ingests a Git repository, extracts structural metadata, and surfaces a project overview through a local Spring Boot + React stack.
+CodeVision ingests a Git repository, extracts structural metadata, and surfaces a project overview through a local Spring Boot + React stack. It supports single-module and multi-module Maven repos (even when the root is only an aggregator) and persistently snapshots the analysis for later viewing.
 
 ## Backend (Spring Boot)
 
@@ -29,8 +29,8 @@ If you do not need authenticated cloning, leave the values blank. Update the `se
 ### Run the backend
 
 ```bash
-cd backend
-mvn spring-boot:run
+# from repository root
+mvn -f backend/pom.xml spring-boot:run
 ```
 
 The service starts on `http://localhost:8080`.
@@ -92,6 +92,15 @@ The service starts on `http://localhost:8080`.
 
 The frontend lives in [`frontend/`](frontend/). It provides a single-page workflow to submit repository URLs and, after analysis completes, renders the project overview (build metadata, class totals, OpenAPI summaries).
 
+### Overview panel behaviour today
+
+- Build summary (group/artifact/version/java release).
+- Class coverage (total vs. main vs. test source sets).
+- Detected OpenAPI specifications (file name + download).
+- Upcoming in Iteration 3:
+  - SOAP WSDL/XSD viewer with service/port/operation breakdown.
+  - Media asset inventory (PNG/JPG/SVG/GIF) for documentation handoff.
+
 ### Prerequisites
 
 - Node.js 18+
@@ -129,5 +138,6 @@ The backend uses an on-disk H2 database stored under `backend/data/`. Key tables
 - `project` – canonical project record (`repo_url` unique)
 - `class_metadata` – flattened Java class inventory per project
 - `project_snapshot` – serialized `ParsedDataResponse` plus naming metadata
+- (Iteration 3 adds `api_endpoint` and `asset_image` as the API/asset work ships.)
 
 Re-running `/analyze` with the same repository URL overwrites the project metadata and regenerates the snapshot/class records so the UI always reflects the latest scan.
