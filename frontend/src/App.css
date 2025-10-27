@@ -317,6 +317,20 @@ button:not([disabled]):hover {
   gap: 1rem;
 }
 
+.query-snippet {
+  display: block;
+  font-family: 'SFMono-Regular', 'Consolas', 'Liberation Mono', monospace;
+  font-size: 0.8rem;
+  background: #f3f4ff;
+  color: #2d3d80;
+  padding: 0.45rem 0.6rem;
+  border-radius: 8px;
+  max-height: 120px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .soap-summary {
   background: #f5f8ff;
   border-radius: 12px;

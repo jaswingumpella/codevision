@@ -4,12 +4,15 @@ import com.codevision.codevisionbackend.analyze.ApiEndpointSummary;
 import com.codevision.codevisionbackend.analyze.AssetInventory;
 import com.codevision.codevisionbackend.analyze.BuildInfo;
 import com.codevision.codevisionbackend.analyze.ClassMetadataSummary;
+import com.codevision.codevisionbackend.analyze.DbAnalysisSummary;
 import com.codevision.codevisionbackend.analyze.MetadataDump;
 import com.codevision.codevisionbackend.analyze.MetadataDump.SoapPortSummary;
 import com.codevision.codevisionbackend.analyze.MetadataDump.SoapServiceSummary;
 import com.codevision.codevisionbackend.analyze.ParsedDataResponse;
 import java.net.URI;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
@@ -51,6 +54,11 @@ public class ApiModelMapper {
         MetadataDump metadataDump = snapshot.metadataDump();
         if (metadataDump != null) {
             response.setMetadataDump(toMetadataDump(metadataDump));
+        }
+
+        DbAnalysisSummary dbAnalysis = snapshot.dbAnalysis();
+        if (dbAnalysis != null) {
+            response.setDbAnalysis(toDbAnalysis(dbAnalysis));
         }
 
         List<ApiEndpointSummary> endpoints = snapshot.apiEndpoints();
@@ -181,6 +189,102 @@ public class ApiModelMapper {
                 .type(artifact.type())
                 .name(artifact.name())
                 .reference(artifact.reference());
+    }
+
+    private com.codevision.codevisionbackend.api.model.DbAnalysis toDbAnalysis(DbAnalysisSummary summary) {
+        com.codevision.codevisionbackend.api.model.DbAnalysis mapped =
+                new com.codevision.codevisionbackend.api.model.DbAnalysis();
+        if (summary.entities() != null) {
+            mapped.setEntities(summary.entities().stream()
+                    .filter(Objects::nonNull)
+                    .map(this::toDbEntitySummary)
+                    .collect(Collectors.toList()));
+        }
+        if (summary.classesByEntity() != null) {
+            Map<String, List<String>> classesByEntity = summary.classesByEntity().entrySet().stream()
+                    .filter(entry -> entry.getKey() != null)
+                    .collect(Collectors.toMap(
+                            Map.Entry::getKey,
+                            entry -> entry.getValue() == null ? List.of() : List.copyOf(entry.getValue()),
+                            (left, right) -> left,
+                            LinkedHashMap::new));
+            mapped.setClassesByEntity(classesByEntity);
+        }
+        if (summary.operationsByClass() != null) {
+            Map<String, List<com.codevision.codevisionbackend.api.model.DaoOperationDetails>> operationsByClass = summary
+                    .operationsByClass()
+                    .entrySet()
+                    .stream()
+                    .filter(entry -> entry.getKey() != null)
+                    .collect(Collectors.toMap(
+                            Map.Entry::getKey,
+                            entry -> (entry.getValue() == null
+                                            ? List.<DbAnalysisSummary.DaoOperationDetails>of()
+                                            : entry.getValue()).stream()
+                                    .filter(Objects::nonNull)
+                                    .map(this::toDaoOperationDetails)
+                                    .collect(Collectors.toList()),
+                            (left, right) -> left,
+                            LinkedHashMap::new));
+            mapped.setOperationsByClass(operationsByClass);
+        }
+        return mapped;
+    }
+
+    private com.codevision.codevisionbackend.api.model.DbEntitySummary toDbEntitySummary(
+            DbAnalysisSummary.DbEntitySummary summary) {
+        com.codevision.codevisionbackend.api.model.DbEntitySummary mapped =
+                new com.codevision.codevisionbackend.api.model.DbEntitySummary()
+                        .entityName(summary.entityName())
+                        .fullyQualifiedName(summary.fullyQualifiedName())
+                        .tableName(summary.tableName())
+                        .primaryKeys(summary.primaryKeys() == null ? List.of() : List.copyOf(summary.primaryKeys()));
+        if (summary.fields() != null) {
+            mapped.setFields(summary.fields().stream()
+                    .filter(Objects::nonNull)
+                    .map(this::toDbFieldSummary)
+                    .collect(Collectors.toList()));
+        }
+        if (summary.relationships() != null) {
+            mapped.setRelationships(summary.relationships().stream()
+                    .filter(Objects::nonNull)
+                    .map(this::toDbRelationshipSummary)
+                    .collect(Collectors.toList()));
+        }
+        return mapped;
+    }
+
+    private com.codevision.codevisionbackend.api.model.DbFieldSummary toDbFieldSummary(
+            DbAnalysisSummary.DbEntitySummary.FieldSummary field) {
+        return new com.codevision.codevisionbackend.api.model.DbFieldSummary()
+                .name(field.name())
+                .type(field.type())
+                .columnName(field.columnName());
+    }
+
+    private com.codevision.codevisionbackend.api.model.DbRelationshipSummary toDbRelationshipSummary(
+            DbAnalysisSummary.DbEntitySummary.RelationshipSummary relationship) {
+        return new com.codevision.codevisionbackend.api.model.DbRelationshipSummary()
+                .fieldName(relationship.fieldName())
+                .targetType(relationship.targetType())
+                .relationshipType(relationship.relationshipType());
+    }
+
+    private com.codevision.codevisionbackend.api.model.DaoOperationDetails toDaoOperationDetails(
+            DbAnalysisSummary.DaoOperationDetails operation) {
+        return new com.codevision.codevisionbackend.api.model.DaoOperationDetails()
+                .methodName(operation.methodName())
+                .operationType(operation.operationType())
+                .target(operation.target())
+                .querySnippet(operation.querySnippet());
+    }
+
+    public com.codevision.codevisionbackend.api.model.ProjectDbAnalysisResponse toDbAnalysisResponse(
+            Long projectId, DbAnalysisSummary summary) {
+        DbAnalysisSummary safeSummary = summary != null ? summary : new DbAnalysisSummary(List.of(), Map.of(), Map.of());
+        return new com.codevision.codevisionbackend.api.model.ProjectDbAnalysisResponse()
+                .projectId(projectId)
+                .dbAnalysis(toDbAnalysis(safeSummary));
     }
 
     private com.codevision.codevisionbackend.api.model.AssetInventory toAssetInventory(AssetInventory assets) {

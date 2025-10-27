@@ -7,6 +7,7 @@ package com.codevision.codevisionbackend.api.generated;
 
 import com.codevision.codevisionbackend.api.model.ParsedDataResponse;
 import com.codevision.codevisionbackend.api.model.ProjectApiEndpointsResponse;
+import com.codevision.codevisionbackend.api.model.ProjectDbAnalysisResponse;
 import io.swagger.v3.oas.annotations.ExternalDocumentation;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -33,7 +34,7 @@ import java.util.Map;
 import java.util.Optional;
 import jakarta.annotation.Generated;
 
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2025-10-27T11:05:22.938178-04:00[America/New_York]", comments = "Generator version: 7.5.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2025-10-27T11:51:06.293320-04:00[America/New_York]", comments = "Generator version: 7.5.0")
 @Validated
 @Tag(name = "Project", description = "Endpoints that expose stored project overview information.")
 public interface ProjectApi {
@@ -86,6 +87,49 @@ public interface ProjectApi {
 
 
     /**
+     * GET /project/{projectId}/db-analysis : Retrieve database analysis details
+     * Returns entity metadata and repository/DAO operations captured during analysis.
+     *
+     * @param projectId Unique identifier of the project. (required)
+     * @return Database analysis retrieved successfully. (status code 200)
+     *         or No database analysis is available for the supplied identifier. (status code 404)
+     */
+    @Operation(
+        operationId = "getProjectDbAnalysis",
+        summary = "Retrieve database analysis details",
+        description = "Returns entity metadata and repository/DAO operations captured during analysis.",
+        tags = { "Project" },
+        responses = {
+            @ApiResponse(responseCode = "200", description = "Database analysis retrieved successfully.", content = {
+                @Content(mediaType = "application/json", schema = @Schema(implementation = ProjectDbAnalysisResponse.class))
+            }),
+            @ApiResponse(responseCode = "404", description = "No database analysis is available for the supplied identifier.")
+        }
+    )
+    @RequestMapping(
+        method = RequestMethod.GET,
+        value = "/project/{projectId}/db-analysis",
+        produces = { "application/json" }
+    )
+    
+    default ResponseEntity<ProjectDbAnalysisResponse> getProjectDbAnalysis(
+        @Parameter(name = "projectId", description = "Unique identifier of the project.", required = true, in = ParameterIn.PATH) @PathVariable("projectId") Long projectId
+    ) {
+        getRequest().ifPresent(request -> {
+            for (MediaType mediaType: MediaType.parseMediaTypes(request.getHeader("Accept"))) {
+                if (mediaType.isCompatibleWith(MediaType.valueOf("application/json"))) {
+                    String exampleString = "{ \"dbAnalysis\" : { \"classesByEntity\" : { \"key\" : [ \"classesByEntity\", \"classesByEntity\" ] }, \"entities\" : [ { \"relationships\" : [ { \"fieldName\" : \"fieldName\", \"relationshipType\" : \"relationshipType\", \"targetType\" : \"targetType\" }, { \"fieldName\" : \"fieldName\", \"relationshipType\" : \"relationshipType\", \"targetType\" : \"targetType\" } ], \"primaryKeys\" : [ \"primaryKeys\", \"primaryKeys\" ], \"entityName\" : \"entityName\", \"fullyQualifiedName\" : \"fullyQualifiedName\", \"fields\" : [ { \"name\" : \"name\", \"type\" : \"type\", \"columnName\" : \"columnName\" }, { \"name\" : \"name\", \"type\" : \"type\", \"columnName\" : \"columnName\" } ], \"tableName\" : \"tableName\" }, { \"relationships\" : [ { \"fieldName\" : \"fieldName\", \"relationshipType\" : \"relationshipType\", \"targetType\" : \"targetType\" }, { \"fieldName\" : \"fieldName\", \"relationshipType\" : \"relationshipType\", \"targetType\" : \"targetType\" } ], \"primaryKeys\" : [ \"primaryKeys\", \"primaryKeys\" ], \"entityName\" : \"entityName\", \"fullyQualifiedName\" : \"fullyQualifiedName\", \"fields\" : [ { \"name\" : \"name\", \"type\" : \"type\", \"columnName\" : \"columnName\" }, { \"name\" : \"name\", \"type\" : \"type\", \"columnName\" : \"columnName\" } ], \"tableName\" : \"tableName\" } ], \"operationsByClass\" : { \"key\" : [ { \"querySnippet\" : \"querySnippet\", \"methodName\" : \"methodName\", \"operationType\" : \"operationType\", \"target\" : \"target\" }, { \"querySnippet\" : \"querySnippet\", \"methodName\" : \"methodName\", \"operationType\" : \"operationType\", \"target\" : \"target\" } ] } }, \"projectId\" : 0 }";
+                    ApiUtil.setExampleResponse(request, "application/json", exampleString);
+                    break;
+                }
+            }
+        });
+        return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
+
+    }
+
+
+    /**
      * GET /project/{projectId}/overview : Retrieve project overview snapshot
      * Returns the most recently stored overview snapshot for the selected project.
      *
@@ -117,7 +161,7 @@ public interface ProjectApi {
         getRequest().ifPresent(request -> {
             for (MediaType mediaType: MediaType.parseMediaTypes(request.getHeader("Accept"))) {
                 if (mediaType.isCompatibleWith(MediaType.valueOf("application/json"))) {
-                    String exampleString = "{ \"repoUrl\" : \"https://openapi-generator.tech\", \"assets\" : { \"images\" : [ { \"fileName\" : \"fileName\", \"sha256\" : \"sha256\", \"relativePath\" : \"relativePath\", \"sizeBytes\" : 6 }, { \"fileName\" : \"fileName\", \"sha256\" : \"sha256\", \"relativePath\" : \"relativePath\", \"sizeBytes\" : 6 } ] }, \"analyzedAt\" : \"2000-01-23T04:56:07.000+00:00\", \"buildInfo\" : { \"javaVersion\" : \"javaVersion\", \"groupId\" : \"groupId\", \"artifactId\" : \"artifactId\", \"version\" : \"version\" }, \"classes\" : [ { \"sourceSet\" : \"sourceSet\", \"relativePath\" : \"relativePath\", \"annotations\" : [ \"annotations\", \"annotations\" ], \"className\" : \"className\", \"packageName\" : \"packageName\", \"stereotype\" : \"stereotype\", \"fullyQualifiedName\" : \"fullyQualifiedName\", \"userCode\" : true, \"interfacesImplemented\" : [ \"interfacesImplemented\", \"interfacesImplemented\" ] }, { \"sourceSet\" : \"sourceSet\", \"relativePath\" : \"relativePath\", \"annotations\" : [ \"annotations\", \"annotations\" ], \"className\" : \"className\", \"packageName\" : \"packageName\", \"stereotype\" : \"stereotype\", \"fullyQualifiedName\" : \"fullyQualifiedName\", \"userCode\" : true, \"interfacesImplemented\" : [ \"interfacesImplemented\", \"interfacesImplemented\" ] } ], \"projectName\" : \"projectName\", \"projectId\" : 0, \"metadataDump\" : { \"wsdlDocuments\" : [ { \"fileName\" : \"fileName\", \"content\" : \"content\" }, { \"fileName\" : \"fileName\", \"content\" : \"content\" } ], \"soapServices\" : [ { \"fileName\" : \"fileName\", \"serviceName\" : \"serviceName\", \"ports\" : [ { \"operations\" : [ \"operations\", \"operations\" ], \"portName\" : \"portName\" }, { \"operations\" : [ \"operations\", \"operations\" ], \"portName\" : \"portName\" } ] }, { \"fileName\" : \"fileName\", \"serviceName\" : \"serviceName\", \"ports\" : [ { \"operations\" : [ \"operations\", \"operations\" ], \"portName\" : \"portName\" }, { \"operations\" : [ \"operations\", \"operations\" ], \"portName\" : \"portName\" } ] } ], \"openApiSpecs\" : [ { \"fileName\" : \"fileName\", \"content\" : \"content\" }, { \"fileName\" : \"fileName\", \"content\" : \"content\" } ], \"xsdDocuments\" : [ { \"fileName\" : \"fileName\", \"content\" : \"content\" }, { \"fileName\" : \"fileName\", \"content\" : \"content\" } ] }, \"apiEndpoints\" : [ { \"specArtifacts\" : [ { \"reference\" : \"reference\", \"name\" : \"name\", \"type\" : \"type\" }, { \"reference\" : \"reference\", \"name\" : \"name\", \"type\" : \"type\" } ], \"protocol\" : \"protocol\", \"controllerClass\" : \"controllerClass\", \"controllerMethod\" : \"controllerMethod\", \"pathOrOperation\" : \"pathOrOperation\", \"httpMethod\" : \"httpMethod\" }, { \"specArtifacts\" : [ { \"reference\" : \"reference\", \"name\" : \"name\", \"type\" : \"type\" }, { \"reference\" : \"reference\", \"name\" : \"name\", \"type\" : \"type\" } ], \"protocol\" : \"protocol\", \"controllerClass\" : \"controllerClass\", \"controllerMethod\" : \"controllerMethod\", \"pathOrOperation\" : \"pathOrOperation\", \"httpMethod\" : \"httpMethod\" } ] }";
+                    String exampleString = "{ \"repoUrl\" : \"https://openapi-generator.tech\", \"assets\" : { \"images\" : [ { \"fileName\" : \"fileName\", \"sha256\" : \"sha256\", \"relativePath\" : \"relativePath\", \"sizeBytes\" : 6 }, { \"fileName\" : \"fileName\", \"sha256\" : \"sha256\", \"relativePath\" : \"relativePath\", \"sizeBytes\" : 6 } ] }, \"analyzedAt\" : \"2000-01-23T04:56:07.000+00:00\", \"buildInfo\" : { \"javaVersion\" : \"javaVersion\", \"groupId\" : \"groupId\", \"artifactId\" : \"artifactId\", \"version\" : \"version\" }, \"classes\" : [ { \"sourceSet\" : \"sourceSet\", \"relativePath\" : \"relativePath\", \"annotations\" : [ \"annotations\", \"annotations\" ], \"className\" : \"className\", \"packageName\" : \"packageName\", \"stereotype\" : \"stereotype\", \"fullyQualifiedName\" : \"fullyQualifiedName\", \"userCode\" : true, \"interfacesImplemented\" : [ \"interfacesImplemented\", \"interfacesImplemented\" ] }, { \"sourceSet\" : \"sourceSet\", \"relativePath\" : \"relativePath\", \"annotations\" : [ \"annotations\", \"annotations\" ], \"className\" : \"className\", \"packageName\" : \"packageName\", \"stereotype\" : \"stereotype\", \"fullyQualifiedName\" : \"fullyQualifiedName\", \"userCode\" : true, \"interfacesImplemented\" : [ \"interfacesImplemented\", \"interfacesImplemented\" ] } ], \"dbAnalysis\" : { \"classesByEntity\" : { \"key\" : [ \"classesByEntity\", \"classesByEntity\" ] }, \"entities\" : [ { \"relationships\" : [ { \"fieldName\" : \"fieldName\", \"relationshipType\" : \"relationshipType\", \"targetType\" : \"targetType\" }, { \"fieldName\" : \"fieldName\", \"relationshipType\" : \"relationshipType\", \"targetType\" : \"targetType\" } ], \"primaryKeys\" : [ \"primaryKeys\", \"primaryKeys\" ], \"entityName\" : \"entityName\", \"fullyQualifiedName\" : \"fullyQualifiedName\", \"fields\" : [ { \"name\" : \"name\", \"type\" : \"type\", \"columnName\" : \"columnName\" }, { \"name\" : \"name\", \"type\" : \"type\", \"columnName\" : \"columnName\" } ], \"tableName\" : \"tableName\" }, { \"relationships\" : [ { \"fieldName\" : \"fieldName\", \"relationshipType\" : \"relationshipType\", \"targetType\" : \"targetType\" }, { \"fieldName\" : \"fieldName\", \"relationshipType\" : \"relationshipType\", \"targetType\" : \"targetType\" } ], \"primaryKeys\" : [ \"primaryKeys\", \"primaryKeys\" ], \"entityName\" : \"entityName\", \"fullyQualifiedName\" : \"fullyQualifiedName\", \"fields\" : [ { \"name\" : \"name\", \"type\" : \"type\", \"columnName\" : \"columnName\" }, { \"name\" : \"name\", \"type\" : \"type\", \"columnName\" : \"columnName\" } ], \"tableName\" : \"tableName\" } ], \"operationsByClass\" : { \"key\" : [ { \"querySnippet\" : \"querySnippet\", \"methodName\" : \"methodName\", \"operationType\" : \"operationType\", \"target\" : \"target\" }, { \"querySnippet\" : \"querySnippet\", \"methodName\" : \"methodName\", \"operationType\" : \"operationType\", \"target\" : \"target\" } ] } }, \"projectName\" : \"projectName\", \"projectId\" : 0, \"metadataDump\" : { \"wsdlDocuments\" : [ { \"fileName\" : \"fileName\", \"content\" : \"content\" }, { \"fileName\" : \"fileName\", \"content\" : \"content\" } ], \"soapServices\" : [ { \"fileName\" : \"fileName\", \"serviceName\" : \"serviceName\", \"ports\" : [ { \"operations\" : [ \"operations\", \"operations\" ], \"portName\" : \"portName\" }, { \"operations\" : [ \"operations\", \"operations\" ], \"portName\" : \"portName\" } ] }, { \"fileName\" : \"fileName\", \"serviceName\" : \"serviceName\", \"ports\" : [ { \"operations\" : [ \"operations\", \"operations\" ], \"portName\" : \"portName\" }, { \"operations\" : [ \"operations\", \"operations\" ], \"portName\" : \"portName\" } ] } ], \"openApiSpecs\" : [ { \"fileName\" : \"fileName\", \"content\" : \"content\" }, { \"fileName\" : \"fileName\", \"content\" : \"content\" } ], \"xsdDocuments\" : [ { \"fileName\" : \"fileName\", \"content\" : \"content\" }, { \"fileName\" : \"fileName\", \"content\" : \"content\" } ] }, \"apiEndpoints\" : [ { \"specArtifacts\" : [ { \"reference\" : \"reference\", \"name\" : \"name\", \"type\" : \"type\" }, { \"reference\" : \"reference\", \"name\" : \"name\", \"type\" : \"type\" } ], \"protocol\" : \"protocol\", \"controllerClass\" : \"controllerClass\", \"controllerMethod\" : \"controllerMethod\", \"pathOrOperation\" : \"pathOrOperation\", \"httpMethod\" : \"httpMethod\" }, { \"specArtifacts\" : [ { \"reference\" : \"reference\", \"name\" : \"name\", \"type\" : \"type\" }, { \"reference\" : \"reference\", \"name\" : \"name\", \"type\" : \"type\" } ], \"protocol\" : \"protocol\", \"controllerClass\" : \"controllerClass\", \"controllerMethod\" : \"controllerMethod\", \"pathOrOperation\" : \"pathOrOperation\", \"httpMethod\" : \"httpMethod\" } ] }";
                     ApiUtil.setExampleResponse(request, "application/json", exampleString);
                     break;
                 }

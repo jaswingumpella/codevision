@@ -6,6 +6,7 @@ import com.codevision.codevisionbackend.api.model.ApiEndpoint;
 import com.codevision.codevisionbackend.api.model.AssetInventory;
 import com.codevision.codevisionbackend.api.model.BuildInfo;
 import com.codevision.codevisionbackend.api.model.ClassMetadataSummary;
+import com.codevision.codevisionbackend.api.model.DbAnalysis;
 import com.codevision.codevisionbackend.api.model.MetadataDump;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -29,7 +30,7 @@ import jakarta.annotation.Generated;
  * ParsedDataResponse
  */
 
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2025-10-27T11:05:22.938178-04:00[America/New_York]", comments = "Generator version: 7.5.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2025-10-27T11:51:06.293320-04:00[America/New_York]", comments = "Generator version: 7.5.0")
 public class ParsedDataResponse {
 
   private Long projectId;
@@ -47,6 +48,8 @@ public class ParsedDataResponse {
   private List<@Valid ClassMetadataSummary> classes = new ArrayList<>();
 
   private MetadataDump metadataDump;
+
+  private DbAnalysis dbAnalysis;
 
   @Valid
   private List<@Valid ApiEndpoint> apiEndpoints = new ArrayList<>();
@@ -215,6 +218,26 @@ public class ParsedDataResponse {
     this.metadataDump = metadataDump;
   }
 
+  public ParsedDataResponse dbAnalysis(DbAnalysis dbAnalysis) {
+    this.dbAnalysis = dbAnalysis;
+    return this;
+  }
+
+  /**
+   * Get dbAnalysis
+   * @return dbAnalysis
+  */
+  @Valid 
+  @Schema(name = "dbAnalysis", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @JsonProperty("dbAnalysis")
+  public DbAnalysis getDbAnalysis() {
+    return dbAnalysis;
+  }
+
+  public void setDbAnalysis(DbAnalysis dbAnalysis) {
+    this.dbAnalysis = dbAnalysis;
+  }
+
   public ParsedDataResponse apiEndpoints(List<@Valid ApiEndpoint> apiEndpoints) {
     this.apiEndpoints = apiEndpoints;
     return this;
@@ -279,13 +302,14 @@ public class ParsedDataResponse {
         Objects.equals(this.buildInfo, parsedDataResponse.buildInfo) &&
         Objects.equals(this.classes, parsedDataResponse.classes) &&
         Objects.equals(this.metadataDump, parsedDataResponse.metadataDump) &&
+        Objects.equals(this.dbAnalysis, parsedDataResponse.dbAnalysis) &&
         Objects.equals(this.apiEndpoints, parsedDataResponse.apiEndpoints) &&
         Objects.equals(this.assets, parsedDataResponse.assets);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(projectId, projectName, repoUrl, analyzedAt, buildInfo, classes, metadataDump, apiEndpoints, assets);
+    return Objects.hash(projectId, projectName, repoUrl, analyzedAt, buildInfo, classes, metadataDump, dbAnalysis, apiEndpoints, assets);
   }
 
   @Override
@@ -299,6 +323,7 @@ public class ParsedDataResponse {
     sb.append("    buildInfo: ").append(toIndentedString(buildInfo)).append("\n");
     sb.append("    classes: ").append(toIndentedString(classes)).append("\n");
     sb.append("    metadataDump: ").append(toIndentedString(metadataDump)).append("\n");
+    sb.append("    dbAnalysis: ").append(toIndentedString(dbAnalysis)).append("\n");
     sb.append("    apiEndpoints: ").append(toIndentedString(apiEndpoints)).append("\n");
     sb.append("    assets: ").append(toIndentedString(assets)).append("\n");
     sb.append("}");

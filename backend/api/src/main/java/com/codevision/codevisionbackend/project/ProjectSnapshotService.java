@@ -175,6 +175,7 @@ public class ProjectSnapshotService {
                 fromSnapshot.buildInfo(),
                 classSummaries,
                 fromSnapshot.metadataDump(),
+                fromSnapshot.dbAnalysis(),
                 fromSnapshot.apiEndpoints(),
                 fromSnapshot.assets());
     }

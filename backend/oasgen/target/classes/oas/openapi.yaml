@@ -100,6 +100,30 @@ paths:
                 $ref: ./components/schemas.yaml#/ProjectApiEndpointsResponse
         '404':
           description: No catalog is available for the supplied identifier.
+  /project/{projectId}/db-analysis:
+    get:
+      operationId: getProjectDbAnalysis
+      tags:
+        - Project
+      summary: Retrieve database analysis details
+      description: Returns entity metadata and repository/DAO operations captured during analysis.
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          description: Unique identifier of the project.
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Database analysis retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: ./components/schemas.yaml#/ProjectDbAnalysisResponse
+        '404':
+          description: No database analysis is available for the supplied identifier.
 components:
   securitySchemes:
     ApiKeyAuth:
@@ -137,3 +161,15 @@ components:
       $ref: ./components/schemas.yaml#/ImageAsset
     ProjectApiEndpointsResponse:
       $ref: ./components/schemas.yaml#/ProjectApiEndpointsResponse
+    DbAnalysis:
+      $ref: ./components/schemas.yaml#/DbAnalysis
+    DbEntitySummary:
+      $ref: ./components/schemas.yaml#/DbEntitySummary
+    DbFieldSummary:
+      $ref: ./components/schemas.yaml#/DbFieldSummary
+    DbRelationshipSummary:
+      $ref: ./components/schemas.yaml#/DbRelationshipSummary
+    DaoOperationDetails:
+      $ref: ./components/schemas.yaml#/DaoOperationDetails
+    ProjectDbAnalysisResponse:
+      $ref: ./components/schemas.yaml#/ProjectDbAnalysisResponse

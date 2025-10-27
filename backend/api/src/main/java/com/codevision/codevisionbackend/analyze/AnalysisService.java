@@ -6,9 +6,14 @@ import com.codevision.codevisionbackend.analyze.scanner.AssetScanner;
 import com.codevision.codevisionbackend.analyze.scanner.BuildMetadataExtractor;
 import com.codevision.codevisionbackend.analyze.scanner.BuildMetadataExtractor.BuildMetadata;
 import com.codevision.codevisionbackend.analyze.scanner.ClassMetadataRecord;
+import com.codevision.codevisionbackend.analyze.scanner.DaoAnalysisService;
+import com.codevision.codevisionbackend.analyze.scanner.DaoOperationRecord;
+import com.codevision.codevisionbackend.analyze.scanner.DbEntityRecord;
 import com.codevision.codevisionbackend.analyze.scanner.ImageAssetRecord;
 import com.codevision.codevisionbackend.analyze.scanner.JavaSourceScanner;
+import com.codevision.codevisionbackend.analyze.scanner.JpaEntityScanner;
 import com.codevision.codevisionbackend.analyze.scanner.YamlScanner;
+import com.codevision.codevisionbackend.analyze.scanner.DbAnalysisResult;
 import com.codevision.codevisionbackend.git.GitCloneService;
 import com.codevision.codevisionbackend.project.Project;
 import com.codevision.codevisionbackend.project.ProjectService;
@@ -17,11 +22,16 @@ import com.codevision.codevisionbackend.project.api.ApiEndpoint;
 import com.codevision.codevisionbackend.project.api.ApiEndpointRepository;
 import com.codevision.codevisionbackend.project.asset.AssetImage;
 import com.codevision.codevisionbackend.project.asset.AssetImageRepository;
+import com.codevision.codevisionbackend.project.db.DaoOperation;
+import com.codevision.codevisionbackend.project.db.DaoOperationRepository;
+import com.codevision.codevisionbackend.project.db.DbEntity;
+import com.codevision.codevisionbackend.project.db.DbEntityRepository;
 import com.codevision.codevisionbackend.project.metadata.ClassMetadata;
 import com.codevision.codevisionbackend.project.metadata.ClassMetadataRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,10 +49,14 @@ public class AnalysisService {
     private final YamlScanner yamlScanner;
     private final ApiScanner apiScanner;
     private final AssetScanner assetScanner;
+    private final JpaEntityScanner jpaEntityScanner;
+    private final DaoAnalysisService daoAnalysisService;
     private final ProjectService projectService;
     private final ClassMetadataRepository classMetadataRepository;
     private final ApiEndpointRepository apiEndpointRepository;
     private final AssetImageRepository assetImageRepository;
+    private final DbEntityRepository dbEntityRepository;
+    private final DaoOperationRepository daoOperationRepository;
     private final ProjectSnapshotService projectSnapshotService;
     private final ObjectMapper objectMapper;
 
@@ -53,10 +67,14 @@ public class AnalysisService {
             YamlScanner yamlScanner,
             ApiScanner apiScanner,
             AssetScanner assetScanner,
+            JpaEntityScanner jpaEntityScanner,
+            DaoAnalysisService daoAnalysisService,
             ProjectService projectService,
             ClassMetadataRepository classMetadataRepository,
             ApiEndpointRepository apiEndpointRepository,
             AssetImageRepository assetImageRepository,
+            DbEntityRepository dbEntityRepository,
+            DaoOperationRepository daoOperationRepository,
             ProjectSnapshotService projectSnapshotService,
             ObjectMapper objectMapper) {
         this.gitCloneService = gitCloneService;
@@ -65,10 +83,14 @@ public class AnalysisService {
         this.yamlScanner = yamlScanner;
         this.apiScanner = apiScanner;
         this.assetScanner = assetScanner;
+        this.jpaEntityScanner = jpaEntityScanner;
+        this.daoAnalysisService = daoAnalysisService;
         this.projectService = projectService;
         this.classMetadataRepository = classMetadataRepository;
         this.apiEndpointRepository = apiEndpointRepository;
         this.assetImageRepository = assetImageRepository;
+        this.dbEntityRepository = dbEntityRepository;
+        this.daoOperationRepository = daoOperationRepository;
         this.projectSnapshotService = projectSnapshotService;
         this.objectMapper = objectMapper;
     }
@@ -98,6 +120,19 @@ public class AnalysisService {
                     javaSourceScanner.scan(cloneResult.directory(), buildMetadata.moduleRoots());
             log.info("Discovered {} class metadata records for {}", classRecords.size(), repoUrl);
             replaceClassMetadata(persistedProject, classRecords);
+            List<DbEntityRecord> entityRecords =
+                    jpaEntityScanner.scan(cloneResult.directory(), buildMetadata.moduleRoots());
+            DbAnalysisResult dbAnalysisResult =
+                    daoAnalysisService.analyze(cloneResult.directory(), buildMetadata.moduleRoots(), entityRecords);
+            log.info(
+                    "Discovered {} JPA entities and {} repository operations for {}",
+                    dbAnalysisResult.entities().size(),
+                    dbAnalysisResult.operationsByClass().values().stream()
+                            .mapToInt(list -> list == null ? 0 : list.size())
+                            .sum(),
+                    repoUrl);
+            replaceDbEntities(persistedProject, dbAnalysisResult.entities());
+            replaceDaoOperations(persistedProject, dbAnalysisResult.operationsByClass());
             MetadataDump metadataDump = yamlScanner.scan(cloneResult.directory());
             log.debug(
                     "Collected {} metadata artifacts for {}",
@@ -112,12 +147,14 @@ public class AnalysisService {
             List<ImageAssetRecord> imageAssets = assetScanner.scan(cloneResult.directory());
             log.info("Discovered {} image assets for {}", imageAssets.size(), repoUrl);
             replaceAssetImages(persistedProject, imageAssets);
+            DbAnalysisSummary dbAnalysisSummary = toDbAnalysisSummary(dbAnalysisResult);
             ParsedDataResponse parsedData =
                     assembleParsedData(
                             persistedProject,
                             buildMetadata.buildInfo(),
                             classRecords,
                             metadataDump,
+                            dbAnalysisSummary,
                             apiEndpoints,
                             imageAssets);
             projectSnapshotService.saveSnapshot(persistedProject, parsedData);
@@ -150,12 +187,104 @@ public class AnalysisService {
         entity.setPackageName(record.packageName());
         entity.setClassName(record.className());
         entity.setStereotype(record.stereotype());
-       entity.setSourceSet(record.sourceSet().name());
-       entity.setRelativePath(record.relativePath());
-       entity.setUserCode(record.userCode());
+        entity.setSourceSet(record.sourceSet().name());
+        entity.setRelativePath(record.relativePath());
+        entity.setUserCode(record.userCode());
         entity.setAnnotationsJson(writeJsonValue(record.annotations()));
         entity.setInterfacesJson(writeJsonValue(record.implementedInterfaces()));
         return entity;
+    }
+
+    private void replaceDbEntities(Project project, List<DbEntityRecord> entityRecords) {
+        dbEntityRepository.deleteByProject(project);
+        if (entityRecords == null || entityRecords.isEmpty()) {
+            log.info("No database entities to persist for projectId={}", project.getId());
+            return;
+        }
+        List<DbEntity> entities = entityRecords.stream()
+                .map(record -> mapDbEntity(project, record))
+                .collect(Collectors.toList());
+        dbEntityRepository.saveAll(entities);
+        log.info("Persisted {} database entities for projectId={}", entities.size(), project.getId());
+    }
+
+    private DbEntity mapDbEntity(Project project, DbEntityRecord record) {
+        DbEntity entity = new DbEntity();
+        entity.setProject(project);
+        entity.setEntityName(record.className());
+        entity.setFullyQualifiedName(record.fullyQualifiedName());
+        entity.setTableName(record.tableName());
+        entity.setPrimaryKeysJson(writeJsonValue(record.primaryKeys()));
+        entity.setFieldsJson(writeJsonValue(record.fields()));
+        entity.setRelationshipsJson(writeJsonValue(record.relationships()));
+        return entity;
+    }
+
+    private void replaceDaoOperations(Project project, Map<String, List<DaoOperationRecord>> operationsByClass) {
+        daoOperationRepository.deleteByProject(project);
+        if (operationsByClass == null || operationsByClass.isEmpty()) {
+            log.info("No DAO operations to persist for projectId={}", project.getId());
+            return;
+        }
+        List<DaoOperation> operations = operationsByClass.values().stream()
+                .flatMap(List::stream)
+                .map(record -> mapDaoOperation(project, record))
+                .collect(Collectors.toList());
+        if (operations.isEmpty()) {
+            log.info("No DAO operations to persist after flattening for projectId={}", project.getId());
+            return;
+        }
+        daoOperationRepository.saveAll(operations);
+        log.info("Persisted {} DAO operations for projectId={}", operations.size(), project.getId());
+    }
+
+    private DaoOperation mapDaoOperation(Project project, DaoOperationRecord record) {
+        DaoOperation entity = new DaoOperation();
+        entity.setProject(project);
+        entity.setRepositoryClass(record.repositoryClass());
+        entity.setMethodName(record.methodName());
+        entity.setOperationType(record.operationType());
+        entity.setTargetDescriptor(record.target());
+        entity.setQuerySnippet(record.querySnippet());
+        return entity;
+    }
+
+    private DbAnalysisSummary toDbAnalysisSummary(DbAnalysisResult dbAnalysisResult) {
+        if (dbAnalysisResult == null) {
+            return new DbAnalysisSummary(List.of(), Map.of(), Map.of());
+        }
+
+        List<DbAnalysisSummary.DbEntitySummary> entities = dbAnalysisResult.entities().stream()
+                .map(record -> new DbAnalysisSummary.DbEntitySummary(
+                        record.className(),
+                        record.fullyQualifiedName(),
+                        record.tableName(),
+                        record.primaryKeys(),
+                        record.fields().stream()
+                                .map(field -> new DbAnalysisSummary.DbEntitySummary.FieldSummary(
+                                        field.name(), field.type(), field.columnName()))
+                                .collect(Collectors.toList()),
+                        record.relationships().stream()
+                                .map(rel -> new DbAnalysisSummary.DbEntitySummary.RelationshipSummary(
+                                        rel.fieldName(), rel.targetType(), rel.relationshipType()))
+                                .collect(Collectors.toList())))
+                .collect(Collectors.toList());
+
+        Map<String, List<String>> classesByEntity = dbAnalysisResult.classesByEntity().entrySet().stream()
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        entry -> entry.getValue() == null ? List.of() : List.copyOf(entry.getValue())));
+
+        Map<String, List<DbAnalysisSummary.DaoOperationDetails>> operationsByClass =
+                dbAnalysisResult.operationsByClass().entrySet().stream()
+                        .collect(Collectors.toMap(
+                                Map.Entry::getKey,
+                                entry -> (entry.getValue() == null ? List.<DaoOperationRecord>of() : entry.getValue()).stream()
+                                        .map(op -> new DbAnalysisSummary.DaoOperationDetails(
+                                                op.methodName(), op.operationType(), op.target(), op.querySnippet()))
+                                        .collect(Collectors.toList())));
+
+        return new DbAnalysisSummary(entities, classesByEntity, operationsByClass);
     }
 
     private ParsedDataResponse assembleParsedData(
@@ -163,6 +292,7 @@ public class AnalysisService {
             BuildInfo buildInfo,
             List<ClassMetadataRecord> classRecords,
             MetadataDump metadataDump,
+            DbAnalysisSummary dbAnalysis,
             List<ApiEndpointRecord> apiEndpoints,
             List<ImageAssetRecord> imageAssets) {
         List<ClassMetadataSummary> classSummaries = classRecords.stream()
@@ -205,6 +335,7 @@ public class AnalysisService {
                 buildInfo,
                 classSummaries,
                 metadataDump,
+                dbAnalysis,
                 endpointSummaries,
                 assetInventory);
     }
@@ -280,6 +411,8 @@ public class AnalysisService {
             classMetadataRepository.deleteByProject(existing);
             apiEndpointRepository.deleteByProject(existing);
             assetImageRepository.deleteByProject(existing);
+            dbEntityRepository.deleteByProject(existing);
+            daoOperationRepository.deleteByProject(existing);
             projectService.delete(existing);
         });
     }

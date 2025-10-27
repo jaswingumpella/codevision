@@ -2,6 +2,7 @@ package com.codevision.codevisionbackend.project;
 
 import com.codevision.codevisionbackend.analyze.AssetInventory;
 import com.codevision.codevisionbackend.analyze.BuildInfo;
+import com.codevision.codevisionbackend.analyze.DbAnalysisSummary;
 import com.codevision.codevisionbackend.analyze.MetadataDump;
 import com.codevision.codevisionbackend.analyze.ParsedDataResponse;
 import com.codevision.codevisionbackend.project.metadata.ClassMetadata;
@@ -9,6 +10,7 @@ import com.codevision.codevisionbackend.project.metadata.ClassMetadataRepository
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -70,6 +72,7 @@ class ProjectSnapshotServiceTest {
                 BuildInfo.empty(),
                 List.of(),
                 MetadataDump.empty(),
+                emptyDbAnalysis(),
                 List.of(),
                 AssetInventory.empty());
 
@@ -148,7 +151,12 @@ class ProjectSnapshotServiceTest {
                 BuildInfo.empty(),
                 List.of(),
                 MetadataDump.empty(),
+                emptyDbAnalysis(),
                 List.of(),
                 AssetInventory.empty());
+    }
+
+    private DbAnalysisSummary emptyDbAnalysis() {
+        return new DbAnalysisSummary(List.of(), Map.of(), Map.of());
     }
 }

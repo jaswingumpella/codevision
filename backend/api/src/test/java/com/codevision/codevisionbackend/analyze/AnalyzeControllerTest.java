@@ -3,6 +3,7 @@ package com.codevision.codevisionbackend.analyze;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.codevision.codevisionbackend.analyze.AssetInventory;
+import com.codevision.codevisionbackend.analyze.DbAnalysisSummary;
 import com.codevision.codevisionbackend.api.ApiModelMapper;
 import com.codevision.codevisionbackend.api.model.AnalyzeRequest;
 import com.codevision.codevisionbackend.api.model.AnalyzeResponse;
@@ -11,6 +12,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.net.URI;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
@@ -42,6 +44,7 @@ class AnalyzeControllerTest {
                 new BuildInfo("com.barclays", "demo", "1.0.0", "21"),
                 List.of(),
                 MetadataDump.empty(),
+                emptyDbAnalysis(),
                 List.of(),
                 AssetInventory.empty());
         analysisService.setNextOutcome(new AnalysisOutcome(project, data));
@@ -59,7 +62,23 @@ class AnalyzeControllerTest {
         private AnalysisOutcome nextOutcome;
 
         StubAnalysisService() {
-            super(null, null, null, null, null, null, null, null, null, null, null, new ObjectMapper());
+            super(
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    new ObjectMapper());
         }
 
         void setNextOutcome(AnalysisOutcome outcome) {
@@ -70,5 +89,9 @@ class AnalyzeControllerTest {
         public AnalysisOutcome analyze(String repoUrl) {
             return nextOutcome;
         }
+    }
+
+    private DbAnalysisSummary emptyDbAnalysis() {
+        return new DbAnalysisSummary(List.of(), Map.of(), Map.of());
     }
 }

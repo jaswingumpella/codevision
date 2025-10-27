@@ -17,8 +17,13 @@ import com.codevision.codevisionbackend.analyze.scanner.BuildMetadataExtractor;
 import com.codevision.codevisionbackend.analyze.scanner.BuildMetadataExtractor.BuildMetadata;
 import com.codevision.codevisionbackend.analyze.scanner.ClassMetadataRecord;
 import com.codevision.codevisionbackend.analyze.scanner.ClassMetadataRecord.SourceSet;
+import com.codevision.codevisionbackend.analyze.scanner.DbAnalysisResult;
+import com.codevision.codevisionbackend.analyze.scanner.DaoAnalysisService;
+import com.codevision.codevisionbackend.analyze.scanner.DaoOperationRecord;
+import com.codevision.codevisionbackend.analyze.scanner.DbEntityRecord;
 import com.codevision.codevisionbackend.analyze.scanner.ImageAssetRecord;
 import com.codevision.codevisionbackend.analyze.scanner.JavaSourceScanner;
+import com.codevision.codevisionbackend.analyze.scanner.JpaEntityScanner;
 import com.codevision.codevisionbackend.analyze.scanner.YamlScanner;
 import com.codevision.codevisionbackend.git.GitCloneService.CloneResult;
 import com.codevision.codevisionbackend.git.GitCloneService;
@@ -27,6 +32,10 @@ import com.codevision.codevisionbackend.project.ProjectService;
 import com.codevision.codevisionbackend.project.ProjectSnapshotService;
 import com.codevision.codevisionbackend.project.api.ApiEndpointRepository;
 import com.codevision.codevisionbackend.project.asset.AssetImageRepository;
+import com.codevision.codevisionbackend.project.db.DaoOperation;
+import com.codevision.codevisionbackend.project.db.DaoOperationRepository;
+import com.codevision.codevisionbackend.project.db.DbEntity;
+import com.codevision.codevisionbackend.project.db.DbEntityRepository;
 import com.codevision.codevisionbackend.project.metadata.ClassMetadata;
 import com.codevision.codevisionbackend.project.metadata.ClassMetadataRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -34,6 +43,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -62,6 +72,12 @@ class AnalysisServiceTest {
     private AssetScanner assetScanner;
 
     @Mock
+    private JpaEntityScanner jpaEntityScanner;
+
+    @Mock
+    private DaoAnalysisService daoAnalysisService;
+
+    @Mock
     private ProjectService projectService;
 
     @Mock
@@ -72,6 +88,12 @@ class AnalysisServiceTest {
 
     @Mock
     private AssetImageRepository assetImageRepository;
+
+    @Mock
+    private DbEntityRepository dbEntityRepository;
+
+    @Mock
+    private DaoOperationRepository daoOperationRepository;
 
     @Mock
     private ProjectSnapshotService projectSnapshotService;
@@ -91,10 +113,14 @@ class AnalysisServiceTest {
                 yamlScanner,
                 apiScanner,
                 assetScanner,
+                jpaEntityScanner,
+                daoAnalysisService,
                 projectService,
                 classMetadataRepository,
                 apiEndpointRepository,
                 assetImageRepository,
+                dbEntityRepository,
+                daoOperationRepository,
                 projectSnapshotService,
                 new ObjectMapper());
 
@@ -130,6 +156,28 @@ class AnalysisServiceTest {
                 List.of(new ImageAssetRecord("diagram.png", "docs/diagram.png", 512L, "abc123"));
         when(assetScanner.scan(repoDir)).thenReturn(imageAssets);
 
+        List<DbEntityRecord> entityRecords = List.of(new DbEntityRecord(
+                "Customer",
+                "com.barclays.demo.Customer",
+                "customer",
+                List.of("id"),
+                List.of(),
+                List.of()));
+        when(jpaEntityScanner.scan(repoDir, metadata.moduleRoots())).thenReturn(entityRecords);
+
+        DbAnalysisResult daoAnalysisResult = new DbAnalysisResult(
+                entityRecords,
+                Map.of("Customer", List.of("com.barclays.demo.CustomerRepository")),
+                Map.of(
+                        "com.barclays.demo.CustomerRepository",
+                        List.of(new DaoOperationRecord(
+                                "com.barclays.demo.CustomerRepository",
+                                "findAll",
+                                "SELECT",
+                                "Customer",
+                                null))));
+        when(daoAnalysisService.analyze(repoDir, metadata.moduleRoots(), entityRecords)).thenReturn(daoAnalysisResult);
+
         when(projectService.overwriteProject("https://example.com/repo.git", "demo-app", buildInfo)).thenReturn(project);
 
         AnalysisOutcome outcome = analysisService.analyze("https://example.com/repo.git");
@@ -150,6 +198,12 @@ class AnalysisServiceTest {
         verify(apiEndpointRepository).saveAll(Mockito.anyList());
         verify(assetImageRepository).deleteByProject(project);
         verify(assetImageRepository).saveAll(Mockito.anyList());
+        verify(dbEntityRepository).deleteByProject(project);
+        verify(dbEntityRepository).saveAll(Mockito.<List<DbEntity>>argThat(list -> list.size() == 1
+                && "Customer".equals(list.get(0).getEntityName())));
+        verify(daoOperationRepository).deleteByProject(project);
+        verify(daoOperationRepository).saveAll(Mockito.<List<DaoOperation>>argThat(list -> list.size() == 1
+                && "findAll".equals(list.get(0).getMethodName())));
 
         ArgumentCaptor<ParsedDataResponse> snapshotCaptor = ArgumentCaptor.forClass(ParsedDataResponse.class);
         verify(projectSnapshotService).saveSnapshot(eq(project), snapshotCaptor.capture());

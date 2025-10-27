@@ -3,6 +3,7 @@ package com.codevision.codevisionbackend.project;
 import com.codevision.codevisionbackend.api.ApiModelMapper;
 import com.codevision.codevisionbackend.api.generated.ProjectApi;
 import com.codevision.codevisionbackend.api.model.ParsedDataResponse;
+import com.codevision.codevisionbackend.api.model.ProjectDbAnalysisResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -51,6 +52,21 @@ public class ProjectOverviewController implements ProjectApi {
                 })
                 .orElseGet(() -> {
                     log.warn("No endpoint catalog found for project id={}", projectId);
+                    return ResponseEntity.notFound().build();
+                });
+    }
+
+    @Override
+    public ResponseEntity<ProjectDbAnalysisResponse> getProjectDbAnalysis(@PathVariable("projectId") Long projectId) {
+        log.info("Fetching database analysis for project id={}", projectId);
+        return projectSnapshotService.fetchSnapshot(projectId)
+                .map(snapshot -> apiModelMapper.toDbAnalysisResponse(projectId, snapshot.dbAnalysis()))
+                .map(response -> {
+                    log.info("Found database analysis for project id={}", projectId);
+                    return ResponseEntity.ok(response);
+                })
+                .orElseGet(() -> {
+                    log.warn("No database analysis found for project id={}", projectId);
                     return ResponseEntity.notFound().build();
                 });
     }

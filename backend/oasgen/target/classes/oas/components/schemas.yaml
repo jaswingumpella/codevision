@@ -265,6 +265,8 @@ ParsedDataResponse:
         $ref: '#/ClassMetadataSummary'
     metadataDump:
       $ref: '#/MetadataDump'
+    dbAnalysis:
+      $ref: '#/DbAnalysis'
     apiEndpoints:
       type: array
       description: Catalog of API endpoints discovered in the project.
@@ -272,6 +274,123 @@ ParsedDataResponse:
         $ref: '#/ApiEndpoint'
     assets:
       $ref: '#/AssetInventory'
+
+DbAnalysis:
+  type: object
+  properties:
+    entities:
+      type: array
+      description: Summaries of JPA entities and their fields.
+      items:
+        $ref: '#/DbEntitySummary'
+    classesByEntity:
+      type: object
+      description: Mapping of entity name to repository classes interacting with it.
+      additionalProperties:
+        type: array
+        items:
+          type: string
+    operationsByClass:
+      type: object
+      description: Mapping of repository class to its detected CRUD operations.
+      additionalProperties:
+        type: array
+        items:
+          $ref: '#/DaoOperationDetails'
+
+DbEntitySummary:
+  type: object
+  required:
+    - entityName
+  properties:
+    entityName:
+      type: string
+      description: Simple name of the entity class.
+    fullyQualifiedName:
+      type: string
+      description: Fully qualified class name of the entity.
+    tableName:
+      type: string
+      description: Database table name mapped to the entity.
+    primaryKeys:
+      type: array
+      description: Fields designated as primary keys.
+      items:
+        type: string
+    fields:
+      type: array
+      description: Declared fields and their column mappings.
+      items:
+        $ref: '#/DbFieldSummary'
+    relationships:
+      type: array
+      description: Entity relationships detected via JPA annotations.
+      items:
+        $ref: '#/DbRelationshipSummary'
+
+DbFieldSummary:
+  type: object
+  required:
+    - name
+    - type
+  properties:
+    name:
+      type: string
+      description: Field name as declared in the entity.
+    type:
+      type: string
+      description: Java type of the field.
+    columnName:
+      type: string
+      description: Database column mapped to the field when provided.
+
+DbRelationshipSummary:
+  type: object
+  required:
+    - fieldName
+    - relationshipType
+  properties:
+    fieldName:
+      type: string
+      description: Field participating in the relationship.
+    targetType:
+      type: string
+      description: Target entity or collection element type.
+    relationshipType:
+      type: string
+      description: Relationship classification such as ONE_TO_MANY.
+
+DaoOperationDetails:
+  type: object
+  required:
+    - methodName
+    - operationType
+  properties:
+    methodName:
+      type: string
+      description: Repository method name.
+    operationType:
+      type: string
+      description: Inferred CRUD intent (SELECT, INSERT, UPDATE, DELETE, etc.).
+    target:
+      type: string
+      description: Entity or table targeted by the method.
+    querySnippet:
+      type: string
+      description: Inline query text when available.
+
+ProjectDbAnalysisResponse:
+  type: object
+  required:
+    - projectId
+    - dbAnalysis
+  properties:
+    projectId:
+      type: integer
+      format: int64
+      description: Identifier of the associated project.
+    dbAnalysis:
+      $ref: '#/DbAnalysis'
 
 ProjectApiEndpointsResponse:
   type: object

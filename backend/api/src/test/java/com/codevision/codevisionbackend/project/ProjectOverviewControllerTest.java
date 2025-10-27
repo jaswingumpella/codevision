@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.codevision.codevisionbackend.analyze.ApiEndpointSummary;
 import com.codevision.codevisionbackend.analyze.AssetInventory;
+import com.codevision.codevisionbackend.analyze.DbAnalysisSummary;
 import com.codevision.codevisionbackend.analyze.MetadataDump;
 import com.codevision.codevisionbackend.analyze.ParsedDataResponse;
 import com.codevision.codevisionbackend.api.ApiModelMapper;
@@ -13,6 +14,7 @@ import com.codevision.codevisionbackend.analyze.BuildInfo;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -40,6 +42,7 @@ class ProjectOverviewControllerTest {
                 new BuildInfo("com.barclays", "demo", "1.0.0", "21"),
                 List.of(),
                 MetadataDump.empty(),
+                emptyDbAnalysis(),
                 List.of(),
                 AssetInventory.empty());
         snapshotService.setSnapshot(Optional.of(response));
@@ -75,6 +78,7 @@ class ProjectOverviewControllerTest {
                 BuildInfo.empty(),
                 List.of(),
                 MetadataDump.empty(),
+                emptyDbAnalysis(),
                 List.of(endpoint),
                 AssetInventory.empty());
         snapshotService.setSnapshot(Optional.of(response));
@@ -85,6 +89,34 @@ class ProjectOverviewControllerTest {
         assertEquals(HttpStatus.OK, result.getStatusCode());
         assertTrue(result.hasBody());
         assertEquals(1, result.getBody().getEndpoints().size());
+    }
+
+    @Test
+    void getDbAnalysisReturnsPayloadWhenPresent() {
+        DbAnalysisSummary summary = new DbAnalysisSummary(
+                List.of(),
+                Map.of("Customer", List.of("com.example.CustomerRepository")),
+                Map.of("com.example.CustomerRepository",
+                        List.of(new DbAnalysisSummary.DaoOperationDetails("findAll", "SELECT", "Customer", null))));
+        ParsedDataResponse response = new ParsedDataResponse(
+                12L,
+                "demo",
+                "https://example.com/repo.git",
+                OffsetDateTime.now(),
+                BuildInfo.empty(),
+                List.of(),
+                MetadataDump.empty(),
+                summary,
+                List.of(),
+                AssetInventory.empty());
+        snapshotService.setSnapshot(Optional.of(response));
+
+        ResponseEntity<com.codevision.codevisionbackend.api.model.ProjectDbAnalysisResponse> result =
+                controller.getProjectDbAnalysis(12L);
+
+        assertEquals(HttpStatus.OK, result.getStatusCode());
+        assertTrue(result.hasBody());
+        assertEquals(1, result.getBody().getDbAnalysis().getClassesByEntity().size());
     }
 
     private static class StubProjectSnapshotService extends ProjectSnapshotService {
@@ -108,5 +140,9 @@ class ProjectOverviewControllerTest {
         public void saveSnapshot(Project project, ParsedDataResponse parsedData) {
             this.snapshot = Optional.of(parsedData);
         }
+    }
+
+    private DbAnalysisSummary emptyDbAnalysis() {
+        return new DbAnalysisSummary(List.of(), Map.of(), Map.of());
     }
 }
