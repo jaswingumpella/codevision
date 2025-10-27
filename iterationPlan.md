@@ -239,6 +239,8 @@ Discover all API surfaces (REST + SOAP + legacy), surface their specifications, 
 
 ## Iteration 4 – Database analysis (entities, repos/DAOs, CRUD classification)
 
+**Status:** ✅ Completed – see [`docs/iteration-4-completion.md`](docs/iteration-4-completion.md) for delivery notes.
+
 ### Goal
 
 Show how the app talks to the database.
@@ -302,6 +304,7 @@ Show how the app talks to the database.
 * Cycles in entity relationships (A↔B) do not crash anything:
 
   * We must traverse relationships with a cycle-safe visited set when computing ERD metadata.
+* Unit tests cover entity extraction and DAO classification heuristics.
 
 ---
 

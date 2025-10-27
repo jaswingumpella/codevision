@@ -6,7 +6,9 @@ com/codevision/codevisionbackend/project/ProjectOverviewControllerTest.class
 com/codevision/codevisionbackend/analyze/scanner/ApiScannerTest.class
 com/codevision/codevisionbackend/analyze/scanner/JavaSourceScannerTest.class
 com/codevision/codevisionbackend/project/ProjectSnapshotDumpTest.class
+com/codevision/codevisionbackend/analyze/scanner/DaoAnalysisServiceImplTest.class
 com/codevision/codevisionbackend/project/ProjectSnapshotServiceTest.class
+com/codevision/codevisionbackend/analyze/scanner/JpaEntityScannerTest.class
 com/codevision/codevisionbackend/analyze/AnalysisServiceTest$StubGitCloneService.class
 com/codevision/codevisionbackend/analyze/scanner/BuildMetadataExtractorTest.class
 com/codevision/codevisionbackend/analyze/scanner/YamlScannerTest.class

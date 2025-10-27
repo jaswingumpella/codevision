@@ -8,6 +8,7 @@ The backend lives in [`backend/`](backend/). It exposes a synchronous `/analyze`
 
 - `GET /project/{id}/overview` – the latest `ParsedDataResponse`.
 - `GET /project/{id}/api-endpoints` – the persisted API catalog (requires the API key when security is enabled).
+- `GET /project/{id}/db-analysis` – entities, repositories, and CRUD intent summaries captured during analysis.
 
 ### Prerequisites
 
@@ -100,6 +101,7 @@ The frontend lives in [`frontend/`](frontend/). It provides a single-page workfl
 - Build summary (group/artifact/version/java release).
 - Class coverage (total vs. main vs. test source sets).
 - API Specs tab with paginated tables for REST / SOAP / legacy endpoints, each annotated with spec artifacts.
+- Database tab with entity ↔ repository mapping and DAO operation breakdowns (inferred CRUD intent, targets, inline queries).
 - Embedded viewers for OpenAPI YAML, WSDL, and XSD definitions plus synthesized SOAP service summaries.
 - Media asset inventory (PNG/JPG/SVG/GIF) listing repository diagrams and screenshots with size + relative path.
 
@@ -133,6 +135,7 @@ npm run build
 - Iteration 1 summary: [`docs/iteration-1-completion.md`](docs/iteration-1-completion.md)
 - Iteration 2 summary: [`docs/iteration-2-completion.md`](docs/iteration-2-completion.md)
 - Iteration 3 summary: [`docs/iteration-3-completion.md`](docs/iteration-3-completion.md)
+- Iteration 4 summary: [`docs/iteration-4-completion.md`](docs/iteration-4-completion.md)
 
 ## Database
 
@@ -143,5 +146,7 @@ The backend uses an on-disk H2 database stored under `backend/data/`. Key tables
 - `project_snapshot` – serialized `ParsedDataResponse` plus naming metadata
 - `api_endpoint` – persisted REST/SOAP/legacy endpoint catalog
 - `asset_image` – discovered documentation assets (path, size, hash)
+- `db_entity` – extracted JPA entity metadata (tables, PKs, relationships)
+- `dao_operation` – classified DAO/repository operations with inferred CRUD intent
 
 Re-running `/analyze` with the same repository URL overwrites the project metadata and regenerates the snapshot/class records so the UI always reflects the latest scan.

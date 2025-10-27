@@ -327,12 +327,16 @@ Document how code interacts with persistence.
 
 3. Result structure (`DbAnalysisResult`):
 
+   * `entities`:
+
+     * Array of entity metadata `{ entityName, fullyQualifiedName, tableName, primaryKeys[], fields[], relationships[] }`
+     * Each field entry captures `{ name, type, columnName }`; relationships capture `{ fieldName, targetType, relationshipType }`.
    * `classesByEntity`:
 
-     * Map: entityOrTable → list of DAO/repository classes that interact with it
+     * Map: entity/table → list of DAO/repository classes that interact with it
    * `operationsByClass`:
 
-     * Map: DAO/repo class → list of { methodName, operationType, entityOrTable, rawQuerySnippet }
+     * Map: DAO/repo class → list of `{ methodName, operationType, target, querySnippet }`
 
 4. Cycles:
 
@@ -349,8 +353,8 @@ Document how code interacts with persistence.
 
 * “Database” page:
 
-  * Section 1: “Entities and Interacting Classes” (uses `classesByEntity`)
-  * Section 2: “Detailed Operations by DAO/Repository Class” (uses `operationsByClass`)
+  * Section 1: “Entities and Interacting Classes” (renders `entities` + `classesByEntity`)
+  * Section 2: “Detailed Operations by DAO/Repository Class” (renders `operationsByClass`)
   * Schema/ERD diagram (see Diagrams section)
 
 ---
@@ -1217,9 +1221,9 @@ Entity Details: All JPA entities (classes annotated @Entity) are processed. For 
 
 DAO/Repository Scanning: The tool identifies repository classes. This includes Spring Data repository interfaces (which extend JpaRepository or similar). For those, we know they correspond to an entity via generics (e.g. JpaRepository<Customer, Long> clearly ties to Customer entity). We enumerate the CRUD methods – Spring Data method names contain hints (e.g. findByEmail → SELECT, save → INSERT/UPDATE, deleteById → DELETE). Custom query methods or those annotated with @Query are also noted (we capture the query string if available). For each method, determine the target entity or table: by convention or explicit annotation. We also scan any custom DAO classes (concrete classes, often named *Dao or *Repository in older code) for database calls. This might involve looking for usages of JDBC templates or EntityManager calls in the method bodies – a bit heuristic, but method names and any SQL strings can guide classification. Each repository/DAO class and its operations are recorded as dao_operation entries (with fields: class, method, operation type, target entity/table, and an optional raw query snippet).
 
-From these, a DbAnalysisResult is constructed (and included in the JSON snapshot as dbAnalysis): it contains two main maps – classesByEntity (which maps each entity or table name to the list of repository/DAO classes that interact with it) and operationsByClass (which maps each repository/DAO class to the list of operations it provides, each with method name, type, target entity, etc.). This gives a dual perspective: “Which classes touch this table?” and “What does this class do to the database?” Both are valuable for understanding data access patterns and for compliance checks (e.g. ensuring all credit card data access is via certain approved methods, etc.). We ensure that any circular references in entity relationships (like Entity A ↔ Entity B) do not cause issues – since we build these maps from a static listing of fields and do not recursively traverse infinite loops, we won’t infinite-loop on bi-directional mappings.
+From these, a DbAnalysisResult is constructed (and included in the JSON snapshot as dbAnalysis): it carries an `entities` array (the canonical metadata captured from the JPA scanner), `classesByEntity` (mapping each entity/table to the repositories/DAOs that touch it), and `operationsByClass` (mapping each repository/DAO class to its inferred CRUD operations, target descriptor, and optional query snippet). This gives a dual perspective: “Which classes touch this table?” and “What does this class do to the database?” Both are valuable for understanding data access patterns and for compliance checks (e.g. ensuring all credit card data access is via certain approved methods, etc.). We ensure that any circular references in entity relationships (like Entity A ↔ Entity B) do not cause issues – since we build these structures from a static listing of fields rather than recursive traversal, we avoid infinite loops on bi-directional mappings.
 
-A new API GET /project/{id}/db-analysis returns the database analysis info (including the two maps above, plus possibly lists of entities). The UI “Database” page uses this to present: (1) an Entities & Classes table – each row is an Entity and the list of DAO/Repo classes that use it; (2) a DAO Operations table – each row is a repository/DAO method with columns for class, method, operation (SELECT/INSERT/etc.), target entity/table, and an excerpt of the query or method logic. Additionally, this page can show a generated ERD diagram of the entities (if the diagram generation step has been done by now), giving a visual of table schemas and relationships. This iteration delivers immediate value by summarizing how data flows to the database.
+A new API GET /project/{id}/db-analysis returns the database analysis payload (entities plus the two maps above). The UI “Database” page uses this to present: (1) an Entities & Classes table – each row is an entity with its table name, primary keys, and the list of DAO/Repo classes that use it; (2) a DAO Operations table – each row is a repository/DAO method with columns for class, method, operation (SELECT/INSERT/etc.), target entity/table, and an excerpt of the query or method logic. Additionally, this page can show a generated ERD diagram of the entities (if the diagram generation step has been done by now), giving a visual of table schemas and relationships. This iteration delivers immediate value by summarizing how data flows to the database.
 
 6.5 Logger Insights: (Iteration 5) Building on the earlier logging scan, this feature centralizes all log usages and highlights those that may be risky. The backend’s LoggerScanner goes through all Java classes (including tests) to find logging statements. It normalizes different logging frameworks (e.g. calls to Log4j vs slf4j all captured similarly) and records each log call with: the class name (and file), line number, log level, the static message template, and any variables (placeholders) used. It then cross-references each log message and variables against the PII/PCI patterns from the security scanner. If a log message appears to include sensitive info (for example, logging a credit card number or personal data), the corresponding flags piiRisk or pciRisk are set to true on that log record. All log statements are stored in a new log_statement table and added to the snapshot (loggerInsights list).
 
