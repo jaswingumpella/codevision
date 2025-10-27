@@ -1,0 +1,6 @@
+{
+  "summary": "Analyze Spring Petclinic repository",
+  "value": {
+    "repoUrl": "https://github.com/spring-projects/spring-petclinic.git"
+  }
+}

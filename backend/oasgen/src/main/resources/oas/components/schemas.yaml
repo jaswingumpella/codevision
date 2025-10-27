@@ -1,0 +1,134 @@
+AnalyzeRequest:
+  type: object
+  required:
+    - repoUrl
+  properties:
+    repoUrl:
+      type: string
+      format: uri
+      description: Git repository URL that should be analyzed.
+
+AnalyzeResponse:
+  type: object
+  required:
+    - projectId
+    - status
+  properties:
+    projectId:
+      type: integer
+      format: int64
+      description: Identifier assigned to the analyzed project.
+    status:
+      type: string
+      description: Current status of the analysis workflow.
+      example: ANALYZED_METADATA
+
+BuildInfo:
+  type: object
+  properties:
+    groupId:
+      type: string
+      description: Maven group identifier resolved from the repository build metadata.
+    artifactId:
+      type: string
+      description: Maven artifact identifier resolved from the repository build metadata.
+    version:
+      type: string
+      description: Maven version resolved from the repository build metadata.
+    javaVersion:
+      type: string
+      description: Java version targeted by the project build configuration.
+
+ClassMetadataSummary:
+  type: object
+  required:
+    - fullyQualifiedName
+    - className
+    - userCode
+  properties:
+    fullyQualifiedName:
+      type: string
+      description: Fully qualified class name.
+    packageName:
+      type: string
+      description: Package that declares the class.
+    className:
+      type: string
+      description: Simple class name without package information.
+    stereotype:
+      type: string
+      description: Functional stereotype inferred from the class metadata.
+    userCode:
+      type: boolean
+      description: Indicates whether the class originates from user authored code.
+    sourceSet:
+      type: string
+      description: Source set where the class resides, such as MAIN or TEST.
+    relativePath:
+      type: string
+      description: Path to the class relative to the repository root.
+    annotations:
+      type: array
+      description: Fully qualified annotations present on the class.
+      items:
+        type: string
+    interfacesImplemented:
+      type: array
+      description: Interfaces implemented by the class.
+      items:
+        type: string
+
+MetadataDump:
+  type: object
+  properties:
+    openApiSpecs:
+      type: array
+      description: Collection of OpenAPI specification files detected within the repository.
+      items:
+        $ref: '#/OpenApiSpec'
+
+OpenApiSpec:
+  type: object
+  required:
+    - fileName
+    - content
+  properties:
+    fileName:
+      type: string
+      description: Source file name for the OpenAPI specification.
+    content:
+      type: string
+      description: Raw YAML or JSON content extracted from the specification file.
+
+ParsedDataResponse:
+  type: object
+  required:
+    - projectId
+    - projectName
+    - repoUrl
+    - analyzedAt
+  properties:
+    projectId:
+      type: integer
+      format: int64
+      description: Identifier of the associated project.
+    projectName:
+      type: string
+      description: Name of the analyzed project.
+    repoUrl:
+      type: string
+      format: uri
+      description: Git repository URL that was analyzed.
+    analyzedAt:
+      type: string
+      format: date-time
+      description: Timestamp when the repository was last analyzed.
+    buildInfo:
+      $ref: '#/BuildInfo'
+    classes:
+      type: array
+      description: Summaries for classes detected during analysis.
+      items:
+        $ref: '#/ClassMetadataSummary'
+    metadataDump:
+      $ref: '#/MetadataDump'

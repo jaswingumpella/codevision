@@ -2,11 +2,12 @@ package com.codevision.codevisionbackend.analyze;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import com.codevision.codevisionbackend.analyze.BuildInfo;
-import com.codevision.codevisionbackend.analyze.MetadataDump;
-import com.codevision.codevisionbackend.analyze.ParsedDataResponse;
+import com.codevision.codevisionbackend.api.ApiModelMapper;
+import com.codevision.codevisionbackend.api.model.AnalyzeRequest;
+import com.codevision.codevisionbackend.api.model.AnalyzeResponse;
 import com.codevision.codevisionbackend.project.Project;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.net.URI;
 import java.time.OffsetDateTime;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -22,15 +23,15 @@ class AnalyzeControllerTest {
     @BeforeEach
     void setUp() {
         analysisService = new StubAnalysisService();
-        controller = new AnalyzeController(analysisService);
+        controller = new AnalyzeController(analysisService, new ApiModelMapper());
     }
 
     @Test
     void analyzeReturnsAnalyzedMetadataStatus() {
         AnalyzeRequest request = new AnalyzeRequest();
-        request.setRepoUrl("https://example.com/repo.git");
+        request.setRepoUrl(URI.create("https://example.com/repo.git"));
 
-        Project project = new Project(request.getRepoUrl(), "demo", OffsetDateTime.now());
+        Project project = new Project(request.getRepoUrl().toString(), "demo", OffsetDateTime.now());
         project.setId(321L);
         ParsedDataResponse data = new ParsedDataResponse(
                 project.getId(),
@@ -42,7 +43,7 @@ class AnalyzeControllerTest {
                 MetadataDump.empty());
         analysisService.setNextOutcome(new AnalysisOutcome(project, data));
 
-        ResponseEntity<AnalyzeResponse> response = controller.analyze(request);
+        ResponseEntity<AnalyzeResponse> response = controller.analyzeRepository(request);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         AnalyzeResponse body = response.getBody();

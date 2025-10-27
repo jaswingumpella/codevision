@@ -4,9 +4,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.codevision.codevisionbackend.analyze.BuildInfo;
 import com.codevision.codevisionbackend.analyze.MetadataDump;
 import com.codevision.codevisionbackend.analyze.ParsedDataResponse;
+import com.codevision.codevisionbackend.api.ApiModelMapper;
+import com.codevision.codevisionbackend.analyze.BuildInfo;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -24,7 +25,7 @@ class ProjectOverviewControllerTest {
     @BeforeEach
     void setUp() {
         snapshotService = new StubProjectSnapshotService();
-        controller = new ProjectOverviewController(snapshotService);
+        controller = new ProjectOverviewController(snapshotService, new ApiModelMapper());
     }
 
     @Test
@@ -39,18 +40,20 @@ class ProjectOverviewControllerTest {
                 MetadataDump.empty());
         snapshotService.setSnapshot(Optional.of(response));
 
-        ResponseEntity<ParsedDataResponse> result = controller.getOverview(5L);
+        ResponseEntity<com.codevision.codevisionbackend.api.model.ParsedDataResponse> result =
+                controller.getProjectOverview(5L);
 
         assertEquals(HttpStatus.OK, result.getStatusCode());
         assertTrue(result.hasBody());
-        assertEquals("demo", result.getBody().projectName());
+        assertEquals("demo", result.getBody().getProjectName());
     }
 
     @Test
     void getOverviewReturnsNotFoundWhenMissing() {
         snapshotService.setSnapshot(Optional.empty());
 
-        ResponseEntity<ParsedDataResponse> result = controller.getOverview(99L);
+        ResponseEntity<com.codevision.codevisionbackend.api.model.ParsedDataResponse> result =
+                controller.getProjectOverview(99L);
 
         assertEquals(HttpStatus.NOT_FOUND, result.getStatusCode());
         assertNull(result.getBody());
