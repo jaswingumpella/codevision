@@ -18,7 +18,7 @@ import jakarta.annotation.Generated;
  * AnalyzeResponse
  */
 
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2025-11-07T00:31:52.729797-05:00[America/New_York]", comments = "Generator version: 7.5.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2025-11-07T00:58:31.998981-05:00[America/New_York]", comments = "Generator version: 7.5.0")
 public class AnalyzeResponse {
 
   private Long projectId;
