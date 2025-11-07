@@ -9,9 +9,20 @@ import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.ImportDeclaration;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.ConstructorDeclaration;
+import com.github.javaparser.ast.body.FieldDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.body.RecordDeclaration;
 import com.github.javaparser.ast.body.TypeDeclaration;
+import com.github.javaparser.ast.expr.ClassExpr;
+import com.github.javaparser.ast.expr.EnclosedExpr;
+import com.github.javaparser.ast.expr.Expression;
+import com.github.javaparser.ast.expr.FieldAccessExpr;
+import com.github.javaparser.ast.expr.MethodCallExpr;
+import com.github.javaparser.ast.expr.NameExpr;
+import com.github.javaparser.ast.expr.ObjectCreationExpr;
+import com.github.javaparser.ast.expr.SuperExpr;
+import com.github.javaparser.ast.expr.ThisExpr;
+import com.github.javaparser.ast.expr.VariableDeclarationExpr;
 import com.github.javaparser.ast.type.ArrayType;
 import com.github.javaparser.ast.type.ClassOrInterfaceType;
 import com.github.javaparser.ast.type.IntersectionType;
@@ -114,6 +125,15 @@ public class CallGraphBuilder {
                     }
                     builder.addEdge(record.fullyQualifiedName(), resolved);
                 }
+                collectMethodCallEdges(
+                        record,
+                        declaration,
+                        packageName,
+                        explicitImports,
+                        wildcardImports,
+                        bySimpleName,
+                        byFqn,
+                        builder);
             }
         });
 
@@ -215,6 +235,191 @@ public class CallGraphBuilder {
             return;
         }
         collector.add(type.asString());
+    }
+
+    private void collectMethodCallEdges(
+            ClassMetadataRecord record,
+            TypeDeclaration<?> declaration,
+            String packageName,
+            Map<String, String> explicitImports,
+            Set<String> wildcardImports,
+            Map<String, List<ClassMetadataRecord>> bySimpleName,
+            Map<String, ClassMetadataRecord> byFqn,
+            CallGraph.Builder builder) {
+        if (!(declaration instanceof ClassOrInterfaceDeclaration clazz)) {
+            return;
+        }
+        Map<String, String> fieldTypes =
+                buildFieldTypeMap(clazz, packageName, explicitImports, wildcardImports, bySimpleName);
+        for (MethodDeclaration method : clazz.getMethods()) {
+            if (method.getBody().isEmpty()) {
+                continue;
+            }
+            Map<String, String> knownTypes = new LinkedHashMap<>(fieldTypes);
+            method.getParameters().forEach(param -> {
+                String resolved = resolveTypeName(
+                        param.getType().asString(), packageName, explicitImports, wildcardImports, bySimpleName);
+                if (resolved != null) {
+                    knownTypes.put(param.getNameAsString(), resolved);
+                }
+            });
+            method.findAll(VariableDeclarationExpr.class).forEach(local -> {
+                String resolved = resolveTypeName(
+                        local.getElementType().asString(), packageName, explicitImports, wildcardImports, bySimpleName);
+                if (resolved == null) {
+                    return;
+                }
+                local.getVariables().forEach(variable -> knownTypes.put(variable.getNameAsString(), resolved));
+            });
+            method.findAll(MethodCallExpr.class).forEach(call -> registerMethodCall(
+                    record,
+                    method.getNameAsString(),
+                    call,
+                    knownTypes,
+                    packageName,
+                    explicitImports,
+                    wildcardImports,
+                    bySimpleName,
+                    byFqn,
+                    builder));
+        }
+    }
+
+    private Map<String, String> buildFieldTypeMap(
+            ClassOrInterfaceDeclaration declaration,
+            String packageName,
+            Map<String, String> explicitImports,
+            Set<String> wildcardImports,
+            Map<String, List<ClassMetadataRecord>> bySimpleName) {
+        Map<String, String> fieldTypes = new LinkedHashMap<>();
+        for (FieldDeclaration field : declaration.getFields()) {
+            String resolved = resolveTypeName(
+                    field.getElementType().asString(), packageName, explicitImports, wildcardImports, bySimpleName);
+            if (resolved == null) {
+                continue;
+            }
+            field.getVariables().forEach(variable -> fieldTypes.put(variable.getNameAsString(), resolved));
+        }
+        return fieldTypes;
+    }
+
+    private void registerMethodCall(
+            ClassMetadataRecord record,
+            String sourceMethod,
+            MethodCallExpr call,
+            Map<String, String> knownTypes,
+            String packageName,
+            Map<String, String> explicitImports,
+            Set<String> wildcardImports,
+            Map<String, List<ClassMetadataRecord>> bySimpleName,
+            Map<String, ClassMetadataRecord> byFqn,
+            CallGraph.Builder builder) {
+        if (record == null || record.fullyQualifiedName() == null) {
+            return;
+        }
+        String targetClass = resolveInvocationTargetClass(
+                call,
+                record.fullyQualifiedName(),
+                knownTypes,
+                packageName,
+                explicitImports,
+                wildcardImports,
+                bySimpleName);
+        if (targetClass == null) {
+            return;
+        }
+        boolean known = byFqn.containsKey(targetClass);
+        if (!known && (targetClass.isBlank() || !targetClass.contains("codeviz2"))) {
+            return;
+        }
+        if (!known) {
+            builder.addNode(new GraphNode(targetClass, simpleName(targetClass), "EXTERNAL", false, true));
+        }
+        builder.addEdge(record.fullyQualifiedName(), targetClass);
+        builder.addMethodCall(
+                record.fullyQualifiedName(),
+                sourceMethod,
+                targetClass,
+                call.getNameAsString(),
+                !known);
+    }
+
+    private String resolveInvocationTargetClass(
+            MethodCallExpr call,
+            String currentClass,
+            Map<String, String> knownTypes,
+            String packageName,
+            Map<String, String> explicitImports,
+            Set<String> wildcardImports,
+            Map<String, List<ClassMetadataRecord>> bySimpleName) {
+        if (call == null) {
+            return null;
+        }
+        Optional<Expression> scope = call.getScope();
+        if (scope.isEmpty()) {
+            return currentClass;
+        }
+        return resolveScopeType(
+                scope.get(), currentClass, knownTypes, packageName, explicitImports, wildcardImports, bySimpleName);
+    }
+
+    private String resolveScopeType(
+            Expression scope,
+            String currentClass,
+            Map<String, String> knownTypes,
+            String packageName,
+            Map<String, String> explicitImports,
+            Set<String> wildcardImports,
+            Map<String, List<ClassMetadataRecord>> bySimpleName) {
+        if (scope instanceof ThisExpr || scope instanceof SuperExpr) {
+            return currentClass;
+        }
+        if (scope instanceof EnclosedExpr enclosed) {
+            return resolveScopeType(
+                    enclosed.getInner(), currentClass, knownTypes, packageName, explicitImports, wildcardImports, bySimpleName);
+        }
+        if (scope instanceof NameExpr nameExpr) {
+            String identifier = nameExpr.getNameAsString();
+            String resolved = knownTypes.get(identifier);
+            if (resolved != null) {
+                return resolved;
+            }
+            return resolveTypeName(identifier, packageName, explicitImports, wildcardImports, bySimpleName);
+        }
+        if (scope instanceof FieldAccessExpr fieldAccess) {
+            Expression qualifier = fieldAccess.getScope();
+            if (qualifier instanceof ThisExpr || qualifier instanceof SuperExpr) {
+                String candidate = knownTypes.get(fieldAccess.getNameAsString());
+                if (candidate != null) {
+                    return candidate;
+                }
+                return currentClass;
+            }
+            if (qualifier instanceof NameExpr nameExpr) {
+                String candidate = knownTypes.get(nameExpr.getNameAsString());
+                if (candidate != null) {
+                    return candidate;
+                }
+            }
+            String resolvedQualifier = resolveScopeType(
+                    qualifier, currentClass, knownTypes, packageName, explicitImports, wildcardImports, bySimpleName);
+            if (resolvedQualifier != null) {
+                return resolvedQualifier;
+            }
+            return resolveTypeName(fieldAccess.toString(), packageName, explicitImports, wildcardImports, bySimpleName);
+        }
+        if (scope instanceof ObjectCreationExpr creationExpr) {
+            return resolveTypeName(
+                    creationExpr.getType().getNameWithScope(), packageName, explicitImports, wildcardImports, bySimpleName);
+        }
+        if (scope instanceof ClassExpr classExpr) {
+            return resolveTypeName(
+                    classExpr.getType().asString(), packageName, explicitImports, wildcardImports, bySimpleName);
+        }
+        if (scope instanceof MethodCallExpr) {
+            return null;
+        }
+        return resolveTypeName(scope.toString(), packageName, explicitImports, wildcardImports, bySimpleName);
     }
 
     private String resolveTypeName(

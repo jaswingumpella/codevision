@@ -513,6 +513,8 @@ Produce rich architectural visualizations for onboarding, audit, and documentati
    * Cycle-safe:
 
      * If a method call repeats within the current traversal path, insert a `"(cyclic reference...)"` node rather than recurse
+   * Generated per endpoint so every REST/SOAP/legacy operation gets its own visualisation and call-flow summary (labelled `HTTP_METHOD pathOrOperation`). Metadata captures whether the diagram includes codeviz2 externals, making it easy for the UI to offer a toggle between internal-only and “full” flows.
+   * When we cannot infer edges from the call graph (e.g., tiny projects), we fall back to heuristics (Controller→Service→Repository→Entity) so the diagram still communicates directionality.
 
 **Outputs**
 
@@ -549,10 +551,12 @@ Produce rich architectural visualizations for onboarding, audit, and documentati
 * For Sequence tab:
 
   * Toggle “Show external calls” to hide/show interactions that leave first-party packages
+  * Sidebar lists every endpoint; selecting a row swaps the SVG/source panes so users can jump between flows quickly.
 * For large codebases:
 
   * Support basic filtering / grouping (e.g. filter by package prefix)
   * Goal is to reduce noise without crashing the browser
+* Layout is responsive: on narrow screens, the analyzer form stacks above the diagrams tab, and SVG panes scroll within their cards rather than forcing the page to overflow horizontally.
 
 ---
 

@@ -35,5 +35,8 @@ Use the repositories below to exercise CodeVision across different architectural
 - [ ] PCI/PII tab hides ignored findings when the toggle is enabled.
 - [ ] CSV/PDF exports match the table filters applied in the UI.
 - [ ] Export endpoints respond with HTTP 200 and properly set `Content-Disposition`.
+- [ ] Diagrams tab lists Class/Component/Use Case/ERD/DB Schema/Sequence diagrams for the analyzed project. Class diagrams should include arrows (either from the call graph or via the fallback Controller→Service→Repository heuristic) and Component cards should show representative class names.
+- [ ] Sequence tab shows one entry per endpoint; toggling “Show codeviz2 externals” swaps between the internal-only and full flows, and the HTTP method + path label updates accordingly.
+- [ ] Responsive layout: shrink the browser to ~1024px and confirm the analyzer form stacks above the diagrams tab without horizontal scrolling. SVG panes should scroll inside their cards instead of pushing the page.
 
 Record findings (especially false positives or performance anomalies) so the rule set in `security.scan` can be tuned per environment.

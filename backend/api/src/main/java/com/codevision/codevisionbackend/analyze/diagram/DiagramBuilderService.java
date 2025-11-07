@@ -1,6 +1,7 @@
 package com.codevision.codevisionbackend.analyze.diagram;
 
 import com.codevision.codevisionbackend.analyze.diagram.CallGraph.GraphNode;
+import com.codevision.codevisionbackend.analyze.diagram.CallGraph.MethodInvocation;
 import com.codevision.codevisionbackend.analyze.scanner.ApiEndpointRecord;
 import com.codevision.codevisionbackend.analyze.scanner.ClassMetadataRecord;
 import com.codevision.codevisionbackend.analyze.scanner.DbAnalysisResult;
@@ -238,63 +239,6 @@ public class DiagramBuilderService {
             return List.of();
         }
         return endpoints.stream().limit(Math.max(limit, 0)).toList();
-    }
-
-    private List<ClassMetadataRecord> selectClassesForDiagram(List<ClassMetadataRecord> classes, CallGraph graph) {
-        if (classes == null || classes.isEmpty()) {
-            return List.of();
-        }
-        Map<String, Integer> degree = new HashMap<>();
-        graph.edges().forEach((source, targets) -> {
-            degree.merge(source, targets.size(), Integer::sum);
-            targets.forEach(target -> degree.merge(target, 1, Integer::sum));
-        });
-        Comparator<ClassMetadataRecord> comparator = Comparator
-                .comparingInt((ClassMetadataRecord record) -> degree.getOrDefault(record.fullyQualifiedName(), 0))
-                .reversed()
-                .thenComparing(ClassMetadataRecord::stereotype, Comparator.nullsLast(String::compareToIgnoreCase))
-                .thenComparing(ClassMetadataRecord::packageName, Comparator.nullsLast(String::compareToIgnoreCase))
-                .thenComparing(ClassMetadataRecord::className, Comparator.nullsLast(String::compareToIgnoreCase));
-        List<ClassMetadataRecord> userClasses = classes.stream().filter(ClassMetadataRecord::userCode).toList();
-        List<ClassMetadataRecord> source = userClasses.isEmpty() ? classes : userClasses;
-        List<ClassMetadataRecord> sorted = source.stream().sorted(comparator).collect(Collectors.toList());
-        if (sorted.isEmpty()) {
-            sorted = classes.stream()
-                    .sorted(Comparator
-                            .comparing(ClassMetadataRecord::packageName, Comparator.nullsLast(String::compareToIgnoreCase))
-                            .thenComparing(ClassMetadataRecord::className, Comparator.nullsLast(String::compareToIgnoreCase)))
-                    .collect(Collectors.toList());
-        }
-        return sorted.stream().limit(MAX_CLASS_NODES).toList();
-    }
-
-    private Map<String, List<ClassMetadataRecord>> groupClassesByStereotype(List<ClassMetadataRecord> classes) {
-        if (classes == null || classes.isEmpty()) {
-            return Map.of();
-        }
-        List<ClassMetadataRecord> userClasses = classes.stream().filter(ClassMetadataRecord::userCode).toList();
-        List<ClassMetadataRecord> source = userClasses.isEmpty() ? classes : userClasses;
-        return source.stream()
-                .collect(Collectors.groupingBy(
-                        record -> normalizeStereotype(record.stereotype()),
-                        LinkedHashMap::new,
-                        Collectors.toList()));
-    }
-
-    private String componentNodeLabel(String stereotype, List<ClassMetadataRecord> records) {
-        if (records == null || records.isEmpty()) {
-            return stereotype;
-        }
-        List<String> samples = records.stream()
-                .map(ClassMetadataRecord::className)
-                .filter(Objects::nonNull)
-                .distinct()
-                .limit(3)
-                .toList();
-        if (samples.isEmpty()) {
-            return stereotype;
-        }
-        return stereotype + "\\n" + String.join("\\n", samples);
     }
 
     private List<HeuristicEdge> buildHeuristicEdges(List<ClassMetadataRecord> classes, Map<String, String> aliases) {
@@ -688,7 +632,8 @@ public class DiagramBuilderService {
                 .append(endpoint.pathOrOperation())
                 .append("\n");
 
-        List<SequenceStep> steps = buildSequenceSteps(controller, graph, includeExternal);
+        List<SequenceStep> steps =
+                buildSequenceSteps(controller, endpoint.controllerMethod(), graph, includeExternal);
         int stepBudget = MAX_SEQUENCE_STEPS;
         for (SequenceStep step : steps) {
             if (stepBudget-- <= 0) {
@@ -744,14 +689,18 @@ public class DiagramBuilderService {
                     .append(step.message())
                     .append("\n");
 
-            if (operationsByClass.containsKey(step.target())) {
+            List<String> daoOps = operationsByClass.get(step.target());
+            if (daoOps != null && !daoOps.isEmpty()) {
+                String dbLabel = formatOperationLabel(daoOps);
                 plantuml.append(targetAlias)
                         .append(" -> Database : ")
-                        .append(operationsByClass.get(step.target()).size())
-                        .append(" ops\n");
+                        .append(dbLabel)
+                        .append("\n");
                 mermaid.append("    ")
                         .append(targetAlias)
-                        .append("->>Database: DAO ops\n");
+                        .append("->>Database: ")
+                        .append(dbLabel)
+                        .append("\n");
             }
         }
 
@@ -788,43 +737,78 @@ public class DiagramBuilderService {
         return "Endpoint";
     }
 
-    private List<SequenceStep> buildSequenceSteps(String start, CallGraph graph, boolean includeExternal) {
+    private List<SequenceStep> buildSequenceSteps(
+            String startClass, String startMethod, CallGraph graph, boolean includeExternal) {
         List<SequenceStep> steps = new ArrayList<>();
-        if (!graph.nodes().containsKey(start)) {
+        if (startClass == null || !graph.nodes().containsKey(startClass)) {
             return steps;
         }
-        Deque<String> stack = new ArrayDeque<>();
-        traverseSequence(start, graph, includeExternal, stack, steps, 0);
+        MethodPointer entry = new MethodPointer(startClass, sanitizeMethodName(startMethod));
+        Deque<MethodPointer> stack = new ArrayDeque<>();
+        traverseSequence(entry, graph, includeExternal, stack, steps, 0);
         return steps;
     }
 
     private void traverseSequence(
-            String current,
+            MethodPointer current,
             CallGraph graph,
             boolean includeExternal,
-            Deque<String> stack,
+            Deque<MethodPointer> stack,
             List<SequenceStep> steps,
             int depth) {
-        if (depth >= MAX_SEQUENCE_DEPTH) {
+        if (current == null || depth >= MAX_SEQUENCE_DEPTH) {
             return;
         }
         stack.push(current);
-        for (String target : graph.targets(current)) {
-            GraphNode node = graph.nodes().get(target);
+        List<MethodInvocation> invocations = current.methodName() == null
+                ? List.of()
+                : graph.methodCallsFrom(current.className(), current.methodName());
+        if (invocations.isEmpty()) {
+            traverseClassEdges(current, graph, includeExternal, stack, steps, depth);
+            stack.pop();
+            return;
+        }
+        for (MethodInvocation invocation : invocations) {
+            if (!includeExternal && invocation.targetExternal()) {
+                continue;
+            }
+            MethodPointer target =
+                    new MethodPointer(invocation.targetClass(), sanitizeMethodName(invocation.targetMethod()));
+            if (stack.contains(target)) {
+                steps.add(SequenceStep.cycleMethod(current, target, graph.nodes().get(invocation.targetClass())));
+                continue;
+            }
+            steps.add(SequenceStep.callMethod(current, target, graph.nodes().get(invocation.targetClass())));
+            traverseSequence(target, graph, includeExternal, stack, steps, depth + 1);
+        }
+        stack.pop();
+    }
+
+    private void traverseClassEdges(
+            MethodPointer current,
+            CallGraph graph,
+            boolean includeExternal,
+            Deque<MethodPointer> stack,
+            List<SequenceStep> steps,
+            int depth) {
+        for (String targetClass : graph.targets(current.className())) {
+            GraphNode node = graph.nodes().get(targetClass);
             if (node == null) {
                 continue;
             }
             if (!includeExternal && node.external()) {
                 continue;
             }
-            if (stack.contains(target)) {
-                steps.add(SequenceStep.cycle(current, target, node));
+            MethodPointer target = new MethodPointer(targetClass, null);
+            boolean seen = stack.stream()
+                    .anyMatch(pointer -> pointer.className() != null && pointer.className().equals(targetClass));
+            if (seen) {
+                steps.add(SequenceStep.cycleClass(current.className(), targetClass, node));
                 continue;
             }
-            steps.add(SequenceStep.call(current, target, node));
+            steps.add(SequenceStep.callClass(current.className(), targetClass, node));
             traverseSequence(target, graph, includeExternal, stack, steps, depth + 1);
         }
-        stack.pop();
     }
 
     private Map<String, List<String>> buildCallFlows(List<ApiEndpointRecord> endpoints, CallGraph graph, int limit) {
@@ -839,8 +823,8 @@ public class DiagramBuilderService {
                     if (controller == null || !graph.nodes().containsKey(controller)) {
                         return;
                     }
-                    List<String> flow = buildSequenceSteps(controller, graph, false).stream()
-                            .map(step -> step.sourceLabel() + " -> " + step.targetLabel())
+                    List<String> flow = buildSequenceSteps(controller, endpoint.controllerMethod(), graph, false).stream()
+                            .map(step -> step.summaryLabel())
                             .limit(12)
                             .collect(Collectors.toList());
                     if (!flow.isEmpty()) {
@@ -890,6 +874,14 @@ public class DiagramBuilderService {
         return normalized.trim().isEmpty() ? "Endpoint" : normalized.trim();
     }
 
+    private String sanitizeMethodName(String methodName) {
+        if (methodName == null) {
+            return null;
+        }
+        String trimmed = methodName.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
     private String simpleName(String fqn) {
         if (fqn == null) {
             return "";
@@ -898,42 +890,112 @@ public class DiagramBuilderService {
         return idx >= 0 ? fqn.substring(idx + 1) : fqn;
     }
 
+    private String formatOperationLabel(List<String> operations) {
+        if (operations == null || operations.isEmpty()) {
+            return "DAO ops";
+        }
+        String joined = operations.stream()
+                .map(op -> op.endsWith("()") ? op : op + "()")
+                .limit(3)
+                .collect(Collectors.joining(", "));
+        if (operations.size() > 3) {
+            return joined + " +" + (operations.size() - 3) + " more";
+        }
+        return joined;
+    }
+
     private record Edge(String from, String to) {}
 
     private record SequenceDiagramSources(String plantuml, String mermaid) {}
 
+    private record MethodPointer(String className, String methodName) {}
+
     private static class SequenceStep {
         private final String source;
+        private final String sourceMethod;
         private final String target;
+        private final String targetMethod;
         private final String message;
         private final String sourceLabel;
         private final String targetLabel;
 
         private SequenceStep(
-                String source, String target, String message, String sourceLabel, String targetLabel) {
+                String source,
+                String sourceMethod,
+                String target,
+                String targetMethod,
+                String message,
+                String sourceLabel,
+                String targetLabel) {
             this.source = source;
+            this.sourceMethod = sourceMethod;
             this.target = target;
+            this.targetMethod = targetMethod;
             this.message = message;
             this.sourceLabel = sourceLabel;
             this.targetLabel = targetLabel;
         }
 
-        static SequenceStep call(String source, String target, GraphNode targetNode) {
+        static SequenceStep callMethod(MethodPointer source, MethodPointer target, GraphNode targetNode) {
+            String label = formatMethodLabel(target.methodName());
+            return new SequenceStep(
+                    source.className(),
+                    source.methodName(),
+                    target.className(),
+                    target.methodName(),
+                    label,
+                    simple(source.className()),
+                    targetNode == null ? simple(target.className()) : targetNode.simpleName());
+        }
+
+        static SequenceStep cycleMethod(MethodPointer source, MethodPointer target, GraphNode targetNode) {
+            return new SequenceStep(
+                    source.className(),
+                    source.methodName(),
+                    target.className(),
+                    target.methodName(),
+                    "[cycle -> " + cycleLabel(target) + "]",
+                    simple(source.className()),
+                    targetNode == null ? simple(target.className()) : targetNode.simpleName());
+        }
+
+        static SequenceStep callClass(String source, String target, GraphNode targetNode) {
             return new SequenceStep(
                     source,
+                    null,
                     target,
+                    null,
                     "call",
                     simple(source),
                     targetNode == null ? simple(target) : targetNode.simpleName());
         }
 
-        static SequenceStep cycle(String source, String target, GraphNode targetNode) {
+        static SequenceStep cycleClass(String source, String target, GraphNode targetNode) {
             return new SequenceStep(
                     source,
+                    null,
                     target,
+                    null,
                     "[cycle -> " + simple(target) + "]",
                     simple(source),
                     targetNode == null ? simple(target) : targetNode.simpleName());
+        }
+
+        private static String formatMethodLabel(String methodName) {
+            if (methodName == null || methodName.isBlank()) {
+                return "call";
+            }
+            return methodName.endsWith("()") ? methodName : methodName + "()";
+        }
+
+        private static String cycleLabel(MethodPointer pointer) {
+            if (pointer == null || pointer.className() == null) {
+                return "call";
+            }
+            if (pointer.methodName() != null) {
+                return formatMethodLabel(pointer.methodName());
+            }
+            return simple(pointer.className());
         }
 
         private static String simple(String value) {
@@ -962,6 +1024,12 @@ public class DiagramBuilderService {
 
         public String targetLabel() {
             return targetLabel;
+        }
+
+        public String summaryLabel() {
+            String left = sourceLabel + (sourceMethod == null ? "" : "." + formatMethodLabel(sourceMethod));
+            String right = targetLabel + (targetMethod == null ? "" : "." + formatMethodLabel(targetMethod));
+            return left + " -> " + right;
         }
     }
 }

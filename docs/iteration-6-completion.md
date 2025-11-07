@@ -8,6 +8,7 @@
 ## Backend Deliverables
 - **Diagram pipeline:** Added `DiagramBuilderService` with a JavaParser-powered call graph builder that extracts dependency edges, guards against cycles, and emits diagram definitions + call flow summaries. Sequence diagrams get both internal-only and `codeviz2`-external variants, and every diagram has synchronized PlantUML/Mermaid sources.
 - **Per-endpoint call flows:** Sequence diagrams and `callFlows` entries are now emitted per REST/SOAP/legacy endpoint (using `HTTP_METHOD pathOrOperation` labels) so downstream consumers can reason about individual surfaces instead of a single merged flow.
+- **Class/component heuristics:** When the graph lacks explicit edges, we fall back to heuristic arrows (Controller→Service→Repository→Entity). Component nodes now include representative class names so documentation readers can immediately see which code was grouped.
 - **Persistence + storage:** Introduced the `diagram` table, `DiagramService`, and filesystem-backed SVG storage (`diagram.storage.root`, default `./data/diagrams`). Diagrams are regenerated each analysis run, saved alongside metadata JSON, and hydrated into snapshots when missing.
 - **API + schema:** Extended `ParsedDataResponse` with `callFlows` and `diagrams`, updated the OpenAPI contract (new `DiagramDescriptor` schema, `/project/{id}/diagrams`, `/project/{id}/diagram/{diagramId}/svg`), regenerated the OAS module, and wired a new `ProjectDiagramController`.
 - **Security + cleanup:** `ProjectSnapshotService` now pulls diagrams via the new repository/service when snapshots lack them, and purge flows delete both DB rows and SVG files.
@@ -17,12 +18,13 @@
 - **Diagrams tab:** New tab with type selectors (Class/Component/Use Case/ERD/DB Schema/Sequence), diagram list sidebar, SVG preview panel, PlantUML/Mermaid source toggles, and download button.
 - **Endpoint filtering:** Sequence diagrams can be filtered by endpoint and by whether they include `codeviz2` externals, aligning the UI with the per-endpoint backend data.
 - **Sequence toggle:** Adds an inline switch to include/exclude `codeviz2` externals by choosing the appropriate diagram variant.
+- **Responsive layout:** Diagram cards and SVG panes resize gracefully between desktop and tablet widths; the analyzer form and diagram viewer no longer overflow horizontally.
 - **SVG streaming:** Fetches SVG content via authenticated AJAX and renders inline, caching responses per diagram ID.
 - **State management:** Diagrams are fetched post-analysis, stored per type, and integrated with the existing error/loading lifecycle; tests updated to expect the additional API calls.
 
 ## Documentation
 - Marked Iteration 6 as delivered in `iterationPlan.md` and referenced this summary.
-- Updated `PRD.md`, `README.md`, `backend/json-schema.md`, `backend/diagram-templates.md`, and `backend/confluence-doc-structure.md` with the new diagram data model, endpoints, and UI/UX expectations. (See repository diff for the exact prose changes.)
+- Updated `PRD.md`, `README.md`, `backend/json-schema.md`, `backend/diagram-templates.md`, and `backend/confluence-doc-structure.md` with the per-endpoint call-flow model, class/component heuristics, and the responsive UX requirements. (See repository diff for the exact prose changes.)
 
 ## Verification
 - Backend: `mvn -f backend/pom.xml -pl api -Dmaven.repo.local=./.m2 test` *(blocked – Maven Central cannot be reached from the sandbox, so the build fails while attempting to download the Spring Boot parent POM and PlantUML dependency; see CLI log for the DNS/permission errors.)*
