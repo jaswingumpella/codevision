@@ -1,7 +1,9 @@
 package com.codevision.codevisionbackend.project;
 
 import com.codevision.codevisionbackend.analyze.ClassMetadataSummary;
+import com.codevision.codevisionbackend.analyze.DiagramSummary;
 import com.codevision.codevisionbackend.analyze.ParsedDataResponse;
+import com.codevision.codevisionbackend.project.diagram.DiagramService;
 import com.codevision.codevisionbackend.project.metadata.ClassMetadata;
 import com.codevision.codevisionbackend.project.metadata.ClassMetadataRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -10,6 +12,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,6 +27,7 @@ public class ProjectSnapshotService {
     private final ProjectSnapshotRepository projectSnapshotRepository;
     private final ProjectRepository projectRepository;
     private final ClassMetadataRepository classMetadataRepository;
+    private final DiagramService diagramService;
     private final ObjectMapper objectMapper;
     private static final TypeReference<List<String>> LIST_OF_STRINGS = new TypeReference<>() {};
 
@@ -31,10 +35,12 @@ public class ProjectSnapshotService {
             ProjectSnapshotRepository projectSnapshotRepository,
             ProjectRepository projectRepository,
             ClassMetadataRepository classMetadataRepository,
+            DiagramService diagramService,
             ObjectMapper objectMapper) {
         this.projectSnapshotRepository = projectSnapshotRepository;
         this.projectRepository = projectRepository;
         this.classMetadataRepository = classMetadataRepository;
+        this.diagramService = diagramService;
         this.objectMapper = objectMapper;
     }
 
@@ -87,6 +93,7 @@ public class ProjectSnapshotService {
                     projectSnapshotRepository.delete(existing);
                     log.info("Deleted snapshot for projectId={}", projectId);
                 });
+        diagramService.purgeProjectDiagrams(managedProject);
     }
 
     private Project resolveProject(Project project, ParsedDataResponse parsedData) {
@@ -159,15 +166,15 @@ public class ProjectSnapshotService {
     private ParsedDataResponse hydrateSnapshot(ProjectSnapshot snapshot) {
         ParsedDataResponse fromSnapshot = fromJson(snapshot);
         if (fromSnapshot.classes() != null && !fromSnapshot.classes().isEmpty()) {
-            return fromSnapshot;
+            return enrichWithDiagrams(snapshot, fromSnapshot);
         }
         List<ClassMetadataSummary> classSummaries = classMetadataRepository.findByProjectId(snapshot.getProjectId()).stream()
                 .map(this::toSummary)
                 .toList();
         if (classSummaries.isEmpty()) {
-            return fromSnapshot;
+            return enrichWithDiagrams(snapshot, fromSnapshot);
         }
-        return new ParsedDataResponse(
+        ParsedDataResponse enrichedSnapshot = new ParsedDataResponse(
                 fromSnapshot.projectId(),
                 Optional.ofNullable(fromSnapshot.projectName()).orElse(snapshot.getProjectName()),
                 Optional.ofNullable(fromSnapshot.repoUrl()).orElse(snapshot.getRepoUrl()),
@@ -179,7 +186,38 @@ public class ProjectSnapshotService {
                 fromSnapshot.apiEndpoints(),
                 fromSnapshot.assets(),
                 fromSnapshot.loggerInsights(),
-                fromSnapshot.piiPciScan());
+                fromSnapshot.piiPciScan(),
+                fromSnapshot.callFlows(),
+                fromSnapshot.diagrams());
+        return enrichWithDiagrams(snapshot, enrichedSnapshot);
+    }
+
+    private ParsedDataResponse enrichWithDiagrams(ProjectSnapshot snapshot, ParsedDataResponse data) {
+        List<DiagramSummary> diagrams = data.diagrams();
+        if (diagrams == null || diagrams.isEmpty()) {
+            List<DiagramSummary> hydrated = diagramService.listProjectDiagrams(snapshot.getProjectId()).stream()
+                    .map(diagramService::toSummary)
+                    .filter(Objects::nonNull)
+                    .toList();
+            if (!hydrated.isEmpty()) {
+                return new ParsedDataResponse(
+                        data.projectId(),
+                        data.projectName(),
+                        data.repoUrl(),
+                        data.analyzedAt(),
+                        data.buildInfo(),
+                        data.classes(),
+                        data.metadataDump(),
+                        data.dbAnalysis(),
+                        data.apiEndpoints(),
+                        data.assets(),
+                        data.loggerInsights(),
+                        data.piiPciScan(),
+                        data.callFlows(),
+                        hydrated);
+            }
+        }
+        return data;
     }
 
     private ClassMetadataSummary toSummary(ClassMetadata metadata) {
@@ -205,4 +243,5 @@ public class ProjectSnapshotService {
             throw new IllegalStateException("Failed to deserialize metadata collection", e);
         }
     }
+
 }

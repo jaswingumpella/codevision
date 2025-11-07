@@ -1,0 +1,34 @@
+# Iteration 6 Completion Summary
+
+## Scope
+- Automate generation of class, component, use case, ERD, DB schema, and sequence diagrams (PlantUML + Mermaid) from stored metadata and static call graphs.
+- Persist rendered diagrams (including SVG assets) and expose them through dedicated REST endpoints plus the aggregated project snapshot.
+- Extend the React dashboard with an interactive Diagrams tab that surfaces SVG previews, source code, and filters/toggles.
+
+## Backend Deliverables
+- **Diagram pipeline:** Added `DiagramBuilderService` with a JavaParser-powered call graph builder that extracts dependency edges, guards against cycles, and emits diagram definitions + call flow summaries. Sequence diagrams get both internal-only and `codeviz2`-external variants, and every diagram has synchronized PlantUML/Mermaid sources.
+- **Per-endpoint call flows:** Sequence diagrams and `callFlows` entries are now emitted per REST/SOAP/legacy endpoint (using `HTTP_METHOD pathOrOperation` labels) so downstream consumers can reason about individual surfaces instead of a single merged flow.
+- **Persistence + storage:** Introduced the `diagram` table, `DiagramService`, and filesystem-backed SVG storage (`diagram.storage.root`, default `./data/diagrams`). Diagrams are regenerated each analysis run, saved alongside metadata JSON, and hydrated into snapshots when missing.
+- **API + schema:** Extended `ParsedDataResponse` with `callFlows` and `diagrams`, updated the OpenAPI contract (new `DiagramDescriptor` schema, `/project/{id}/diagrams`, `/project/{id}/diagram/{diagramId}/svg`), regenerated the OAS module, and wired a new `ProjectDiagramController`.
+- **Security + cleanup:** `ProjectSnapshotService` now pulls diagrams via the new repository/service when snapshots lack them, and purge flows delete both DB rows and SVG files.
+- **Tests:** Updated `AnalysisServiceTest`, `AnalyzeControllerTest`, `ProjectSnapshotServiceTest`, and `ProjectOverviewControllerTest` to account for the expanded constructors + payloads. Added coverage for diagram generation plumbing via mocks.
+
+## Frontend Deliverables
+- **Diagrams tab:** New tab with type selectors (Class/Component/Use Case/ERD/DB Schema/Sequence), diagram list sidebar, SVG preview panel, PlantUML/Mermaid source toggles, and download button.
+- **Endpoint filtering:** Sequence diagrams can be filtered by endpoint and by whether they include `codeviz2` externals, aligning the UI with the per-endpoint backend data.
+- **Sequence toggle:** Adds an inline switch to include/exclude `codeviz2` externals by choosing the appropriate diagram variant.
+- **SVG streaming:** Fetches SVG content via authenticated AJAX and renders inline, caching responses per diagram ID.
+- **State management:** Diagrams are fetched post-analysis, stored per type, and integrated with the existing error/loading lifecycle; tests updated to expect the additional API calls.
+
+## Documentation
+- Marked Iteration 6 as delivered in `iterationPlan.md` and referenced this summary.
+- Updated `PRD.md`, `README.md`, `backend/json-schema.md`, `backend/diagram-templates.md`, and `backend/confluence-doc-structure.md` with the new diagram data model, endpoints, and UI/UX expectations. (See repository diff for the exact prose changes.)
+
+## Verification
+- Backend: `mvn -f backend/pom.xml -pl api -Dmaven.repo.local=./.m2 test` *(blocked – Maven Central cannot be reached from the sandbox, so the build fails while attempting to download the Spring Boot parent POM and PlantUML dependency; see CLI log for the DNS/permission errors.)*
+- Frontend: `npx vitest run` (both specs pass; Vitest still warns that the long-running App integration test triggers React state updates outside of `act(...)`, same as before this change).
+
+## Known Constraints & Follow-Ups
+- SVG rendering currently relies on PlantUML’s internal renderer; large projects may take noticeable time to render complex diagrams.
+- Call graph derivation focuses on field/constructor dependencies; method call analysis could be expanded in future iterations for richer sequences.
+- Diagram filtering is intentionally lightweight (basic package tabs + externals toggle); future work could add search and package scoping once export requirements firm up.

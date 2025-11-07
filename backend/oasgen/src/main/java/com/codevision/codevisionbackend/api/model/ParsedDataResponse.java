@@ -7,6 +7,7 @@ import com.codevision.codevisionbackend.api.model.AssetInventory;
 import com.codevision.codevisionbackend.api.model.BuildInfo;
 import com.codevision.codevisionbackend.api.model.ClassMetadataSummary;
 import com.codevision.codevisionbackend.api.model.DbAnalysis;
+import com.codevision.codevisionbackend.api.model.DiagramDescriptor;
 import com.codevision.codevisionbackend.api.model.LoggerInsight;
 import com.codevision.codevisionbackend.api.model.MetadataDump;
 import com.codevision.codevisionbackend.api.model.PiiPciFinding;
@@ -16,7 +17,9 @@ import java.net.URI;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.openapitools.jackson.nullable.JsonNullable;
 import java.time.OffsetDateTime;
@@ -32,7 +35,7 @@ import jakarta.annotation.Generated;
  * ParsedDataResponse
  */
 
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2025-11-06T21:06:48.004750-05:00[America/New_York]", comments = "Generator version: 7.5.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2025-11-06T22:23:43.718706-05:00[America/New_York]", comments = "Generator version: 7.5.0")
 public class ParsedDataResponse {
 
   private Long projectId;
@@ -63,6 +66,12 @@ public class ParsedDataResponse {
 
   @Valid
   private List<@Valid PiiPciFinding> piiPciScan = new ArrayList<>();
+
+  @Valid
+  private Map<String, List<String>> callFlows = new HashMap<>();
+
+  @Valid
+  private List<@Valid DiagramDescriptor> diagrams = new ArrayList<>();
 
   public ParsedDataResponse() {
     super();
@@ -350,6 +359,62 @@ public class ParsedDataResponse {
     this.piiPciScan = piiPciScan;
   }
 
+  public ParsedDataResponse callFlows(Map<String, List<String>> callFlows) {
+    this.callFlows = callFlows;
+    return this;
+  }
+
+  public ParsedDataResponse putCallFlowsItem(String key, List<String> callFlowsItem) {
+    if (this.callFlows == null) {
+      this.callFlows = new HashMap<>();
+    }
+    this.callFlows.put(key, callFlowsItem);
+    return this;
+  }
+
+  /**
+   * High-level call flow summaries derived from the call graph.
+   * @return callFlows
+  */
+  @Valid 
+  @Schema(name = "callFlows", description = "High-level call flow summaries derived from the call graph.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @JsonProperty("callFlows")
+  public Map<String, List<String>> getCallFlows() {
+    return callFlows;
+  }
+
+  public void setCallFlows(Map<String, List<String>> callFlows) {
+    this.callFlows = callFlows;
+  }
+
+  public ParsedDataResponse diagrams(List<@Valid DiagramDescriptor> diagrams) {
+    this.diagrams = diagrams;
+    return this;
+  }
+
+  public ParsedDataResponse addDiagramsItem(DiagramDescriptor diagramsItem) {
+    if (this.diagrams == null) {
+      this.diagrams = new ArrayList<>();
+    }
+    this.diagrams.add(diagramsItem);
+    return this;
+  }
+
+  /**
+   * Persisted diagram definitions (PlantUML, Mermaid, SVG metadata).
+   * @return diagrams
+  */
+  @Valid 
+  @Schema(name = "diagrams", description = "Persisted diagram definitions (PlantUML, Mermaid, SVG metadata).", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @JsonProperty("diagrams")
+  public List<@Valid DiagramDescriptor> getDiagrams() {
+    return diagrams;
+  }
+
+  public void setDiagrams(List<@Valid DiagramDescriptor> diagrams) {
+    this.diagrams = diagrams;
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) {
@@ -370,12 +435,14 @@ public class ParsedDataResponse {
         Objects.equals(this.apiEndpoints, parsedDataResponse.apiEndpoints) &&
         Objects.equals(this.assets, parsedDataResponse.assets) &&
         Objects.equals(this.loggerInsights, parsedDataResponse.loggerInsights) &&
-        Objects.equals(this.piiPciScan, parsedDataResponse.piiPciScan);
+        Objects.equals(this.piiPciScan, parsedDataResponse.piiPciScan) &&
+        Objects.equals(this.callFlows, parsedDataResponse.callFlows) &&
+        Objects.equals(this.diagrams, parsedDataResponse.diagrams);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(projectId, projectName, repoUrl, analyzedAt, buildInfo, classes, metadataDump, dbAnalysis, apiEndpoints, assets, loggerInsights, piiPciScan);
+    return Objects.hash(projectId, projectName, repoUrl, analyzedAt, buildInfo, classes, metadataDump, dbAnalysis, apiEndpoints, assets, loggerInsights, piiPciScan, callFlows, diagrams);
   }
 
   @Override
@@ -394,6 +461,8 @@ public class ParsedDataResponse {
     sb.append("    assets: ").append(toIndentedString(assets)).append("\n");
     sb.append("    loggerInsights: ").append(toIndentedString(loggerInsights)).append("\n");
     sb.append("    piiPciScan: ").append(toIndentedString(piiPciScan)).append("\n");
+    sb.append("    callFlows: ").append(toIndentedString(callFlows)).append("\n");
+    sb.append("    diagrams: ").append(toIndentedString(diagrams)).append("\n");
     sb.append("}");
     return sb.toString();
   }

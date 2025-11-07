@@ -2,6 +2,8 @@ Diagram Source Templates (PlantUML & Mermaid)
 
 Below are simplified templates/examples showing how CodeDocGen represents various diagrams in PlantUML and Mermaid format. These templates illustrate the structure and syntax used for each diagram type.
 
+Each persisted diagram includes both the PlantUML and Mermaid source along with metadata (e.g., `includeExternal` for sequence diagrams) and an optional SVG rendering that can be served via `/project/{id}/diagram/{diagramId}/svg`. The React dashboard surfaces these variants through the Diagrams tab.
+
 Class Diagram: Shows classes with relationships (inheritance, associations).
 PlantUML (Class Diagram):
 
@@ -155,6 +157,8 @@ sequenceDiagram
 
 
 (Mermaid uses a similar participant list and arrow syntax. Note that ->> is used for normal calls and -->> for responses or internal calls in this context. Mermaid auto-deactivates lifelines, so explicit deactivate is not needed.)
+
+In CodeVision each API endpoint (REST/SOAP/legacy) receives its own sequence diagram plus a matching entry in `callFlows`. The diagram metadata includes the HTTP method + path (or SOAP operation) and whether the flow includes `codeviz2` externals so the UI can offer per-endpoint filtering between internal-only and full flows.
 
 These examples demonstrate the general format. In the actual output, class and method names will be specific to the project, and there may be many more elements. Also, the tool will ensure any special characters are escaped (especially in PlantUML). The diagrams are kept relatively simple and cycle-free: if a cycle is detected, PlantUML will show a note or a self-call indicating the cycle rather than infinitely expanding. Both PlantUML and Mermaid notations are provided for each diagram type so users can choose their preferred format or use whichever integrates better with their documentation pipeline.
 

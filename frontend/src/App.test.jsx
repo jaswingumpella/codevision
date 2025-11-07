@@ -54,7 +54,13 @@ describe('App', () => {
     axios.post.mockResolvedValueOnce({
       data: { projectId: 101, status: 'ANALYZED_METADATA' }
     });
-    axios.get.mockResolvedValueOnce({ data: mockOverview });
+    axios.get
+      .mockResolvedValueOnce({ data: mockOverview })
+      .mockResolvedValueOnce({ data: { endpoints: [] } })
+      .mockResolvedValueOnce({ data: { dbAnalysis: null } })
+      .mockResolvedValueOnce({ data: { loggerInsights: [] } })
+      .mockResolvedValueOnce({ data: { findings: [] } })
+      .mockResolvedValueOnce({ data: { diagrams: [] } });
 
     render(<App />);
 

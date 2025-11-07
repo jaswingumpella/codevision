@@ -284,6 +284,18 @@ ParsedDataResponse:
       description: Potential PCI/PII findings detected during analysis.
       items:
         $ref: '#/PiiPciFinding'
+    callFlows:
+      type: object
+      description: High-level call flow summaries derived from the call graph.
+      additionalProperties:
+        type: array
+        items:
+          type: string
+    diagrams:
+      type: array
+      description: Persisted diagram definitions (PlantUML, Mermaid, SVG metadata).
+      items:
+        $ref: '#/DiagramDescriptor'
 
 DbAnalysis:
   type: object
@@ -500,3 +512,51 @@ ProjectPiiPciResponse:
       type: array
       items:
         $ref: '#/PiiPciFinding'
+
+DiagramDescriptor:
+  type: object
+  required:
+    - diagramId
+    - diagramType
+    - title
+  properties:
+    diagramId:
+      type: integer
+      format: int64
+      description: Identifier of the stored diagram.
+    diagramType:
+      type: string
+      description: Diagram classification (CLASS, COMPONENT, USE_CASE, ERD, DB_SCHEMA, SEQUENCE).
+    title:
+      type: string
+      description: Short label shown in UI tabs.
+    plantumlSource:
+      type: string
+      description: PlantUML source text for the diagram.
+    mermaidSource:
+      type: string
+      description: Mermaid source text for the diagram.
+    svgAvailable:
+      type: boolean
+      description: Indicates whether an SVG rendering is stored.
+    svgDownloadUrl:
+      type: string
+      description: Relative URL to download the rendered SVG when available.
+    metadata:
+      type: object
+      additionalProperties: true
+      description: Diagram-specific metadata (e.g., includeExternal flag for sequences).
+
+ProjectDiagramsResponse:
+  type: object
+  required:
+    - projectId
+    - diagrams
+  properties:
+    projectId:
+      type: integer
+      format: int64
+    diagrams:
+      type: array
+      items:
+        $ref: '#/DiagramDescriptor'

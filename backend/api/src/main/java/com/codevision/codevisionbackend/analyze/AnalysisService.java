@@ -1,5 +1,7 @@
 package com.codevision.codevisionbackend.analyze;
 
+import com.codevision.codevisionbackend.analyze.diagram.DiagramBuilderService;
+import com.codevision.codevisionbackend.analyze.diagram.DiagramGenerationResult;
 import com.codevision.codevisionbackend.analyze.scanner.ApiEndpointRecord;
 import com.codevision.codevisionbackend.analyze.scanner.ApiScanner;
 import com.codevision.codevisionbackend.analyze.scanner.AssetScanner;
@@ -36,10 +38,13 @@ import com.codevision.codevisionbackend.project.metadata.ClassMetadata;
 import com.codevision.codevisionbackend.project.metadata.ClassMetadataRepository;
 import com.codevision.codevisionbackend.project.security.PiiPciFinding;
 import com.codevision.codevisionbackend.project.security.PiiPciFindingRepository;
+import com.codevision.codevisionbackend.project.diagram.Diagram;
+import com.codevision.codevisionbackend.project.diagram.DiagramService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -70,6 +75,8 @@ public class AnalysisService {
     private final LogStatementRepository logStatementRepository;
     private final PiiPciFindingRepository piiPciFindingRepository;
     private final ProjectSnapshotService projectSnapshotService;
+    private final DiagramBuilderService diagramBuilderService;
+    private final DiagramService diagramService;
     private final ObjectMapper objectMapper;
 
     public AnalysisService(
@@ -92,6 +99,8 @@ public class AnalysisService {
             LogStatementRepository logStatementRepository,
             PiiPciFindingRepository piiPciFindingRepository,
             ProjectSnapshotService projectSnapshotService,
+            DiagramBuilderService diagramBuilderService,
+            DiagramService diagramService,
             ObjectMapper objectMapper) {
         this.gitCloneService = gitCloneService;
         this.buildMetadataExtractor = buildMetadataExtractor;
@@ -112,6 +121,8 @@ public class AnalysisService {
         this.logStatementRepository = logStatementRepository;
         this.piiPciFindingRepository = piiPciFindingRepository;
         this.projectSnapshotService = projectSnapshotService;
+        this.diagramBuilderService = diagramBuilderService;
+        this.diagramService = diagramService;
         this.objectMapper = objectMapper;
     }
 
@@ -175,6 +186,15 @@ public class AnalysisService {
             log.info("Captured {} log statements for {}", logStatements.size(), repoUrl);
             replaceLogStatements(persistedProject, logStatements);
             DbAnalysisSummary dbAnalysisSummary = toDbAnalysisSummary(dbAnalysisResult);
+            DiagramGenerationResult diagramGeneration =
+                    diagramBuilderService.generate(
+                            cloneResult.directory(), classRecords, apiEndpoints, dbAnalysisResult);
+            List<Diagram> persistedDiagrams =
+                    diagramService.replaceProjectDiagrams(persistedProject, diagramGeneration.diagrams());
+            List<DiagramSummary> diagramSummaries = persistedDiagrams.stream()
+                    .map(diagramService::toSummary)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList());
             ParsedDataResponse parsedData =
                     assembleParsedData(
                             persistedProject,
@@ -185,7 +205,9 @@ public class AnalysisService {
                             apiEndpoints,
                             imageAssets,
                             logStatements,
-                            piiFindings);
+                            piiFindings,
+                            diagramGeneration.callFlows(),
+                            diagramSummaries);
             projectSnapshotService.saveSnapshot(persistedProject, parsedData);
             log.info(
                     "Completed analysis for {} with projectId={}", repoUrl, persistedProject.getId());
@@ -325,7 +347,9 @@ public class AnalysisService {
             List<ApiEndpointRecord> apiEndpoints,
             List<ImageAssetRecord> imageAssets,
             List<LogStatementRecord> logStatements,
-            List<PiiPciFindingRecord> piiFindings) {
+            List<PiiPciFindingRecord> piiFindings,
+            Map<String, List<String>> callFlows,
+            List<DiagramSummary> diagrams) {
         List<ClassMetadataSummary> classSummaries = classRecords.stream()
                 .map(record -> new ClassMetadataSummary(
                         record.fullyQualifiedName(),
@@ -392,7 +416,9 @@ public class AnalysisService {
                 endpointSummaries,
                 assetInventory,
                 loggerInsights,
-                piiSummaries);
+                piiSummaries,
+                callFlows,
+                diagrams);
     }
 
     private String writeJsonValue(Object value) {
@@ -522,6 +548,7 @@ public class AnalysisService {
             daoOperationRepository.deleteByProject(existing);
             logStatementRepository.deleteByProject(existing);
             piiPciFindingRepository.deleteByProject(existing);
+            diagramService.purgeProjectDiagrams(existing);
             projectService.delete(existing);
         });
     }

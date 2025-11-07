@@ -40,3 +40,7 @@ security:
         type: PCI
         severity: HIGH
     ignorePatterns: []
+
+diagram:
+  storage:
+    root: ./data/diagrams

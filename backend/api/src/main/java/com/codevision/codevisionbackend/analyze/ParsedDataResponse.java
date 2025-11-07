@@ -20,7 +20,9 @@ public record ParsedDataResponse(
         List<ApiEndpointSummary> apiEndpoints,
         AssetInventory assets,
         List<LoggerInsightSummary> loggerInsights,
-        List<PiiPciFindingSummary> piiPciScan) {
+        List<PiiPciFindingSummary> piiPciScan,
+        Map<String, List<String>> callFlows,
+        List<DiagramSummary> diagrams) {
 
     public ParsedDataResponse {
         classes = classes == null ? List.of() : List.copyOf(classes);
@@ -30,5 +32,7 @@ public record ParsedDataResponse(
         assets = assets == null ? AssetInventory.empty() : assets;
         loggerInsights = loggerInsights == null ? List.of() : List.copyOf(loggerInsights);
         piiPciScan = piiPciScan == null ? List.of() : List.copyOf(piiPciScan);
+        callFlows = callFlows == null ? Map.of() : Map.copyOf(callFlows);
+        diagrams = diagrams == null ? List.of() : List.copyOf(diagrams);
     }
 }

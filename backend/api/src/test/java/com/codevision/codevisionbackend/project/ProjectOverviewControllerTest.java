@@ -46,6 +46,8 @@ class ProjectOverviewControllerTest {
                 List.of(),
                 AssetInventory.empty(),
                 List.of(),
+                List.of(),
+                Map.of(),
                 List.of());
         snapshotService.setSnapshot(Optional.of(response));
 
@@ -84,6 +86,8 @@ class ProjectOverviewControllerTest {
                 List.of(endpoint),
                 AssetInventory.empty(),
                 List.of(),
+                List.of(),
+                Map.of(),
                 List.of());
         snapshotService.setSnapshot(Optional.of(response));
 
@@ -114,6 +118,8 @@ class ProjectOverviewControllerTest {
                 List.of(),
                 AssetInventory.empty(),
                 List.of(),
+                List.of(),
+                Map.of(),
                 List.of());
         snapshotService.setSnapshot(Optional.of(response));
 
@@ -130,7 +136,7 @@ class ProjectOverviewControllerTest {
         private Optional<ParsedDataResponse> snapshot = Optional.empty();
 
         StubProjectSnapshotService() {
-            super(null, null, null, new ObjectMapper());
+            super(null, null, null, null, new ObjectMapper());
         }
 
         void setSnapshot(Optional<ParsedDataResponse> snapshot) {

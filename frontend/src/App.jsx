@@ -723,6 +723,200 @@ const PiiPciPanel = ({ findings, loading, onDownloadCsv, onDownloadPdf }) => {
   );
 };
 
+const DIAGRAM_TYPE_LABELS = {
+  CLASS: 'Class',
+  COMPONENT: 'Component',
+  USE_CASE: 'Use Case',
+  ERD: 'ERD',
+  DB_SCHEMA: 'DB Schema',
+  SEQUENCE: 'Sequence'
+};
+
+const DIAGRAM_TYPE_ORDER = ['CLASS', 'COMPONENT', 'USE_CASE', 'ERD', 'DB_SCHEMA', 'SEQUENCE'];
+
+const DiagramsPanel = ({
+  diagramsByType,
+  loading,
+  activeType,
+  onTypeChange,
+  activeDiagram,
+  onSelectDiagram,
+  svgContent,
+  onDownloadSvg,
+  sequenceIncludeExternal,
+  onSequenceToggle
+}) => {
+  const [sourceVisibility, setSourceVisibility] = useState({ plantuml: false, mermaid: false });
+
+  useEffect(() => {
+    setSourceVisibility({ plantuml: false, mermaid: false });
+  }, [activeDiagram]);
+
+  const rawDiagrams = diagramsByType[activeType] || [];
+  const sequencePool = diagramsByType.SEQUENCE || [];
+  const hasSequenceInternal = sequencePool.some((diagram) => !Boolean(diagram.metadata?.includeExternal));
+  const hasSequenceExternal = sequencePool.some((diagram) => Boolean(diagram.metadata?.includeExternal));
+  const showSequenceToggle = activeType === 'SEQUENCE' && hasSequenceInternal && hasSequenceExternal;
+  const currentDiagrams =
+    activeType === 'SEQUENCE'
+      ? rawDiagrams.filter((diagram) => Boolean(diagram.metadata?.includeExternal) === sequenceIncludeExternal)
+      : rawDiagrams;
+
+  const renderDiagramList = () => {
+    if (loading && currentDiagrams.length === 0) {
+      return <p className="overview-hint">Loading diagrams…</p>;
+    }
+    if (!loading && currentDiagrams.length === 0) {
+      return <p className="overview-hint">No diagrams available for this category.</p>;
+    }
+    return (
+      <ul className="diagram-list">
+        {currentDiagrams.map((diagram) => {
+          const isSelected = activeDiagram && diagram.diagramId === activeDiagram.diagramId;
+          return (
+            <li key={diagram.diagramId}>
+              <button
+                type="button"
+                className={`diagram-card ${isSelected ? 'selected' : ''}`}
+                onClick={() => onSelectDiagram(diagram.diagramId)}
+              >
+                <div className="diagram-card-title">
+                  <strong>{diagram.title || 'Diagram'}</strong>
+                  {diagram.metadata?.includeExternal ? (
+                    <span className="badge badge-info">codeviz2</span>
+                  ) : null}
+                </div>
+                <p className="diagram-card-hint">
+                  {diagram.metadata?.pathOrOperation
+                    ? `${diagram.metadata?.httpMethod ? `${diagram.metadata.httpMethod} ` : ''}${
+                        diagram.metadata.pathOrOperation
+                      } · ${diagram.svgAvailable ? 'SVG available' : 'SVG not stored'}`
+                    : diagram.svgAvailable
+                      ? 'SVG available'
+                      : 'SVG not stored'}
+                </p>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    );
+  };
+
+  const renderDiagramViewer = () => {
+    if (!activeDiagram) {
+      return (
+        <div className="diagram-viewer">
+          <p className="overview-hint">
+            {loading ? 'Pick a diagram once loading completes.' : 'Select a diagram to view its details.'}
+          </p>
+        </div>
+      );
+    }
+
+    const activeSvg = svgContent[activeDiagram.diagramId];
+
+    return (
+      <div className="diagram-viewer">
+        <div className="diagram-viewer-header">
+          <div>
+            <h3>{activeDiagram.title || DIAGRAM_TYPE_LABELS[activeType] || 'Diagram'}</h3>
+            {activeDiagram.metadata?.pathOrOperation ? (
+              <span className="overview-hint">
+                {`${activeDiagram.metadata?.httpMethod ? `${activeDiagram.metadata.httpMethod} ` : ''}${
+                  activeDiagram.metadata.pathOrOperation
+                }`}
+              </span>
+            ) : null}
+            {activeDiagram.svgAvailable ? (
+              <span className="overview-hint">Rendered SVG available</span>
+            ) : (
+              <span className="overview-hint">SVG was not stored for this diagram</span>
+            )}
+          </div>
+          <div className="diagram-actions">
+            <button type="button" className="ghost-button" onClick={() => setSourceVisibility((prev) => ({
+                  ...prev,
+                  plantuml: !prev.plantuml
+                }))}>
+              {sourceVisibility.plantuml ? 'Hide PlantUML' : 'View PlantUML'}
+            </button>
+            <button type="button" className="ghost-button" onClick={() => setSourceVisibility((prev) => ({
+                  ...prev,
+                  mermaid: !prev.mermaid
+                }))}>
+              {sourceVisibility.mermaid ? 'Hide Mermaid' : 'View Mermaid'}
+            </button>
+            <button type="button" onClick={() => onDownloadSvg(activeDiagram)} disabled={!activeDiagram.svgAvailable}>
+              Download SVG
+            </button>
+          </div>
+        </div>
+        <div className="diagram-svg">
+          {activeDiagram.svgAvailable ? (
+            activeSvg ? (
+              <div dangerouslySetInnerHTML={{ __html: activeSvg }} />
+            ) : (
+              <p className="overview-hint">Rendering SVG…</p>
+            )
+          ) : (
+            <p className="overview-hint">SVG rendering is unavailable for this diagram.</p>
+          )}
+        </div>
+        {sourceVisibility.plantuml && (
+          <details open className="diagram-source-block">
+            <summary>PlantUML Source</summary>
+            <pre className="diagram-source">{activeDiagram.plantumlSource || 'Not available'}</pre>
+          </details>
+        )}
+        {sourceVisibility.mermaid && (
+          <details open className="diagram-source-block">
+            <summary>Mermaid Source</summary>
+            <pre className="diagram-source">{activeDiagram.mermaidSource || 'Not available'}</pre>
+          </details>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div className="overview-content diagram-panel">
+      <div className="diagram-type-tabs">
+        {DIAGRAM_TYPE_ORDER.map((type) => {
+          const hasDiagrams = (diagramsByType[type] || []).length > 0;
+          return (
+            <button
+              key={type}
+              type="button"
+              className={`tab-button ${activeType === type ? 'active' : ''}`}
+              onClick={() => hasDiagrams && onTypeChange(type)}
+              disabled={!hasDiagrams && !loading}
+            >
+              {DIAGRAM_TYPE_LABELS[type] || type}
+            </button>
+          );
+        })}
+      </div>
+      {showSequenceToggle ? (
+        <div className="diagram-controls">
+          <label className="toggle-group">
+            <input
+              type="checkbox"
+              checked={sequenceIncludeExternal}
+              onChange={(event) => onSequenceToggle(event.target.checked)}
+            />
+            Show codeviz2 externals
+          </label>
+        </div>
+      ) : null}
+      <div className="diagram-layout">
+        <aside className="diagram-sidebar">{renderDiagramList()}</aside>
+        {renderDiagramViewer()}
+      </div>
+    </div>
+  );
+};
+
 function App() {
   const [repoUrl, setRepoUrl] = useState('');
   const [apiKey, setApiKey] = useState('');
@@ -740,10 +934,115 @@ function App() {
   const [piiFindings, setPiiFindings] = useState([]);
   const [piiLoading, setPiiLoading] = useState(false);
   const [projectId, setProjectId] = useState(null);
+  const [diagrams, setDiagrams] = useState([]);
+  const [diagramLoading, setDiagramLoading] = useState(false);
+  const [diagramSvgContent, setDiagramSvgContent] = useState({});
+  const [activeDiagramType, setActiveDiagramType] = useState('CLASS');
+  const [activeDiagramId, setActiveDiagramId] = useState(null);
+  const [sequenceIncludeExternal, setSequenceIncludeExternal] = useState(false);
 
   const projectName = useMemo(() => deriveProjectName(repoUrl), [repoUrl]);
+  const diagramsByType = useMemo(() => {
+    const groups = {};
+    diagrams.forEach((diagram) => {
+      const normalizedType = (diagram.diagramType || 'CLASS').toUpperCase();
+      if (!groups[normalizedType]) {
+        groups[normalizedType] = [];
+      }
+      groups[normalizedType].push(diagram);
+    });
+    return groups;
+  }, [diagrams]);
+
+  const activeDiagram = useMemo(() => {
+    if (!activeDiagramId) {
+      return null;
+    }
+    return diagrams.find((diagram) => diagram.diagramId === activeDiagramId) || null;
+  }, [diagrams, activeDiagramId]);
 
   const authHeaders = () => (apiKey ? { 'X-API-KEY': apiKey } : {});
+
+  useEffect(() => {
+    if (diagrams.length === 0) {
+      setActiveDiagramId(null);
+      return;
+    }
+    const availableTypes = Object.keys(diagramsByType);
+    if (availableTypes.length === 0) {
+      setActiveDiagramId(null);
+      return;
+    }
+    if (!diagramsByType[activeDiagramType] || diagramsByType[activeDiagramType].length === 0) {
+      const nextType = availableTypes[0];
+      setActiveDiagramType(nextType);
+      setActiveDiagramId(diagramsByType[nextType][0]?.diagramId ?? null);
+      return;
+    }
+    if (
+      diagramsByType[activeDiagramType] &&
+      !diagramsByType[activeDiagramType].some((diagram) => diagram.diagramId === activeDiagramId)
+    ) {
+      setActiveDiagramId(diagramsByType[activeDiagramType][0]?.diagramId ?? null);
+    }
+  }, [diagrams, diagramsByType, activeDiagramType, activeDiagramId]);
+
+  useEffect(() => {
+    if (activeDiagramType !== 'SEQUENCE') {
+      return;
+    }
+    const sequences = diagramsByType.SEQUENCE || [];
+    if (sequences.length === 0) {
+      return;
+    }
+    const matching = sequences.filter(
+      (diagram) => Boolean(diagram.metadata?.includeExternal) === sequenceIncludeExternal
+    );
+    if (matching.length === 0) {
+      const fallback = sequences[0];
+      setSequenceIncludeExternal(Boolean(fallback.metadata?.includeExternal));
+      setActiveDiagramId(fallback.diagramId ?? null);
+      return;
+    }
+    if (!matching.some((diagram) => diagram.diagramId === activeDiagramId)) {
+      setActiveDiagramId(matching[0]?.diagramId ?? null);
+    }
+  }, [activeDiagramType, diagramsByType, sequenceIncludeExternal, activeDiagramId]);
+
+  useEffect(() => {
+    if (!activeDiagram || !activeDiagram.svgAvailable || !activeDiagram.svgDownloadUrl) {
+      return;
+    }
+    if (diagramSvgContent[activeDiagram.diagramId]) {
+      return;
+    }
+    let cancelled = false;
+    axios
+      .get(activeDiagram.svgDownloadUrl, {
+        headers: {
+          ...authHeaders()
+        },
+        responseType: 'text'
+      })
+      .then((response) => {
+        if (cancelled) {
+          return;
+        }
+        const payload = typeof response.data === 'string' ? response.data : new TextDecoder().decode(response.data);
+        setDiagramSvgContent((prev) => ({
+          ...prev,
+          [activeDiagram.diagramId]: payload
+        }));
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          console.warn('Failed to load diagram SVG', error);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeDiagram, diagramSvgContent, apiKey]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -761,6 +1060,12 @@ function App() {
     setPiiFindings([]);
     setPiiLoading(false);
     setProjectId(null);
+    setDiagrams([]);
+    setDiagramSvgContent({});
+    setDiagramLoading(false);
+    setActiveDiagramId(null);
+    setActiveDiagramType('CLASS');
+    setSequenceIncludeExternal(false);
 
     console.info('Submitting analysis request', {
       repoUrl,
@@ -871,6 +1176,33 @@ function App() {
           } finally {
             setPiiLoading(false);
           }
+
+          try {
+            setDiagramLoading(true);
+            const diagramsResponse = await axios.get(`/project/${payload.projectId}/diagrams`, {
+              headers: {
+                ...authHeaders()
+              }
+            });
+            const diagramList = Array.isArray(diagramsResponse.data?.diagrams)
+              ? diagramsResponse.data.diagrams
+              : [];
+            setDiagrams(diagramList);
+            if (diagramList.length > 0) {
+              const firstDiagram = diagramList[0];
+              setActiveDiagramType((firstDiagram.diagramType || 'CLASS').toUpperCase());
+              setActiveDiagramId(firstDiagram.diagramId ?? null);
+              setSequenceIncludeExternal(Boolean(firstDiagram.metadata?.includeExternal));
+            } else {
+              setActiveDiagramId(null);
+            }
+          } catch (diagramError) {
+            console.warn('Failed to load diagrams', diagramError);
+            setDiagrams([]);
+            setActiveDiagramId(null);
+          } finally {
+            setDiagramLoading(false);
+          }
         } catch (fetchError) {
           console.warn('Failed to load project overview', fetchError);
           setError(fetchError.response?.data || 'Analysis completed, but the overview failed to load.');
@@ -918,6 +1250,15 @@ function App() {
     projectId && handleExport(`/project/${projectId}/export/pii.csv`, `pii-findings-${projectId}.csv`);
   const downloadPiiPdf = () =>
     projectId && handleExport(`/project/${projectId}/export/pii.pdf`, `pii-findings-${projectId}.pdf`);
+
+  const downloadDiagramSvg = (diagram) => {
+    if (!diagram || !diagram.svgAvailable || !diagram.svgDownloadUrl) {
+      return;
+    }
+    const safeType = (diagram.diagramType || 'diagram').toLowerCase();
+    const fileName = `${safeType}-${diagram.diagramId || 'diagram'}.svg`;
+    handleExport(diagram.svgDownloadUrl, fileName);
+  };
 
   return (
     <div className="app">
@@ -1004,6 +1345,14 @@ function App() {
             >
               PCI / PII Scan
             </button>
+            <button
+              type="button"
+              className={`tab-button ${activeTab === 'diagrams' ? 'active' : ''}`}
+              onClick={() => setActiveTab('diagrams')}
+              disabled={diagrams.length === 0 && !diagramLoading}
+            >
+              Diagrams
+            </button>
           </div>
           {activeTab === 'overview' ? (
             <OverviewPanel overview={overview} loading={loading && !overview} />
@@ -1018,12 +1367,25 @@ function App() {
               onDownloadCsv={downloadLogsCsv}
               onDownloadPdf={downloadLogsPdf}
             />
-          ) : (
+          ) : activeTab === 'pii' ? (
             <PiiPciPanel
               findings={piiFindings}
               loading={piiLoading && piiFindings.length === 0}
               onDownloadCsv={downloadPiiCsv}
               onDownloadPdf={downloadPiiPdf}
+            />
+          ) : (
+            <DiagramsPanel
+              diagramsByType={diagramsByType}
+              loading={diagramLoading}
+              activeType={activeDiagramType}
+              onTypeChange={setActiveDiagramType}
+              activeDiagram={activeDiagram}
+              onSelectDiagram={setActiveDiagramId}
+              svgContent={diagramSvgContent}
+              onDownloadSvg={downloadDiagramSvg}
+              sequenceIncludeExternal={sequenceIncludeExternal}
+              onSequenceToggle={setSequenceIncludeExternal}
             />
           )}
         </section>

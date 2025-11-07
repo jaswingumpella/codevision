@@ -9,6 +9,8 @@ The backend lives in [`backend/`](backend/). It exposes a synchronous `/analyze`
 - `GET /project/{id}/overview` – the latest `ParsedDataResponse`.
 - `GET /project/{id}/api-endpoints` – the persisted API catalog (requires the API key when security is enabled).
 - `GET /project/{id}/db-analysis` – entities, repositories, and CRUD intent summaries captured during analysis.
+- `GET /project/{id}/diagrams` – enumerates every stored diagram (class/component/use-case/ERD/DB/schema/sequence) with PlantUML, Mermaid, metadata, and SVG availability.
+- `GET /project/{id}/diagram/{diagramId}/svg` – streams the rendered SVG for a specific diagram when available.
 
 ### Prerequisites
 
@@ -26,9 +28,13 @@ git:
     token: your-token
 security:
   apiKey: your-api-key
+diagram:
+  storage:
+    root: ./data/diagrams
 ```
 
 If you do not need authenticated cloning, leave the values blank. Update the `security.apiKey` to protect API calls. When the key is blank, the API key filter is effectively disabled for development.
+`diagram.storage.root` controls where rendered SVG assets are cached; the directory is created automatically if it does not exist.
 
 ### Run the backend
 
@@ -104,6 +110,7 @@ The frontend lives in [`frontend/`](frontend/). It provides a single-page workfl
 - Database tab with entity ↔ repository mapping and DAO operation breakdowns (inferred CRUD intent, targets, inline queries).
 - Embedded viewers for OpenAPI YAML, WSDL, and XSD definitions plus synthesized SOAP service summaries.
 - Media asset inventory (PNG/JPG/SVG/GIF) listing repository diagrams and screenshots with size + relative path.
+- Diagrams tab with type-level filtering, SVG previews, PlantUML/Mermaid source toggles, a sequence-external toggle, and one-click SVG downloads.
 
 ### Prerequisites
 
@@ -148,5 +155,6 @@ The backend uses an on-disk H2 database stored under `backend/data/`. Key tables
 - `asset_image` – discovered documentation assets (path, size, hash)
 - `db_entity` – extracted JPA entity metadata (tables, PKs, relationships)
 - `dao_operation` – classified DAO/repository operations with inferred CRUD intent
+- `diagram` – stored diagram definitions (type, title, source text, SVG path, metadata JSON)
 
 Re-running `/analyze` with the same repository URL overwrites the project metadata and regenerates the snapshot/class records so the UI always reflects the latest scan.

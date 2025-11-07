@@ -397,6 +397,8 @@ Security/compliance visibility.
 
 ## Iteration 6 – Diagram generation (PlantUML + Mermaid) and visualization
 
+**Status:** ✅ Completed – see [`docs/iteration-6-completion.md`](docs/iteration-6-completion.md) for delivery notes.
+
 ### Goal
 
 Generate and view diagrams, including call flows, ERDs, components, class diagrams, etc.

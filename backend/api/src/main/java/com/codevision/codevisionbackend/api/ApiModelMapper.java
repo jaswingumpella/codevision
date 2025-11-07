@@ -5,14 +5,17 @@ import com.codevision.codevisionbackend.analyze.AssetInventory;
 import com.codevision.codevisionbackend.analyze.BuildInfo;
 import com.codevision.codevisionbackend.analyze.ClassMetadataSummary;
 import com.codevision.codevisionbackend.analyze.DbAnalysisSummary;
+import com.codevision.codevisionbackend.analyze.DiagramSummary;
 import com.codevision.codevisionbackend.analyze.LoggerInsightSummary;
 import com.codevision.codevisionbackend.analyze.MetadataDump;
 import com.codevision.codevisionbackend.analyze.MetadataDump.SoapPortSummary;
 import com.codevision.codevisionbackend.analyze.MetadataDump.SoapServiceSummary;
 import com.codevision.codevisionbackend.analyze.ParsedDataResponse;
 import com.codevision.codevisionbackend.analyze.PiiPciFindingSummary;
+import com.codevision.codevisionbackend.api.model.DiagramDescriptor;
 import com.codevision.codevisionbackend.api.model.LoggerInsight;
 import com.codevision.codevisionbackend.api.model.PiiPciFinding;
+import com.codevision.codevisionbackend.api.model.ProjectDiagramsResponse;
 import com.codevision.codevisionbackend.api.model.ProjectLoggerInsightsResponse;
 import com.codevision.codevisionbackend.api.model.ProjectPiiPciResponse;
 import java.net.URI;
@@ -93,6 +96,18 @@ public class ApiModelMapper {
             response.setPiiPciScan(piiPciScan.stream()
                     .filter(Objects::nonNull)
                     .map(this::toPiiPciFinding)
+                    .collect(Collectors.toList()));
+        }
+
+        if (snapshot.callFlows() != null && !snapshot.callFlows().isEmpty()) {
+            response.setCallFlows(snapshot.callFlows());
+        }
+
+        List<DiagramSummary> diagrams = snapshot.diagrams();
+        if (diagrams != null) {
+            response.setDiagrams(diagrams.stream()
+                    .filter(Objects::nonNull)
+                    .map(this::toDiagramDescriptor)
                     .collect(Collectors.toList()));
         }
 
@@ -233,6 +248,26 @@ public class ApiModelMapper {
                 .matchType(summary.matchType())
                 .severity(summary.severity())
                 .ignored(summary.ignored());
+    }
+
+    private DiagramDescriptor toDiagramDescriptor(DiagramSummary summary) {
+        DiagramDescriptor descriptor = new DiagramDescriptor()
+                .diagramId(summary.diagramId())
+                .diagramType(summary.diagramType())
+                .title(summary.title())
+                .plantumlSource(summary.plantumlSource())
+                .mermaidSource(summary.mermaidSource())
+                .metadata(summary.metadata());
+        descriptor.setSvgAvailable(summary.svgPath() != null && !summary.svgPath().isBlank());
+        return descriptor;
+    }
+
+    private DiagramDescriptor toDiagramDescriptor(Long projectId, DiagramSummary summary) {
+        DiagramDescriptor descriptor = toDiagramDescriptor(summary);
+        if (summary.diagramId() != null && projectId != null && descriptor.getSvgAvailable()) {
+            descriptor.setSvgDownloadUrl(String.format("/project/%d/diagram/%d/svg", projectId, summary.diagramId()));
+        }
+        return descriptor;
     }
 
     private com.codevision.codevisionbackend.api.model.DbAnalysis toDbAnalysis(DbAnalysisSummary summary) {
@@ -383,6 +418,17 @@ public class ApiModelMapper {
             response.setFindings(findings.stream()
                     .filter(Objects::nonNull)
                     .map(this::toPiiPciFinding)
+                    .collect(Collectors.toList()));
+        }
+        return response;
+    }
+
+    public ProjectDiagramsResponse toProjectDiagramsResponse(Long projectId, List<DiagramSummary> diagrams) {
+        ProjectDiagramsResponse response = new ProjectDiagramsResponse().projectId(projectId);
+        if (diagrams != null) {
+            response.setDiagrams(diagrams.stream()
+                    .filter(Objects::nonNull)
+                    .map(diagram -> toDiagramDescriptor(projectId, diagram))
                     .collect(Collectors.toList()));
         }
         return response;

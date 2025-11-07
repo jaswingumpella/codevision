@@ -1,6 +1,7 @@
 com/codevision/codevisionbackend/api/model/BuildInfo.class
 com/codevision/codevisionbackend/api/model/DbAnalysis.class
 com/codevision/codevisionbackend/api/generated/ApiUtil.class
+com/codevision/codevisionbackend/api/generated/DiagramApi.class
 com/codevision/codevisionbackend/api/model/DbRelationshipSummary.class
 com/codevision/codevisionbackend/api/model/MetadataDump.class
 com/codevision/codevisionbackend/api/model/ProjectPiiPciResponse.class
@@ -16,7 +17,9 @@ com/codevision/codevisionbackend/api/model/AnalyzeRequest.class
 com/codevision/codevisionbackend/api/model/DbEntitySummary.class
 com/codevision/codevisionbackend/api/model/ApiSpecArtifact.class
 com/codevision/codevisionbackend/api/model/AssetInventory.class
+com/codevision/codevisionbackend/api/model/ProjectDiagramsResponse.class
 com/codevision/codevisionbackend/api/model/ParsedDataResponse.class
+com/codevision/codevisionbackend/api/model/DiagramDescriptor.class
 com/codevision/codevisionbackend/api/model/LoggerInsight.class
 com/codevision/codevisionbackend/api/generated/SecurityApi.class
 com/codevision/codevisionbackend/api/model/ClassMetadataSummary.class

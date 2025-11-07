@@ -10,6 +10,8 @@ import static org.mockito.Mockito.when;
 import com.codevision.codevisionbackend.analyze.BuildInfo;
 import com.codevision.codevisionbackend.analyze.MetadataDump;
 import com.codevision.codevisionbackend.analyze.ParsedDataResponse;
+import com.codevision.codevisionbackend.analyze.diagram.DiagramBuilderService;
+import com.codevision.codevisionbackend.analyze.diagram.DiagramGenerationResult;
 import com.codevision.codevisionbackend.analyze.scanner.ApiEndpointRecord;
 import com.codevision.codevisionbackend.analyze.scanner.ApiScanner;
 import com.codevision.codevisionbackend.analyze.scanner.AssetScanner;
@@ -44,6 +46,7 @@ import com.codevision.codevisionbackend.project.metadata.ClassMetadata;
 import com.codevision.codevisionbackend.project.metadata.ClassMetadataRepository;
 import com.codevision.codevisionbackend.project.logger.LogStatementRepository;
 import com.codevision.codevisionbackend.project.security.PiiPciFindingRepository;
+import com.codevision.codevisionbackend.project.diagram.DiagramService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -116,6 +119,12 @@ class AnalysisServiceTest {
     @Mock
     private ProjectSnapshotService projectSnapshotService;
 
+    @Mock
+    private DiagramBuilderService diagramBuilderService;
+
+    @Mock
+    private DiagramService diagramService;
+
     private AnalysisService analysisService;
 
     @Test
@@ -144,6 +153,8 @@ class AnalysisServiceTest {
                 logStatementRepository,
                 piiPciFindingRepository,
                 projectSnapshotService,
+                diagramBuilderService,
+                diagramService,
                 new ObjectMapper());
 
         BuildInfo buildInfo = new BuildInfo("com.barclays", "demo-app", "1.0.0", "21");
@@ -216,6 +227,12 @@ class AnalysisServiceTest {
         when(loggerScanner.scan(repoDir, metadata.moduleRoots())).thenReturn(logRecords);
 
         when(projectService.overwriteProject("https://example.com/repo.git", "demo-app", buildInfo)).thenReturn(project);
+
+        DiagramGenerationResult diagramResult = new DiagramGenerationResult(List.of(), Map.of());
+        when(diagramBuilderService.generate(
+                        eq(repoDir), Mockito.anyList(), Mockito.anyList(), Mockito.any()))
+                .thenReturn(diagramResult);
+        when(diagramService.replaceProjectDiagrams(project, diagramResult.diagrams())).thenReturn(List.of());
 
         AnalysisOutcome outcome = analysisService.analyze("https://example.com/repo.git");
 

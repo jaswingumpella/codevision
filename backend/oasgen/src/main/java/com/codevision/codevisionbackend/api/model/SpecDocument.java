@@ -18,7 +18,7 @@ import jakarta.annotation.Generated;
  * SpecDocument
  */
 
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2025-11-06T21:06:48.004750-05:00[America/New_York]", comments = "Generator version: 7.5.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2025-11-06T22:23:43.718706-05:00[America/New_York]", comments = "Generator version: 7.5.0")
 public class SpecDocument {
 
   private String fileName;

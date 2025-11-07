@@ -27,6 +27,7 @@ ERD (Entity Relationship Diagram): (PlantUML text showing the database schema de
 Sequence Diagram(s): For key call flows, the PlantUML for sequence diagrams is included. There might be one main sequence (e.g., the primary use case of the system) or multiple sequences for different endpoints. Each sequence diagram text is labeled or captioned accordingly.
 
 Each of these diagram subsections is clearly labeled, and the text is in a code block so that if this HTML is pasted into Confluence with the PlantUML plugin, the diagrams will render automatically, or at least the text can be easily copied to an external renderer. (No SVG or image files are directly embedded in the HTML export to keep it self-contained and text-based.)
+When needed, the export can also reference the `/project/{id}/diagrams` endpoint so readers can download SVGs or the Mermaid equivalents. Sequence sections should call out whether the flow includes `codeviz2` externals (matching the metadata exposed by the backend) so reviewers understand which variant they are reading.
 
 4. Database Analysis: This section details how the code interacts with the database.
 

@@ -4,11 +4,10 @@ import com.codevision.codevisionbackend.analyze.AssetInventory;
 import com.codevision.codevisionbackend.analyze.BuildInfo;
 import com.codevision.codevisionbackend.analyze.DbAnalysisSummary;
 import com.codevision.codevisionbackend.analyze.LoggerInsightSummary;
-import com.codevision.codevisionbackend.analyze.LoggerInsightSummary;
 import com.codevision.codevisionbackend.analyze.MetadataDump;
 import com.codevision.codevisionbackend.analyze.ParsedDataResponse;
 import com.codevision.codevisionbackend.analyze.PiiPciFindingSummary;
-import com.codevision.codevisionbackend.analyze.PiiPciFindingSummary;
+import com.codevision.codevisionbackend.project.diagram.DiagramService;
 import com.codevision.codevisionbackend.project.metadata.ClassMetadata;
 import com.codevision.codevisionbackend.project.metadata.ClassMetadataRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -17,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 
@@ -35,12 +35,15 @@ class ProjectSnapshotServiceTest {
     private ClassMetadataRepository classMetadataRepository;
 
     private ProjectSnapshotService projectSnapshotService;
+    private DiagramService diagramService;
 
     @BeforeEach
     void setUp() {
         ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+        diagramService = Mockito.mock(DiagramService.class);
+        Mockito.when(diagramService.listProjectDiagrams(Mockito.any())).thenReturn(List.of());
         projectSnapshotService = new ProjectSnapshotService(
-                projectSnapshotRepository, projectRepository, classMetadataRepository, objectMapper);
+                projectSnapshotRepository, projectRepository, classMetadataRepository, diagramService, objectMapper);
     }
 
     @Test
@@ -80,6 +83,8 @@ class ProjectSnapshotServiceTest {
                 List.of(),
                 AssetInventory.empty(),
                 List.of(),
+                List.of(),
+                Map.of(),
                 List.of());
 
         projectSnapshotService.saveSnapshot(detached, parsed);
@@ -161,6 +166,8 @@ class ProjectSnapshotServiceTest {
                 List.of(),
                 AssetInventory.empty(),
                 List.of(),
+                List.of(),
+                Map.of(),
                 List.of());
     }
 

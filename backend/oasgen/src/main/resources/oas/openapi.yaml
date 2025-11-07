@@ -15,6 +15,8 @@ tags:
     description: Endpoints that expose stored project overview information.
   - name: Security
     description: Security and compliance visibility endpoints.
+  - name: Diagram
+    description: Architectural diagram retrieval endpoints.
 paths:
   /analyze:
     post:
@@ -126,6 +128,61 @@ paths:
                 $ref: ./components/schemas.yaml#/ProjectDbAnalysisResponse
         '404':
           description: No database analysis is available for the supplied identifier.
+  /project/{projectId}/diagrams:
+    get:
+      operationId: getProjectDiagrams
+      tags:
+        - Diagram
+      summary: Retrieve stored diagrams for a project
+      description: Returns the PlantUML/Mermaid source and SVG metadata for every diagram captured during analysis.
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          description: Unique identifier of the project.
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Diagram catalog retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: ./components/schemas.yaml#/ProjectDiagramsResponse
+        '404':
+          description: No diagrams were found for the supplied identifier.
+  /project/{projectId}/diagram/{diagramId}/svg:
+    get:
+      operationId: getProjectDiagramSvg
+      tags:
+        - Diagram
+      summary: Download rendered diagram SVG
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: diagramId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: SVG content for the requested diagram.
+          content:
+            image/svg+xml:
+              schema:
+                type: string
+                format: binary
+        '204':
+          description: Diagram exists but no SVG rendering is stored.
+        '404':
+          description: The requested diagram was not found for the project.
   /project/{projectId}/logger-insights:
     get:
       operationId: getProjectLoggerInsights

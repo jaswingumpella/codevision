@@ -48,6 +48,8 @@ class AnalyzeControllerTest {
                 List.of(),
                 AssetInventory.empty(),
                 List.of(),
+                List.of(),
+                Map.of(),
                 List.of());
         analysisService.setNextOutcome(new AnalysisOutcome(project, data));
 
@@ -65,6 +67,8 @@ class AnalyzeControllerTest {
 
         StubAnalysisService() {
             super(
+                    null,
+                    null,
                     null,
                     null,
                     null,
