@@ -1319,3 +1319,31 @@ Security is in place: the API key protection is enforced on all appropriate endp
 The tool supports the range of environments intended – it has been tested on Java 8, 11, 17, and 21 codebases (ensuring backward compatibility in parsing), with both simple and multi-module Maven projects, and has handled both Spring Boot modern projects and older Java EE style projects to cover the variety of API types. It can also accommodate user configuration for first-party prefixes, meaning internal libraries can be included in analysis if desired.
 
 Once all the above is verified, CodeDocGen v1 can be delivered as a self-contained package for users (e.g. as a runnable JAR with an embedded frontend or as separate backend and frontend bundles, along with documentation on usage). This PRD encapsulates the full scope of CodeDocGen v1’s intended functionality and quality criteria.
+
+## 7. UX & Interaction Requirements
+
+### 7.1 Tab navigation and responsiveness
+
+* The dashboard tabs (Overview, API Specs, Database, Logger Insights, PCI / PII Scan, Diagrams, Export) must remain accessible at every viewport width. Desktop/tablet layouts keep a horizontally scrollable pill bar that wraps as space allows. At sub‑tablet widths (<720 px) the pill bar hides and a native `<select>` mirrors every tab so routes like **Diagrams** never disappear off-screen.
+* The tab rail stays sticky at the top edge of the overview card so navigation is always in reach while scrolling long tables or diagram lists. Use `role="tablist"`/`aria-current` to keep screen readers informed of the active panel.
+
+### 7.2 Analyzer form behavior
+
+* After a successful analysis (`status === ANALYZED_METADATA`), collapse the left analyzer form into a compact “Latest analysis” summary that surfaces project ID, repo URL, and analyzed timestamp.
+* Provide explicit “Hide panel / Show form” affordances plus an **Edit inputs** button so users can quickly rerun analysis. On errors, auto-expand the form to keep the inputs immediately editable.
+* The collapsed state should also offer a secondary action (e.g., “View dashboard”) to jump the focus back to the Overview tab.
+
+### 7.3 Loading states and status messaging
+
+* Replace ambiguous dots/spinners with a deterministic **analysis timeline** rendered inside the analyzer card. The timeline streams these steps: `Cloning repository and running analysis`, `Loading project overview`, `Mapping APIs and OpenAPI specs`, `Inspecting database entities`, `Gathering logger insights`, `Scanning for PCI / PII risks`, `Generating diagrams`.
+* Each step transitions through `Queued → In progress… → Done` (or `Skipped` if the backend fails before reaching it). The component must announce updates via `aria-live="polite"` for assistive tech.
+
+### 7.4 Empty states and hints
+
+* Every empty panel must suggest a next action. Example: OpenAPI sections say “No OpenAPI specs found. Add Swagger annotations or include an `openapi.yaml` / `swagger.json` so CodeVision can render docs.” Similar guidance should exist for SOAP specs, diagrams, logger tables, etc.
+* Use restrained styling (muted text, tight spacing) so guidance compliments, rather than overwhelms, the surrounding section.
+
+### 7.5 Responsiveness expectations
+
+* The grid (analyzer card + overview card) stacks vertically on narrow screens without horizontal scrolling. Diagram viewers keep SVGs scrollable within their own pane instead of stretching the page.
+* Sticky navigation, dropdown fallback, collapsible analyzer, and the progress timeline are now part of the v1 acceptance criteria.

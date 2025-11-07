@@ -751,4 +751,32 @@ Starting with Iteration 5 we run every milestone against the reference repositor
 
 The doc also includes the validation checklist (snapshot rows, CSV/PDF downloads, UI filter sanity). Capture timing/results for each run so regressions can be spotted before promoting a build.
 
+## Iteration 8 – UX polish & progressive feedback *(Status: ✅ Completed)*
+
+### Goal
+
+Close the UX gaps discovered during internal dogfooding: hidden Diagrams tab on smaller screens, analyzer sidebar clutter after a run completes, lack of visible loading states, and empty-state messages that simply say “Not found” without suggesting fixes.
+
+### Backend
+
+* No new API surface. The frontend orchestrates the existing `/analyze` + follow-up fetches but now maps each call to a deterministic step list (Analyze → Overview → API → Database → Logger → PCI/PII → Diagrams). When an upstream request fails, remaining steps are marked `Skipped` so users understand why the pipeline stopped.
+
+### UI
+
+* Replace the old horizontal tab strip with a sticky, wrapping pill row plus a mobile `<select>` fallback so every panel (especially **Diagrams**) stays discoverable on narrow viewports.
+* Add a collapsible analyzer card: after `status === ANALYZED_METADATA`, the form tucks away into a “Latest analysis” summary (project name, repo URL, project ID, analyzed timestamp, quick actions). Users can hide/show it manually, and the card auto-expands whenever an error occurs to keep inputs accessible.
+* Introduce an analysis timeline widget (aria-live friendly) that mirrors each backend step with `Queued / In progress… / Done / Skipped` states instead of a generic spinner/dot.
+* Refresh empty states—OpenAPI panes now explain how to add Swagger files, API Specs hint at controller annotations, etc.—so each panel offers actionable next steps when data is missing.
+
+### Persistence
+
+* None. All work happens in the React layer.
+
+### Done Criteria
+
+* Tabs remain reachable at <720 px via the dropdown, and the sticky rail keeps navigation visible while scrolling long tables.
+* Analyzer card collapses post-analysis, can be redisplayed with a button, and reopens automatically on failure.
+* Timeline reflects real-time status of every fetch in the `/analyze` workflow and shows `Skipped` states when runs abort midstream.
+* OpenAPI empty states in Overview and API Specs encourage users to add Swagger/OpenAPI files instead of stopping at “No definitions detected.”
+
 At this point, CodeDocGen v1 meets the PRD’s vision fully. Any further enhancements (like Gradle support, deeper static code analysis such as control flow or execution paths, or integration with CI pipelines) would be beyond v1 and can be planned separately. For now, the focus was delivering a comprehensive static analysis and documentation tool for Java codebases, and with iteration 7 done, we have achieved that.

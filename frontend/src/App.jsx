@@ -4,6 +4,15 @@ import './App.css';
 
 const STATUS_ANALYZED = 'ANALYZED_METADATA';
 const PAGE_SIZE = 10;
+const ANALYSIS_STEPS = [
+  { id: 'analyze', label: 'Cloning repository and running analysis' },
+  { id: 'overview', label: 'Loading project overview' },
+  { id: 'api', label: 'Mapping APIs and OpenAPI specs' },
+  { id: 'db', label: 'Inspecting database entities' },
+  { id: 'logger', label: 'Gathering logger insights' },
+  { id: 'pii', label: 'Scanning for PCI / PII risks' },
+  { id: 'diagrams', label: 'Generating diagrams' }
+];
 
 const deriveProjectName = (repoUrl) => {
   if (!repoUrl) {
@@ -110,7 +119,12 @@ const OverviewPanel = ({ overview, loading }) => {
       <section className="overview-section">
         <h3>OpenAPI Specs</h3>
         {openApiSpecs.length === 0 ? (
-          <p className="overview-hint">No OpenAPI definitions detected.</p>
+          <div className="empty-state">
+            <p className="overview-hint">No OpenAPI definitions detected.</p>
+            <p className="overview-hint">
+              Add Swagger annotations or commit an <code>openapi.yaml</code>/<code>swagger.json</code> so we can render specs.
+            </p>
+          </div>
         ) : (
           <ul className="openapi-list">
             {openApiSpecs.map((spec) => (
@@ -265,7 +279,12 @@ const ApiSpecsPanel = ({ overview, apiCatalog, loading }) => {
       <section className="api-section">
         <h3>OpenAPI Specifications</h3>
         {openApiSpecs.length === 0 ? (
-          <p className="overview-hint">No OpenAPI documents detected.</p>
+          <div className="empty-state">
+            <p className="overview-hint">No OpenAPI specs found for this project.</p>
+            <p className="overview-hint">
+              Push an <code>openapi</code> file or annotate controllers with Swagger so downstream docs can be generated.
+            </p>
+          </div>
         ) : (
           openApiSpecs.map((spec) => (
             <details key={spec.fileName} className="spec-doc" open={false}>
@@ -917,6 +936,38 @@ const DiagramsPanel = ({
   );
 };
 
+const STEP_STATUS_COPY = {
+  pending: 'Queued',
+  active: 'In progress…',
+  complete: 'Done',
+  error: 'Skipped'
+};
+
+const LoadingTimeline = ({ steps }) => {
+  if (!steps || steps.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="loading-timeline" aria-live="polite">
+      <p className="timeline-title">Analysis progress</p>
+      <ul className="loading-steps">
+        {steps.map((step) => (
+          <li key={step.id} className="loading-step">
+            <span className={`step-indicator status-${step.status}`} aria-hidden="true">
+              {step.status === 'complete' ? '✓' : step.status === 'error' ? '!' : ''}
+            </span>
+            <div>
+              <p className="step-label">{step.label}</p>
+              <p className="step-status">{STEP_STATUS_COPY[step.status] || '—'}</p>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+
 function App() {
   const [repoUrl, setRepoUrl] = useState('');
   const [apiKey, setApiKey] = useState('');
@@ -940,6 +991,8 @@ function App() {
   const [activeDiagramType, setActiveDiagramType] = useState('CLASS');
   const [activeDiagramId, setActiveDiagramId] = useState(null);
   const [sequenceIncludeExternal, setSequenceIncludeExternal] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [loadingSteps, setLoadingSteps] = useState([]);
 
   const projectName = useMemo(() => deriveProjectName(repoUrl), [repoUrl]);
   const diagramsByType = useMemo(() => {
@@ -962,6 +1015,31 @@ function App() {
   }, [diagrams, activeDiagramId]);
 
   const authHeaders = () => (apiKey ? { 'X-API-KEY': apiKey } : {});
+
+  const startProgress = () => {
+    setLoadingSteps(
+      ANALYSIS_STEPS.map((step, index) => ({
+        ...step,
+        status: index === 0 ? 'active' : 'pending'
+      }))
+    );
+  };
+
+  const updateStepStatuses = (updates) => {
+    if (!updates || updates.length === 0) {
+      return;
+    }
+    setLoadingSteps((prev) => {
+      if (prev.length === 0) {
+        return prev;
+      }
+      const lookup = updates.reduce((acc, item) => {
+        acc[item.id] = item.status;
+        return acc;
+      }, {});
+      return prev.map((step) => (lookup[step.id] ? { ...step, status: lookup[step.id] } : step));
+    });
+  };
 
   useEffect(() => {
     if (diagrams.length === 0) {
@@ -1044,6 +1122,18 @@ function App() {
     };
   }, [activeDiagram, diagramSvgContent, apiKey]);
 
+  useEffect(() => {
+    if (result?.status === STATUS_ANALYZED) {
+      setSidebarCollapsed(true);
+    }
+  }, [result]);
+
+  useEffect(() => {
+    if (error) {
+      setSidebarCollapsed(false);
+    }
+  }, [error]);
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     setLoading(true);
@@ -1066,6 +1156,7 @@ function App() {
     setActiveDiagramId(null);
     setActiveDiagramType('CLASS');
     setSequenceIncludeExternal(false);
+    startProgress();
 
     console.info('Submitting analysis request', {
       repoUrl,
@@ -1088,6 +1179,10 @@ function App() {
       console.info('Analysis response received', payload);
       setResult({ ...payload, projectName });
       setProjectId(payload?.projectId || null);
+      updateStepStatuses([
+        { id: 'analyze', status: 'complete' },
+        { id: 'overview', status: 'active' }
+      ]);
 
       if (payload?.projectId) {
         try {
@@ -1101,6 +1196,10 @@ function App() {
             classCount: overviewResponse.data?.classes?.length ?? 0
           });
           setOverview(overviewResponse.data);
+          updateStepStatuses([
+            { id: 'overview', status: 'complete' },
+            { id: 'api', status: 'active' }
+          ]);
           try {
             setApiLoading(true);
             const endpointsResponse = await axios.get(`/project/${payload.projectId}/api-endpoints`, {
@@ -1113,9 +1212,17 @@ function App() {
               endpointCount: endpointsResponse.data?.endpoints?.length ?? 0
             });
             setApiCatalog(endpointsResponse.data);
+            updateStepStatuses([
+              { id: 'api', status: 'complete' },
+              { id: 'db', status: 'active' }
+            ]);
           } catch (catalogError) {
             console.warn('Failed to load API endpoint catalog', catalogError);
             setApiCatalog(null);
+            updateStepStatuses([
+              { id: 'api', status: 'error' },
+              { id: 'db', status: 'active' }
+            ]);
           } finally {
             setApiLoading(false);
           }
@@ -1132,9 +1239,17 @@ function App() {
               entityCount: dbResponse.data?.dbAnalysis?.entities?.length ?? 0
             });
             setDbAnalysis(dbResponse.data?.dbAnalysis ?? null);
+            updateStepStatuses([
+              { id: 'db', status: 'complete' },
+              { id: 'logger', status: 'active' }
+            ]);
           } catch (dbError) {
             console.warn('Failed to load database analysis', dbError);
             setDbAnalysis(null);
+            updateStepStatuses([
+              { id: 'db', status: 'error' },
+              { id: 'logger', status: 'active' }
+            ]);
           } finally {
             setDbLoading(false);
           }
@@ -1151,9 +1266,17 @@ function App() {
               count: loggerResponse.data?.loggerInsights?.length ?? 0
             });
             setLoggerInsights(loggerResponse.data?.loggerInsights ?? []);
+            updateStepStatuses([
+              { id: 'logger', status: 'complete' },
+              { id: 'pii', status: 'active' }
+            ]);
           } catch (loggerError) {
             console.warn('Failed to load logger insights', loggerError);
             setLoggerInsights([]);
+            updateStepStatuses([
+              { id: 'logger', status: 'error' },
+              { id: 'pii', status: 'active' }
+            ]);
           } finally {
             setLoggerLoading(false);
           }
@@ -1170,9 +1293,17 @@ function App() {
               count: piiResponse.data?.findings?.length ?? 0
             });
             setPiiFindings(piiResponse.data?.findings ?? []);
+            updateStepStatuses([
+              { id: 'pii', status: 'complete' },
+              { id: 'diagrams', status: 'active' }
+            ]);
           } catch (piiError) {
             console.warn('Failed to load PCI / PII findings', piiError);
             setPiiFindings([]);
+            updateStepStatuses([
+              { id: 'pii', status: 'error' },
+              { id: 'diagrams', status: 'active' }
+            ]);
           } finally {
             setPiiLoading(false);
           }
@@ -1196,24 +1327,45 @@ function App() {
             } else {
               setActiveDiagramId(null);
             }
+            updateStepStatuses([{ id: 'diagrams', status: 'complete' }]);
           } catch (diagramError) {
             console.warn('Failed to load diagrams', diagramError);
             setDiagrams([]);
             setActiveDiagramId(null);
+            updateStepStatuses([{ id: 'diagrams', status: 'error' }]);
           } finally {
             setDiagramLoading(false);
           }
         } catch (fetchError) {
           console.warn('Failed to load project overview', fetchError);
+          updateStepStatuses([
+            { id: 'overview', status: 'error' },
+            { id: 'api', status: 'error' },
+            { id: 'db', status: 'error' },
+            { id: 'logger', status: 'error' },
+            { id: 'pii', status: 'error' },
+            { id: 'diagrams', status: 'error' }
+          ]);
           setError(fetchError.response?.data || 'Analysis completed, but the overview failed to load.');
         }
+      } else {
+        updateStepStatuses([
+          { id: 'overview', status: 'error' },
+          { id: 'api', status: 'error' },
+          { id: 'db', status: 'error' },
+          { id: 'logger', status: 'error' },
+          { id: 'pii', status: 'error' },
+          { id: 'diagrams', status: 'error' }
+        ]);
       }
     } catch (err) {
       console.error('Repository analysis failed', err);
+      updateStepStatuses([{ id: 'analyze', status: 'error' }]);
       setError(err.response?.data || 'Failed to analyze repository');
     } finally {
       console.debug('Analysis request finalized');
       setLoading(false);
+      setLoadingSteps([]);
     }
   };
 
@@ -1260,99 +1412,180 @@ function App() {
     handleExport(diagram.svgDownloadUrl, fileName);
   };
 
+  const tabItems = useMemo(
+    () => [
+      { value: 'overview', label: 'Overview', disabled: false },
+      { value: 'api', label: 'API Specs', disabled: !overview && !apiCatalog },
+      { value: 'db', label: 'Database', disabled: !overview && !dbAnalysis && !dbLoading },
+      {
+        value: 'logger',
+        label: 'Logger Insights',
+        disabled: !projectId && loggerInsights.length === 0 && !loggerLoading
+      },
+      { value: 'pii', label: 'PCI / PII Scan', disabled: !projectId && piiFindings.length === 0 && !piiLoading },
+      { value: 'diagrams', label: 'Diagrams', disabled: diagrams.length === 0 && !diagramLoading }
+    ],
+    [
+      overview,
+      apiCatalog,
+      dbAnalysis,
+      dbLoading,
+      projectId,
+      loggerInsights,
+      loggerLoading,
+      piiFindings,
+      piiLoading,
+      diagrams,
+      diagramLoading
+    ]
+  );
+
   return (
     <div className="app">
       <div className="grid">
-        <form className="card analyze-card" onSubmit={handleSubmit}>
-          <h1>CodeVision Analyzer</h1>
-          <p className="hint">Launch a repository analysis to capture structural metadata.</p>
+        <form
+          className={`card analyze-card ${sidebarCollapsed ? 'analyze-card--collapsed' : ''}`}
+          onSubmit={handleSubmit}
+        >
+          <div className="analyze-card-header">
+            <div>
+              <h1>CodeVision Analyzer</h1>
+              <p className="hint">Launch a repository analysis to capture structural metadata.</p>
+            </div>
+            {result?.status === STATUS_ANALYZED && (
+              <button
+                type="button"
+                className="ghost-button collapse-toggle"
+                onClick={() => setSidebarCollapsed((prev) => !prev)}
+              >
+                {sidebarCollapsed ? 'Show form' : 'Hide panel'}
+              </button>
+            )}
+          </div>
 
-          <label htmlFor="repoUrl">Repository URL</label>
-          <input
-            id="repoUrl"
-            type="url"
-            placeholder="https://github.com/org/repo.git"
-            value={repoUrl}
-            onChange={(event) => setRepoUrl(event.target.value)}
-            required
-          />
+          {sidebarCollapsed ? (
+            <div className="analyze-summary">
+              {result?.status === STATUS_ANALYZED ? (
+                <>
+                  <p className="summary-label">Latest analysis</p>
+                  <h2 className="summary-title">{result?.projectName || projectName || 'Repository analysis'}</h2>
+                  <dl className="summary-meta">
+                    <div>
+                      <dt>Project ID</dt>
+                      <dd>{result?.projectId || '—'}</dd>
+                    </div>
+                    <div>
+                      <dt>Repository</dt>
+                      <dd>{overview?.repoUrl || repoUrl || result?.repoUrl || '—'}</dd>
+                    </div>
+                    <div>
+                      <dt>Analyzed</dt>
+                      <dd>
+                        {overview?.analyzedAt
+                          ? formatDate(overview.analyzedAt)
+                          : result?.analyzedAt
+                            ? formatDate(result.analyzedAt)
+                            : 'Awaiting metadata'}
+                      </dd>
+                    </div>
+                  </dl>
+                  <div className="summary-actions">
+                    <button type="button" onClick={() => setSidebarCollapsed(false)}>
+                      Edit inputs
+                    </button>
+                    <button
+                      type="button"
+                      className="ghost-button"
+                      onClick={() => setActiveTab('overview')}
+                    >
+                      View dashboard
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="summary-label">Analyzer hidden</p>
+                  <p className="overview-hint">Expand the panel to configure a repository.</p>
+                  <button type="button" onClick={() => setSidebarCollapsed(false)}>
+                    Edit inputs
+                  </button>
+                </>
+              )}
+            </div>
+          ) : (
+            <div className="analyze-fields">
+              <label htmlFor="repoUrl">Repository URL</label>
+              <input
+                id="repoUrl"
+                type="url"
+                placeholder="https://github.com/org/repo.git"
+                value={repoUrl}
+                onChange={(event) => setRepoUrl(event.target.value)}
+                required
+              />
 
-          <label htmlFor="apiKey">API Key</label>
-          <input
-            id="apiKey"
-            type="text"
-            placeholder="Optional if disabled"
-            value={apiKey}
-            onChange={(event) => setApiKey(event.target.value)}
-          />
+              <label htmlFor="apiKey">API Key</label>
+              <input
+                id="apiKey"
+                type="text"
+                placeholder="Optional if disabled"
+                value={apiKey}
+                onChange={(event) => setApiKey(event.target.value)}
+              />
 
-          <button type="submit" disabled={loading}>
-            {loading ? 'Analyzing…' : 'Analyze'}
-          </button>
+              <button type="submit" disabled={loading}>
+                {loading ? 'Analyzing…' : 'Analyze'}
+              </button>
 
-          {error && <p className="error">{error}</p>}
-          {result && result.status === STATUS_ANALYZED && (
-            <div className="success">
-              <h2>Analysis complete!</h2>
-              <p>
-                <strong>Project:</strong> {result.projectName || projectName}
-              </p>
-              <p>
-                <strong>ID:</strong> {result.projectId}
-              </p>
+              {error && <p className="error">{error}</p>}
+              {result && result.status === STATUS_ANALYZED && (
+                <div className="success">
+                  <h2>Analysis complete!</h2>
+                  <p>
+                    <strong>Project:</strong> {result.projectName || projectName}
+                  </p>
+                  <p>
+                    <strong>ID:</strong> {result.projectId}
+                  </p>
+                </div>
+              )}
             </div>
           )}
+          {loadingSteps.length > 0 && <LoadingTimeline steps={loadingSteps} />}
         </form>
 
         <section className="card overview-card">
-          <div className="tab-bar">
-            <button
-              type="button"
-              className={`tab-button ${activeTab === 'overview' ? 'active' : ''}`}
-              onClick={() => setActiveTab('overview')}
+          <div className="tab-nav">
+            <select
+              className="tab-select"
+              aria-label="Select a panel to view"
+              value={activeTab}
+              onChange={(event) => setActiveTab(event.target.value)}
             >
-              Overview
-            </button>
-            <button
-              type="button"
-              className={`tab-button ${activeTab === 'api' ? 'active' : ''}`}
-              onClick={() => setActiveTab('api')}
-              disabled={!overview && !apiCatalog}
-            >
-              API Specs
-            </button>
-            <button
-              type="button"
-              className={`tab-button ${activeTab === 'db' ? 'active' : ''}`}
-              onClick={() => setActiveTab('db')}
-              disabled={!overview && !dbAnalysis && !dbLoading}
-            >
-              Database
-            </button>
-            <button
-              type="button"
-              className={`tab-button ${activeTab === 'logger' ? 'active' : ''}`}
-              onClick={() => setActiveTab('logger')}
-              disabled={!projectId && loggerInsights.length === 0 && !loggerLoading}
-            >
-              Logger Insights
-            </button>
-            <button
-              type="button"
-              className={`tab-button ${activeTab === 'pii' ? 'active' : ''}`}
-              onClick={() => setActiveTab('pii')}
-              disabled={!projectId && piiFindings.length === 0 && !piiLoading}
-            >
-              PCI / PII Scan
-            </button>
-            <button
-              type="button"
-              className={`tab-button ${activeTab === 'diagrams' ? 'active' : ''}`}
-              onClick={() => setActiveTab('diagrams')}
-              disabled={diagrams.length === 0 && !diagramLoading}
-            >
-              Diagrams
-            </button>
+              {tabItems.map((tab) => (
+                <option
+                  key={tab.value}
+                  value={tab.value}
+                  disabled={tab.disabled && tab.value !== activeTab}
+                >
+                  {tab.label}
+                </option>
+              ))}
+            </select>
+            <div className="tab-bar" role="tablist">
+              {tabItems.map((tab) => (
+                <button
+                  key={tab.value}
+                  type="button"
+                  className={`tab-button ${activeTab === tab.value ? 'active' : ''}`}
+                  onClick={() => setActiveTab(tab.value)}
+                  disabled={tab.disabled}
+                  aria-current={activeTab === tab.value ? 'page' : undefined}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
           </div>
           {activeTab === 'overview' ? (
             <OverviewPanel overview={overview} loading={loading && !overview} />

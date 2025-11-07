@@ -99,6 +99,180 @@ button:not([disabled]):hover {
   margin-top: 0;
 }
 
+.analyze-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.collapse-toggle {
+  padding: 0.4rem 0.9rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.analyze-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.analyze-card--collapsed {
+  gap: 1.25rem;
+}
+
+.analyze-summary {
+  border: 1px dashed #c9d2f0;
+  border-radius: 16px;
+  background: #f7f9ff;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.summary-label {
+  margin: 0;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #4b587d;
+}
+
+.summary-title {
+  margin: 0;
+  font-size: 1.35rem;
+  color: #17213a;
+}
+
+.summary-meta {
+  margin: 0;
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+.summary-meta div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.summary-meta dt {
+  margin: 0;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #5d6c90;
+}
+
+.summary-meta dd {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #1a2849;
+  word-break: break-word;
+}
+
+.summary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.loading-timeline {
+  border: 1px solid #e3e8f4;
+  border-radius: 14px;
+  background: #ffffff;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.timeline-title {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #1f2a44;
+}
+
+.loading-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.loading-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.step-indicator {
+  width: 1rem;
+  height: 1rem;
+  border-radius: 999px;
+  border: 2px solid #d0d6e6;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #1f2a44;
+  flex-shrink: 0;
+}
+
+.step-indicator.status-pending {
+  background: #f5f7fd;
+}
+
+.step-indicator.status-active {
+  border-color: transparent;
+  border-top-color: #4c6fff;
+  border-right-color: #c4cbff;
+  animation: spin 0.8s linear infinite;
+}
+
+.step-indicator.status-complete {
+  background: rgba(76, 111, 255, 0.15);
+  border-color: transparent;
+  color: #2d3d80;
+}
+
+.step-indicator.status-error {
+  background: rgba(255, 86, 67, 0.2);
+  border-color: transparent;
+  color: #a02c1e;
+}
+
+.step-label {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #1f2a44;
+}
+
+.step-status {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #5d6c90;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .overview-card {
   min-height: 100%;
   padding: 2.5rem;
@@ -201,10 +375,44 @@ button:not([disabled]):hover {
   font-weight: 500;
 }
 
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.tab-nav {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding-bottom: 1rem;
+  margin-bottom: 1rem;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), #ffffff 70%);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  border-bottom: 1px solid #edf0fb;
+}
+
+.tab-select {
+  display: none;
+  width: 100%;
+  border: 1px solid #d0d6e6;
+  border-radius: 999px;
+  padding: 0.65rem 1rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+  background: #f5f7fd;
+  color: #1f2a44;
+}
+
 .tab-bar {
   display: flex;
-  gap: 0.75rem;
-  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  margin-bottom: 0;
 }
 
 .tab-button {
@@ -235,6 +443,21 @@ button:not([disabled]):hover {
 .tab-button:disabled {
   cursor: not-allowed;
   opacity: 0.45;
+}
+
+@media (max-width: 720px) {
+  .tab-bar {
+    display: none;
+  }
+
+  .tab-select {
+    display: block;
+  }
+
+  .tab-nav {
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.75rem;
+  }
 }
 
 .api-section {
