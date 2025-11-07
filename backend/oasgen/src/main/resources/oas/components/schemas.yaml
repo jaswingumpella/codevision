@@ -274,6 +274,16 @@ ParsedDataResponse:
         $ref: '#/ApiEndpoint'
     assets:
       $ref: '#/AssetInventory'
+    loggerInsights:
+      type: array
+      description: Catalog of log statements detected during analysis.
+      items:
+        $ref: '#/LoggerInsight'
+    piiPciScan:
+      type: array
+      description: Potential PCI/PII findings detected during analysis.
+      items:
+        $ref: '#/PiiPciFinding'
 
 DbAnalysis:
   type: object
@@ -407,3 +417,86 @@ ProjectApiEndpointsResponse:
       description: Endpoint catalog for the project.
       items:
         $ref: '#/ApiEndpoint'
+
+LoggerInsight:
+  type: object
+  required:
+    - className
+    - logLevel
+  properties:
+    className:
+      type: string
+      description: Fully qualified class declaring the log statement.
+    filePath:
+      type: string
+      description: Source file path relative to the repository.
+    logLevel:
+      type: string
+      description: Log level (INFO, WARN, ERROR, DEBUG, TRACE).
+    lineNumber:
+      type: integer
+      format: int32
+      description: Line number reported by the parser.
+    messageTemplate:
+      type: string
+      description: String literal or expression passed to the logger.
+    variables:
+      type: array
+      description: Arguments passed to the logger.
+      items:
+        type: string
+    piiRisk:
+      type: boolean
+      description: True if the log statement potentially includes PII data.
+    pciRisk:
+      type: boolean
+      description: True if the log statement potentially includes PCI data.
+
+ProjectLoggerInsightsResponse:
+  type: object
+  properties:
+    projectId:
+      type: integer
+      format: int64
+    loggerInsights:
+      type: array
+      items:
+        $ref: '#/LoggerInsight'
+
+PiiPciFinding:
+  type: object
+  required:
+    - filePath
+    - matchType
+    - severity
+  properties:
+    filePath:
+      type: string
+      description: File containing the match.
+    lineNumber:
+      type: integer
+      format: int32
+      description: Line number of the match in the file.
+    snippet:
+      type: string
+      description: Snippet that triggered the rule.
+    matchType:
+      type: string
+      description: Classification for the rule (PII or PCI).
+    severity:
+      type: string
+      description: Severity assigned in configuration.
+    ignored:
+      type: boolean
+      description: Indicates if the match was suppressed by an ignore pattern.
+
+ProjectPiiPciResponse:
+  type: object
+  properties:
+    projectId:
+      type: integer
+      format: int64
+    findings:
+      type: array
+      items:
+        $ref: '#/PiiPciFinding'

@@ -157,3 +157,15 @@ sequenceDiagram
 (Mermaid uses a similar participant list and arrow syntax. Note that ->> is used for normal calls and -->> for responses or internal calls in this context. Mermaid auto-deactivates lifelines, so explicit deactivate is not needed.)
 
 These examples demonstrate the general format. In the actual output, class and method names will be specific to the project, and there may be many more elements. Also, the tool will ensure any special characters are escaped (especially in PlantUML). The diagrams are kept relatively simple and cycle-free: if a cycle is detected, PlantUML will show a note or a self-call indicating the cycle rather than infinitely expanding. Both PlantUML and Mermaid notations are provided for each diagram type so users can choose their preferred format or use whichever integrates better with their documentation pipeline.
+
+### Security Callouts
+
+With Iteration 5’s Logger Insights + PCI/PII scan, diagrams can optionally include compliance notes. For example:
+
+```
+note right of PaymentService
+  Logs masked PAN (PII risk)
+end note
+```
+
+Only annotate participants that are tied to an actual `loggerInsights` or `piiPciScan` entry so the visual aids remain readable while still reflecting security posture.

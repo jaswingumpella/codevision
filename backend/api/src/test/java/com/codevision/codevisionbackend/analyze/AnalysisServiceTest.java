@@ -17,13 +17,17 @@ import com.codevision.codevisionbackend.analyze.scanner.BuildMetadataExtractor;
 import com.codevision.codevisionbackend.analyze.scanner.BuildMetadataExtractor.BuildMetadata;
 import com.codevision.codevisionbackend.analyze.scanner.ClassMetadataRecord;
 import com.codevision.codevisionbackend.analyze.scanner.ClassMetadataRecord.SourceSet;
-import com.codevision.codevisionbackend.analyze.scanner.DbAnalysisResult;
 import com.codevision.codevisionbackend.analyze.scanner.DaoAnalysisService;
 import com.codevision.codevisionbackend.analyze.scanner.DaoOperationRecord;
+import com.codevision.codevisionbackend.analyze.scanner.DbAnalysisResult;
 import com.codevision.codevisionbackend.analyze.scanner.DbEntityRecord;
 import com.codevision.codevisionbackend.analyze.scanner.ImageAssetRecord;
 import com.codevision.codevisionbackend.analyze.scanner.JavaSourceScanner;
 import com.codevision.codevisionbackend.analyze.scanner.JpaEntityScanner;
+import com.codevision.codevisionbackend.analyze.scanner.LogStatementRecord;
+import com.codevision.codevisionbackend.analyze.scanner.LoggerScanner;
+import com.codevision.codevisionbackend.analyze.scanner.PiiPciFindingRecord;
+import com.codevision.codevisionbackend.analyze.scanner.PiiPciInspector;
 import com.codevision.codevisionbackend.analyze.scanner.YamlScanner;
 import com.codevision.codevisionbackend.git.GitCloneService.CloneResult;
 import com.codevision.codevisionbackend.git.GitCloneService;
@@ -38,6 +42,8 @@ import com.codevision.codevisionbackend.project.db.DbEntity;
 import com.codevision.codevisionbackend.project.db.DbEntityRepository;
 import com.codevision.codevisionbackend.project.metadata.ClassMetadata;
 import com.codevision.codevisionbackend.project.metadata.ClassMetadataRepository;
+import com.codevision.codevisionbackend.project.logger.LogStatementRepository;
+import com.codevision.codevisionbackend.project.security.PiiPciFindingRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -78,6 +84,12 @@ class AnalysisServiceTest {
     private DaoAnalysisService daoAnalysisService;
 
     @Mock
+    private LoggerScanner loggerScanner;
+
+    @Mock
+    private PiiPciInspector piiPciInspector;
+
+    @Mock
     private ProjectService projectService;
 
     @Mock
@@ -94,6 +106,12 @@ class AnalysisServiceTest {
 
     @Mock
     private DaoOperationRepository daoOperationRepository;
+
+    @Mock
+    private LogStatementRepository logStatementRepository;
+
+    @Mock
+    private PiiPciFindingRepository piiPciFindingRepository;
 
     @Mock
     private ProjectSnapshotService projectSnapshotService;
@@ -115,12 +133,16 @@ class AnalysisServiceTest {
                 assetScanner,
                 jpaEntityScanner,
                 daoAnalysisService,
+                loggerScanner,
+                piiPciInspector,
                 projectService,
                 classMetadataRepository,
                 apiEndpointRepository,
                 assetImageRepository,
                 dbEntityRepository,
                 daoOperationRepository,
+                logStatementRepository,
+                piiPciFindingRepository,
                 projectSnapshotService,
                 new ObjectMapper());
 
@@ -178,6 +200,21 @@ class AnalysisServiceTest {
                                 null))));
         when(daoAnalysisService.analyze(repoDir, metadata.moduleRoots(), entityRecords)).thenReturn(daoAnalysisResult);
 
+        List<PiiPciFindingRecord> piiRecords =
+                List.of(new PiiPciFindingRecord("application.yml", 12, "password: secret", "PII", "MEDIUM", false));
+        when(piiPciInspector.scan(repoDir)).thenReturn(piiRecords);
+
+        List<LogStatementRecord> logRecords = List.of(new LogStatementRecord(
+                "com.barclays.demo.Controller",
+                "src/main/java/com/barclays/demo/Controller.java",
+                "INFO",
+                42,
+                "Processing request {}",
+                List.of("requestId"),
+                false,
+                false));
+        when(loggerScanner.scan(repoDir, metadata.moduleRoots())).thenReturn(logRecords);
+
         when(projectService.overwriteProject("https://example.com/repo.git", "demo-app", buildInfo)).thenReturn(project);
 
         AnalysisOutcome outcome = analysisService.analyze("https://example.com/repo.git");
@@ -189,6 +226,8 @@ class AnalysisServiceTest {
         assertEquals(1, parsedData.classes().size());
         assertEquals(1, parsedData.apiEndpoints().size());
         assertEquals(1, parsedData.assets().images().size());
+        assertEquals(1, parsedData.loggerInsights().size());
+        assertEquals(1, parsedData.piiPciScan().size());
 
         verify(classMetadataRepository).deleteByProject(project);
         verify(classMetadataRepository)
@@ -204,6 +243,10 @@ class AnalysisServiceTest {
         verify(daoOperationRepository).deleteByProject(project);
         verify(daoOperationRepository).saveAll(Mockito.<List<DaoOperation>>argThat(list -> list.size() == 1
                 && "findAll".equals(list.get(0).getMethodName())));
+        verify(logStatementRepository).deleteByProject(project);
+        verify(logStatementRepository).saveAll(Mockito.anyList());
+        verify(piiPciFindingRepository).deleteByProject(project);
+        verify(piiPciFindingRepository).saveAll(Mockito.anyList());
 
         ArgumentCaptor<ParsedDataResponse> snapshotCaptor = ArgumentCaptor.forClass(ParsedDataResponse.class);
         verify(projectSnapshotService).saveSnapshot(eq(project), snapshotCaptor.capture());

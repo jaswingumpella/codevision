@@ -44,7 +44,9 @@ class ProjectOverviewControllerTest {
                 MetadataDump.empty(),
                 emptyDbAnalysis(),
                 List.of(),
-                AssetInventory.empty());
+                AssetInventory.empty(),
+                List.of(),
+                List.of());
         snapshotService.setSnapshot(Optional.of(response));
 
         ResponseEntity<com.codevision.codevisionbackend.api.model.ParsedDataResponse> result =
@@ -80,7 +82,9 @@ class ProjectOverviewControllerTest {
                 MetadataDump.empty(),
                 emptyDbAnalysis(),
                 List.of(endpoint),
-                AssetInventory.empty());
+                AssetInventory.empty(),
+                List.of(),
+                List.of());
         snapshotService.setSnapshot(Optional.of(response));
 
         ResponseEntity<com.codevision.codevisionbackend.api.model.ProjectApiEndpointsResponse> result =
@@ -108,7 +112,9 @@ class ProjectOverviewControllerTest {
                 MetadataDump.empty(),
                 summary,
                 List.of(),
-                AssetInventory.empty());
+                AssetInventory.empty(),
+                List.of(),
+                List.of());
         snapshotService.setSnapshot(Optional.of(response));
 
         ResponseEntity<com.codevision.codevisionbackend.api.model.ProjectDbAnalysisResponse> result =

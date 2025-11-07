@@ -13,6 +13,8 @@ tags:
     description: Endpoints used to trigger repository analysis workflows.
   - name: Project
     description: Endpoints that expose stored project overview information.
+  - name: Security
+    description: Security and compliance visibility endpoints.
 paths:
   /analyze:
     post:
@@ -124,6 +126,146 @@ paths:
                 $ref: ./components/schemas.yaml#/ProjectDbAnalysisResponse
         '404':
           description: No database analysis is available for the supplied identifier.
+  /project/{projectId}/logger-insights:
+    get:
+      operationId: getProjectLoggerInsights
+      tags:
+        - Security
+      summary: Retrieve logger insight catalog
+      description: Returns all log statements discovered in the repository, annotated with PII/PCI risk flags.
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          description: Unique identifier of the project.
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Logger insights retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: ./components/schemas.yaml#/ProjectLoggerInsightsResponse
+        '404':
+          description: No logger insights found for the supplied identifier.
+  /project/{projectId}/pii-pci:
+    get:
+      operationId: getProjectPiiPciFindings
+      tags:
+        - Security
+      summary: Retrieve PCI/PII scan results
+      description: Returns potential sensitive data matches discovered across the repository.
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          description: Unique identifier of the project.
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: PCI/PII findings retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: ./components/schemas.yaml#/ProjectPiiPciResponse
+        '404':
+          description: No scan results were found for the supplied identifier.
+  /project/{projectId}/export/logs.csv:
+    get:
+      operationId: exportProjectLogsCsv
+      tags:
+        - Security
+      summary: Download logger insights as CSV
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: CSV export generated.
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: No logger insights were found to export.
+  /project/{projectId}/export/logs.pdf:
+    get:
+      operationId: exportProjectLogsPdf
+      tags:
+        - Security
+      summary: Download logger insights as PDF
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: PDF export generated.
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: No logger insights were found to export.
+  /project/{projectId}/export/pii.csv:
+    get:
+      operationId: exportProjectPiiCsv
+      tags:
+        - Security
+      summary: Download PCI/PII findings as CSV
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: CSV export generated.
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: No PCI/PII findings were found to export.
+  /project/{projectId}/export/pii.pdf:
+    get:
+      operationId: exportProjectPiiPdf
+      tags:
+        - Security
+      summary: Download PCI/PII findings as PDF
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: PDF export generated.
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: No PCI/PII findings were found to export.
 components:
   securitySchemes:
     ApiKeyAuth:

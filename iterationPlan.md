@@ -310,6 +310,8 @@ Show how the app talks to the database.
 
 ## Iteration 5 – Logger Insights + PCI/PII scanning
 
+**Status:** ✅ Completed – see [`docs/iteration-5-completion.md`](docs/iteration-5-completion.md) for delivery notes.
+
 ### Goal
 
 Security/compliance visibility.
@@ -736,5 +738,15 @@ If not already accessible, ensure the Metadata page is implemented: this page wi
 Final UI polish: Go through each page and ensure consistency – e.g., all pages should have titles or clear headings, make sure dark mode looks okay (Material UI should handle mostly). Add any helpful hints or tooltips (for instance, on the Logger page, tooltip explaining what PII/PCI means). Ensure error handling is in place: if an endpoint returns an error (like analysis fails or data missing), show a user-friendly message. Possibly implement a simple landing page where user can input a new repo URL (the form from iteration 1) and then on success automatically navigate to the project dashboard. (Currently, after analysis, we show overview – but what if multiple projects? Maybe the UI can have a project selection list if multiple projects in DB. That could be an enhancement: a front page listing all analyzed projects (from GET /project). If time allows, implement that: a list of projects with their names and last analyzed time, and ability to switch between them in the UI.)
 
 Expected Outcome: Iteration 7 wraps up the project. The HTML export can be obtained and pasted into Confluence, showing all information in one document (with diagrams as source code blocks). The JSON export can be fed to an AI assistant; for example, a user could ask “Which endpoints in this project log credit card numbers?” and the assistant could answer based on the JSON (this is outside CodeDocGen, but we enable it by providing structured data). All UI sections are implemented, meaning the product now has a complete interface covering everything from overview to metadata. The user experience is smooth: one can analyze a repo with one click and then browse all this rich information.
+
+### Validation Repositories & Test Playbook
+
+Starting with Iteration 5 we run every milestone against the reference repositories documented in `docs/test-repositories.md`. Each repo (Petclinic, ServiceMix, WebGoat) stresses a different slice of the feature set:
+
+* **Petclinic** – fast sanity checks for repo ingestion, API catalog, DB analysis, and the new logger/PCI tabs.
+* **ServiceMix** – multi-module + SOAP + servlet discovery, ensures scanners/tabs scale.
+* **WebGoat** – intentionally noisy security findings to validate PCI/PII rule tuning and exports.
+
+The doc also includes the validation checklist (snapshot rows, CSV/PDF downloads, UI filter sanity). Capture timing/results for each run so regressions can be spotted before promoting a build.
 
 At this point, CodeDocGen v1 meets the PRD’s vision fully. Any further enhancements (like Gradle support, deeper static code analysis such as control flow or execution paths, or integration with CI pipelines) would be beyond v1 and can be planned separately. For now, the focus was delivering a comprehensive static analysis and documentation tool for Java codebases, and with iteration 7 done, we have achieved that.

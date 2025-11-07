@@ -31,3 +31,12 @@ git:
 
 security:
   apiKey: 
+  scan:
+    rules:
+      - keyword: password
+        type: PII
+        severity: MEDIUM
+      - regex: "\\b(?:\\d[ -]?){13,16}\\b"
+        type: PCI
+        severity: HIGH
+    ignorePatterns: []

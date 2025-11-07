@@ -46,6 +46,8 @@ Or just a narrative like “No high-risk data found in logs” or “Some log st
 
 Since the full list can be long, the HTML might not list every log line, but it could. However, given large projects, summarizing is safer to keep the document concise.
 
+When the document is generated locally we also include references to the CSV/PDF exports that the backend produces at `/project/{id}/export/logs.csv` and `/project/{id}/export/logs.pdf`, so an auditor pasting the doc into Confluence still knows which downloadable artifacts correspond to the summarized section.
+
 6. PCI/PII Scan Summary: Similar to above, a brief overview of the sensitive data scan results:
 
 e.g. “X potential PII/PCI exposures were found in the codebase.” Then perhaps categorize: e.g. “– 2 HIGH severity (hard-coded credentials), 5 MEDIUM, 3 LOW. – All instances of credit card patterns were in test data files.”
@@ -53,6 +55,8 @@ e.g. “X potential PII/PCI exposures were found in the codebase.” Then perhap
 If the list is short, they could be listed. If long, we may just direct the reader to the CSV/PDF or the tool.
 
 The idea is to communicate if the codebase seems clean or has areas of concern.
+
+We reference the precise exports (`/project/{id}/export/pii.csv` and `/project/{id}/export/pii.pdf`) so compliance reviewers can open the raw findings straight from the documentation package.
 
 7. Gherkin Features: A list of the BDD feature files (if any). For each feature, list its title and perhaps scenario names. This shows what behaviors are specified by tests. It might look like:
 
@@ -80,5 +84,7 @@ This provides traceability (knowing when the analysis was done and for which sou
 Each section in the HTML export is clearly separated (e.g., with <h1>...</h1> or <h2> tags for the section titles, depending on how Confluence interprets them). The use of <pre><code> blocks for diagrams ensures no images are needed and that everything remains text (which is good for diffing and for Confluence wiki storage).
 
 This structured document is meant to be a stand-alone technical overview of the project. A consultant or new developer could read it to quickly understand the system’s endpoints, architecture, data model, and any potential security concerns. The combination of tables, text, and diagram source (which can be rendered into actual diagrams via Confluence or external tools) achieves a comprehensive documentation output.
+
+For regression runs, reference `docs/test-repositories.md` to pick the appropriate sample repo (Petclinic, ServiceMix, WebGoat) before generating the Confluence export—each one highlights different sections of the document and ensures the logger/PCI summaries have meaningful data.
 
 Sources: The revised PRD and iteration plan above incorporate content and requirements from the original PRD and subsequent iterations, ensuring support for multi-module Maven structures, all Java versions up to 21, SOAP/REST and legacy APIs, cyclic reference handling, and the newly added dependency parsing capability. Diagram generation outputs both PlantUML and Mermaid notations for each diagram type as specified. The JSON schema and Confluence export structure are designed per the PRD’s specification of a full snapshot for external tools and a documentation bundle for Confluence, respectively. All planned work is now detailed through Iteration 7, covering the remaining scope needed to deliver the complete CodeDocGen v1 functionality.

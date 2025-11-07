@@ -483,6 +483,246 @@ const DatabasePanel = ({ analysis, loading }) => {
   );
 };
 
+const LoggerInsightsPanel = ({ insights, loading, onDownloadCsv, onDownloadPdf }) => {
+  const [classFilter, setClassFilter] = useState('');
+  const [levelFilter, setLevelFilter] = useState('ALL');
+  const [piiOnly, setPiiOnly] = useState(false);
+  const [pciOnly, setPciOnly] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+
+  if (loading) {
+    return (
+      <div className="overview-content">
+        <h2>Logger Insights</h2>
+        <p className="overview-hint">Scanning log statements…</p>
+      </div>
+    );
+  }
+
+  const normalizedFilter = classFilter.trim().toLowerCase();
+  const filtered = (insights || []).filter((entry) => {
+    const levelMatches = levelFilter === 'ALL' || (entry.logLevel || '').toUpperCase() === levelFilter;
+    const classMatches = !normalizedFilter || (entry.className || '').toLowerCase().includes(normalizedFilter);
+    const piiMatches = !piiOnly || entry.piiRisk;
+    const pciMatches = !pciOnly || entry.pciRisk;
+    return levelMatches && classMatches && piiMatches && pciMatches;
+  });
+
+  const renderMessage = (message) => {
+    if (!message) {
+      return '—';
+    }
+    if (expanded || message.length <= 140) {
+      return message;
+    }
+    return `${message.slice(0, 140)}…`;
+  };
+
+  const exportDisabled = typeof onDownloadCsv !== 'function' || typeof onDownloadPdf !== 'function';
+
+  return (
+    <div className="overview-content">
+      <h2>Logger Insights</h2>
+
+      <div className="filter-controls">
+        <label htmlFor="classFilter">
+          Class Filter
+          <input
+            id="classFilter"
+            type="text"
+            placeholder="com.example.OrderService"
+            value={classFilter}
+            onChange={(event) => setClassFilter(event.target.value)}
+          />
+        </label>
+
+        <label htmlFor="levelFilter">
+          Level
+          <select id="levelFilter" value={levelFilter} onChange={(event) => setLevelFilter(event.target.value)}>
+            {['ALL', 'TRACE', 'DEBUG', 'INFO', 'WARN', 'ERROR'].map((level) => (
+              <option key={level} value={level}>{level}</option>
+            ))}
+          </select>
+        </label>
+
+        <div className="toggle-group">
+          <label>
+            <input type="checkbox" checked={piiOnly} onChange={(event) => setPiiOnly(event.target.checked)} />
+            Only PII risk
+          </label>
+          <label>
+            <input type="checkbox" checked={pciOnly} onChange={(event) => setPciOnly(event.target.checked)} />
+            Only PCI risk
+          </label>
+        </div>
+      </div>
+
+      <div className="export-actions">
+        <button type="button" onClick={() => setExpanded(true)} className="ghost-button">
+          Expand All
+        </button>
+        <button type="button" onClick={() => setExpanded(false)} className="ghost-button">
+          Collapse All
+        </button>
+        <button type="button" onClick={onDownloadCsv} disabled={exportDisabled}>
+          Download CSV
+        </button>
+        <button type="button" onClick={onDownloadPdf} disabled={exportDisabled}>
+          Download PDF
+        </button>
+      </div>
+
+      {filtered.length === 0 ? (
+        <p className="overview-hint">No log statements match the selected filters.</p>
+      ) : (
+        <table className="api-table">
+          <thead>
+            <tr>
+              <th>Class</th>
+              <th>File</th>
+              <th>Level</th>
+              <th>Line</th>
+              <th>Message</th>
+              <th>Variables</th>
+              <th>PII</th>
+              <th>PCI</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((entry, index) => (
+              <tr key={`${entry.className}-${entry.lineNumber}-${index}`}>
+                <td>{entry.className || '—'}</td>
+                <td>{entry.filePath || '—'}</td>
+                <td>{entry.logLevel || '—'}</td>
+                <td>{entry.lineNumber >= 0 ? entry.lineNumber : '—'}</td>
+                <td>{renderMessage(entry.messageTemplate)}</td>
+                <td>{entry.variables && entry.variables.length > 0 ? entry.variables.join(', ') : '—'}</td>
+                <td>
+                  <span className={`badge ${entry.piiRisk ? 'badge-alert' : 'badge-muted'}`}>
+                    {entry.piiRisk ? 'Yes' : 'No'}
+                  </span>
+                </td>
+                <td>
+                  <span className={`badge ${entry.pciRisk ? 'badge-alert' : 'badge-muted'}`}>
+                    {entry.pciRisk ? 'Yes' : 'No'}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+};
+
+const PiiPciPanel = ({ findings, loading, onDownloadCsv, onDownloadPdf }) => {
+  const [typeFilter, setTypeFilter] = useState('ALL');
+  const [severityFilter, setSeverityFilter] = useState('ALL');
+  const [hideIgnored, setHideIgnored] = useState(false);
+
+  if (loading) {
+    return (
+      <div className="overview-content">
+        <h2>PCI / PII Scan</h2>
+        <p className="overview-hint">Collecting sensitive data findings…</p>
+      </div>
+    );
+  }
+
+  const filtered = (findings || []).filter((entry) => {
+    const typeMatches = typeFilter === 'ALL' || (entry.matchType || '').toUpperCase() === typeFilter;
+    const severityMatches = severityFilter === 'ALL' || (entry.severity || '').toUpperCase() === severityFilter;
+    const ignoreMatches = !hideIgnored || !entry.ignored;
+    return typeMatches && severityMatches && ignoreMatches;
+  });
+
+  const exportDisabled = typeof onDownloadCsv !== 'function' || typeof onDownloadPdf !== 'function';
+
+  return (
+    <div className="overview-content">
+      <h2>PCI / PII Scan</h2>
+
+      <div className="filter-controls">
+        <label htmlFor="typeFilter">
+          Match Type
+          <select id="typeFilter" value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}>
+            {['ALL', 'PII', 'PCI'].map((type) => (
+              <option key={type} value={type}>{type}</option>
+            ))}
+          </select>
+        </label>
+
+        <label htmlFor="severityFilter">
+          Severity
+          <select id="severityFilter" value={severityFilter} onChange={(event) => setSeverityFilter(event.target.value)}>
+            {['ALL', 'LOW', 'MEDIUM', 'HIGH'].map((level) => (
+              <option key={level} value={level}>{level}</option>
+            ))}
+          </select>
+        </label>
+
+        <div className="toggle-group">
+          <label>
+            <input type="checkbox" checked={hideIgnored} onChange={(event) => setHideIgnored(event.target.checked)} />
+            Hide ignored matches
+          </label>
+        </div>
+      </div>
+
+      <div className="export-actions">
+        <button type="button" onClick={onDownloadCsv} disabled={exportDisabled}>
+          Download CSV
+        </button>
+        <button type="button" onClick={onDownloadPdf} disabled={exportDisabled}>
+          Download PDF
+        </button>
+      </div>
+
+      {filtered.length === 0 ? (
+        <p className="overview-hint">No findings match the selected filters.</p>
+      ) : (
+        <table className="api-table">
+          <thead>
+            <tr>
+              <th>File</th>
+              <th>Line</th>
+              <th>Snippet</th>
+              <th>Type</th>
+              <th>Severity</th>
+              <th>Ignored?</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((entry, index) => (
+              <tr key={`${entry.filePath}-${entry.lineNumber}-${index}`}>
+                <td>{entry.filePath || '—'}</td>
+                <td>{entry.lineNumber > 0 ? entry.lineNumber : '—'}</td>
+                <td>
+                  {entry.snippet ? (
+                    <code className="query-snippet">{entry.snippet}</code>
+                  ) : (
+                    <span className="overview-hint">—</span>
+                  )}
+                </td>
+                <td>
+                  <span className="badge badge-info">{entry.matchType || '—'}</span>
+                </td>
+                <td>
+                  <span className={`badge ${entry.severity === 'HIGH' ? 'badge-alert' : 'badge-info'}`}>
+                    {entry.severity || '—'}
+                  </span>
+                </td>
+                <td>{entry.ignored ? 'Yes' : 'No'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+};
+
 function App() {
   const [repoUrl, setRepoUrl] = useState('');
   const [apiKey, setApiKey] = useState('');
@@ -495,6 +735,11 @@ function App() {
   const [apiLoading, setApiLoading] = useState(false);
   const [dbAnalysis, setDbAnalysis] = useState(null);
   const [dbLoading, setDbLoading] = useState(false);
+  const [loggerInsights, setLoggerInsights] = useState([]);
+  const [loggerLoading, setLoggerLoading] = useState(false);
+  const [piiFindings, setPiiFindings] = useState([]);
+  const [piiLoading, setPiiLoading] = useState(false);
+  const [projectId, setProjectId] = useState(null);
 
   const projectName = useMemo(() => deriveProjectName(repoUrl), [repoUrl]);
 
@@ -511,6 +756,11 @@ function App() {
     setApiLoading(false);
     setDbAnalysis(null);
     setDbLoading(false);
+    setLoggerInsights([]);
+    setLoggerLoading(false);
+    setPiiFindings([]);
+    setPiiLoading(false);
+    setProjectId(null);
 
     console.info('Submitting analysis request', {
       repoUrl,
@@ -532,6 +782,7 @@ function App() {
       const payload = response.data;
       console.info('Analysis response received', payload);
       setResult({ ...payload, projectName });
+      setProjectId(payload?.projectId || null);
 
       if (payload?.projectId) {
         try {
@@ -582,6 +833,44 @@ function App() {
           } finally {
             setDbLoading(false);
           }
+
+          try {
+            setLoggerLoading(true);
+            const loggerResponse = await axios.get(`/project/${payload.projectId}/logger-insights`, {
+              headers: {
+                ...authHeaders()
+              }
+            });
+            console.info('Loaded logger insights', {
+              projectId: payload.projectId,
+              count: loggerResponse.data?.loggerInsights?.length ?? 0
+            });
+            setLoggerInsights(loggerResponse.data?.loggerInsights ?? []);
+          } catch (loggerError) {
+            console.warn('Failed to load logger insights', loggerError);
+            setLoggerInsights([]);
+          } finally {
+            setLoggerLoading(false);
+          }
+
+          try {
+            setPiiLoading(true);
+            const piiResponse = await axios.get(`/project/${payload.projectId}/pii-pci`, {
+              headers: {
+                ...authHeaders()
+              }
+            });
+            console.info('Loaded PCI / PII findings', {
+              projectId: payload.projectId,
+              count: piiResponse.data?.findings?.length ?? 0
+            });
+            setPiiFindings(piiResponse.data?.findings ?? []);
+          } catch (piiError) {
+            console.warn('Failed to load PCI / PII findings', piiError);
+            setPiiFindings([]);
+          } finally {
+            setPiiLoading(false);
+          }
         } catch (fetchError) {
           console.warn('Failed to load project overview', fetchError);
           setError(fetchError.response?.data || 'Analysis completed, but the overview failed to load.');
@@ -595,6 +884,40 @@ function App() {
       setLoading(false);
     }
   };
+
+  const handleExport = async (path, filename) => {
+    if (!projectId) {
+      return;
+    }
+    try {
+      const response = await axios.get(path, {
+        responseType: 'blob',
+        headers: {
+          ...authHeaders()
+        }
+      });
+      const blob = new Blob([response.data]);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (exportError) {
+      console.warn(`Failed to download ${filename}`, exportError);
+    }
+  };
+
+  const downloadLogsCsv = () =>
+    projectId && handleExport(`/project/${projectId}/export/logs.csv`, `logger-insights-${projectId}.csv`);
+  const downloadLogsPdf = () =>
+    projectId && handleExport(`/project/${projectId}/export/logs.pdf`, `logger-insights-${projectId}.pdf`);
+  const downloadPiiCsv = () =>
+    projectId && handleExport(`/project/${projectId}/export/pii.csv`, `pii-findings-${projectId}.csv`);
+  const downloadPiiPdf = () =>
+    projectId && handleExport(`/project/${projectId}/export/pii.pdf`, `pii-findings-${projectId}.pdf`);
 
   return (
     <div className="app">
@@ -665,13 +988,43 @@ function App() {
             >
               Database
             </button>
+            <button
+              type="button"
+              className={`tab-button ${activeTab === 'logger' ? 'active' : ''}`}
+              onClick={() => setActiveTab('logger')}
+              disabled={!projectId && loggerInsights.length === 0 && !loggerLoading}
+            >
+              Logger Insights
+            </button>
+            <button
+              type="button"
+              className={`tab-button ${activeTab === 'pii' ? 'active' : ''}`}
+              onClick={() => setActiveTab('pii')}
+              disabled={!projectId && piiFindings.length === 0 && !piiLoading}
+            >
+              PCI / PII Scan
+            </button>
           </div>
           {activeTab === 'overview' ? (
             <OverviewPanel overview={overview} loading={loading && !overview} />
           ) : activeTab === 'api' ? (
             <ApiSpecsPanel overview={overview} apiCatalog={apiCatalog} loading={apiLoading && !apiCatalog} />
-          ) : (
+          ) : activeTab === 'db' ? (
             <DatabasePanel analysis={dbAnalysis} loading={dbLoading && !dbAnalysis} />
+          ) : activeTab === 'logger' ? (
+            <LoggerInsightsPanel
+              insights={loggerInsights}
+              loading={loggerLoading && loggerInsights.length === 0}
+              onDownloadCsv={downloadLogsCsv}
+              onDownloadPdf={downloadLogsPdf}
+            />
+          ) : (
+            <PiiPciPanel
+              findings={piiFindings}
+              loading={piiLoading && piiFindings.length === 0}
+              onDownloadCsv={downloadPiiCsv}
+              onDownloadPdf={downloadPiiPdf}
+            />
           )}
         </section>
       </div>

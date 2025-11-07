@@ -171,7 +171,8 @@ The backend serialises every analysis into a single `ParsedDataResponse` JSON do
   - `classesByEntity` maps entities to the repository/DAO classes that touch them.
   - `operationsByClass` lists repository methods with inferred CRUD intent and any inline query text.
 - **`assets`** – pointer to image assets (diagrams, screenshots) so exports can embed them.
-- **`loggerInsights` / `piiPciScan`** – reserved for iterations 5+ (logging + sensitive-data scanning). They remain arrays for tooling compatibility.
+- **`loggerInsights`** – populated by the LoggerScanner. Each entry includes `className`, `filePath`, `logLevel`, `lineNumber`, `messageTemplate`, `variables`, and the boolean flags `piiRisk` / `pciRisk`. Use this array to power the `/logger-insights` API and CSV/PDF exports.
+- **`piiPciScan`** – the flattened list of sensitive-data findings captured by `PiiPciInspector`, with `filePath`, `lineNumber`, `snippet`, `matchType`, `severity`, and `ignored` (true when suppressed by an ignore rule). These rows drive the `/pii-pci` API and security exports.
 - **`callFlows` & `diagrams`** – support diagram generation and sequence visualisation.
 
 Treat the JSON snapshot as the canonical contract between the ingestion pipeline and every consumer. The REST endpoints (`/project/{id}/overview`, `/project/{id}/api-endpoints`, `/project/{id}/db-analysis`, etc.) simply return slices of this document for UI convenience.

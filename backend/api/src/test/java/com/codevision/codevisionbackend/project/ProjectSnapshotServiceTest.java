@@ -3,8 +3,12 @@ package com.codevision.codevisionbackend.project;
 import com.codevision.codevisionbackend.analyze.AssetInventory;
 import com.codevision.codevisionbackend.analyze.BuildInfo;
 import com.codevision.codevisionbackend.analyze.DbAnalysisSummary;
+import com.codevision.codevisionbackend.analyze.LoggerInsightSummary;
+import com.codevision.codevisionbackend.analyze.LoggerInsightSummary;
 import com.codevision.codevisionbackend.analyze.MetadataDump;
 import com.codevision.codevisionbackend.analyze.ParsedDataResponse;
+import com.codevision.codevisionbackend.analyze.PiiPciFindingSummary;
+import com.codevision.codevisionbackend.analyze.PiiPciFindingSummary;
 import com.codevision.codevisionbackend.project.metadata.ClassMetadata;
 import com.codevision.codevisionbackend.project.metadata.ClassMetadataRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -74,7 +78,9 @@ class ProjectSnapshotServiceTest {
                 MetadataDump.empty(),
                 emptyDbAnalysis(),
                 List.of(),
-                AssetInventory.empty());
+                AssetInventory.empty(),
+                List.of(),
+                List.of());
 
         projectSnapshotService.saveSnapshot(detached, parsed);
 
@@ -153,7 +159,9 @@ class ProjectSnapshotServiceTest {
                 MetadataDump.empty(),
                 emptyDbAnalysis(),
                 List.of(),
-                AssetInventory.empty());
+                AssetInventory.empty(),
+                List.of(),
+                List.of());
     }
 
     private DbAnalysisSummary emptyDbAnalysis() {

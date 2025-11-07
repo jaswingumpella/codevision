@@ -1,5 +1,6 @@
 com/codevision/codevisionbackend/analyze/AnalyzeControllerTest$StubAnalysisService.class
 com/codevision/codevisionbackend/analyze/AnalyzeControllerTest.class
+com/codevision/codevisionbackend/analyze/scanner/PiiPciInspectorTest.class
 com/codevision/codevisionbackend/project/ProjectOverviewControllerTest$StubProjectSnapshotService.class
 com/codevision/codevisionbackend/analyze/AnalysisServiceTest.class
 com/codevision/codevisionbackend/project/ProjectOverviewControllerTest.class

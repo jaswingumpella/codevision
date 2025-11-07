@@ -177,7 +177,9 @@ public class ProjectSnapshotService {
                 fromSnapshot.metadataDump(),
                 fromSnapshot.dbAnalysis(),
                 fromSnapshot.apiEndpoints(),
-                fromSnapshot.assets());
+                fromSnapshot.assets(),
+                fromSnapshot.loggerInsights(),
+                fromSnapshot.piiPciScan());
     }
 
     private ClassMetadataSummary toSummary(ClassMetadata metadata) {

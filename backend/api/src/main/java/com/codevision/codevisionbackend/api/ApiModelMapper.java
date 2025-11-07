@@ -5,10 +5,16 @@ import com.codevision.codevisionbackend.analyze.AssetInventory;
 import com.codevision.codevisionbackend.analyze.BuildInfo;
 import com.codevision.codevisionbackend.analyze.ClassMetadataSummary;
 import com.codevision.codevisionbackend.analyze.DbAnalysisSummary;
+import com.codevision.codevisionbackend.analyze.LoggerInsightSummary;
 import com.codevision.codevisionbackend.analyze.MetadataDump;
 import com.codevision.codevisionbackend.analyze.MetadataDump.SoapPortSummary;
 import com.codevision.codevisionbackend.analyze.MetadataDump.SoapServiceSummary;
 import com.codevision.codevisionbackend.analyze.ParsedDataResponse;
+import com.codevision.codevisionbackend.analyze.PiiPciFindingSummary;
+import com.codevision.codevisionbackend.api.model.LoggerInsight;
+import com.codevision.codevisionbackend.api.model.PiiPciFinding;
+import com.codevision.codevisionbackend.api.model.ProjectLoggerInsightsResponse;
+import com.codevision.codevisionbackend.api.model.ProjectPiiPciResponse;
 import java.net.URI;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -72,6 +78,22 @@ public class ApiModelMapper {
         AssetInventory assets = snapshot.assets();
         if (assets != null) {
             response.setAssets(toAssetInventory(assets));
+        }
+
+        List<LoggerInsightSummary> loggerInsights = snapshot.loggerInsights();
+        if (loggerInsights != null) {
+            response.setLoggerInsights(loggerInsights.stream()
+                    .filter(Objects::nonNull)
+                    .map(this::toLoggerInsight)
+                    .collect(Collectors.toList()));
+        }
+
+        List<PiiPciFindingSummary> piiPciScan = snapshot.piiPciScan();
+        if (piiPciScan != null) {
+            response.setPiiPciScan(piiPciScan.stream()
+                    .filter(Objects::nonNull)
+                    .map(this::toPiiPciFinding)
+                    .collect(Collectors.toList()));
         }
 
         return response;
@@ -189,6 +211,28 @@ public class ApiModelMapper {
                 .type(artifact.type())
                 .name(artifact.name())
                 .reference(artifact.reference());
+    }
+
+    private LoggerInsight toLoggerInsight(LoggerInsightSummary summary) {
+        return new LoggerInsight()
+                .className(summary.className())
+                .filePath(summary.filePath())
+                .logLevel(summary.logLevel())
+                .lineNumber(summary.lineNumber())
+                .messageTemplate(summary.messageTemplate())
+                .variables(summary.variables())
+                .piiRisk(summary.piiRisk())
+                .pciRisk(summary.pciRisk());
+    }
+
+    private PiiPciFinding toPiiPciFinding(PiiPciFindingSummary summary) {
+        return new PiiPciFinding()
+                .filePath(summary.filePath())
+                .lineNumber(summary.lineNumber())
+                .snippet(summary.snippet())
+                .matchType(summary.matchType())
+                .severity(summary.severity())
+                .ignored(summary.ignored());
     }
 
     private com.codevision.codevisionbackend.api.model.DbAnalysis toDbAnalysis(DbAnalysisSummary summary) {
@@ -316,6 +360,29 @@ public class ApiModelMapper {
             response.setEndpoints(endpoints.stream()
                     .filter(Objects::nonNull)
                     .map(this::toApiEndpoint)
+                    .collect(Collectors.toList()));
+        }
+        return response;
+    }
+
+    public ProjectLoggerInsightsResponse toLoggerInsightsResponse(
+            Long projectId, List<LoggerInsightSummary> summaries) {
+        ProjectLoggerInsightsResponse response = new ProjectLoggerInsightsResponse().projectId(projectId);
+        if (summaries != null) {
+            response.setLoggerInsights(summaries.stream()
+                    .filter(Objects::nonNull)
+                    .map(this::toLoggerInsight)
+                    .collect(Collectors.toList()));
+        }
+        return response;
+    }
+
+    public ProjectPiiPciResponse toPiiPciResponse(Long projectId, List<PiiPciFindingSummary> findings) {
+        ProjectPiiPciResponse response = new ProjectPiiPciResponse().projectId(projectId);
+        if (findings != null) {
+            response.setFindings(findings.stream()
+                    .filter(Objects::nonNull)
+                    .map(this::toPiiPciFinding)
                     .collect(Collectors.toList()));
         }
         return response;

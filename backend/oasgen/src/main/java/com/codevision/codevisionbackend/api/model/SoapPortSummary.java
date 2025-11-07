@@ -21,7 +21,7 @@ import jakarta.annotation.Generated;
  * SoapPortSummary
  */
 
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2025-10-27T11:51:06.293320-04:00[America/New_York]", comments = "Generator version: 7.5.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2025-11-06T21:06:48.004750-05:00[America/New_York]", comments = "Generator version: 7.5.0")
 public class SoapPortSummary {
 
   private String portName;

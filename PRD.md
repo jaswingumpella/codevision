@@ -91,6 +91,7 @@ The product runs locally. There is no AI integration in the runtime. All logic i
 
 * Git credentials (username/token) stored in `application.yml`
 * API key (for REST endpoints) configured in `application.yml`
+* PII/PCI scan rules + ignore patterns configured under `security.scan` in `application.yml`
 * Local runtime only (no internet dependency at analysis time beyond cloning the repo)
 
 ---
@@ -630,6 +631,19 @@ No images are required for Confluence export. We include sources instead of SVG/
 
 ---
 
+### 6.11 Reference Validation Repositories
+
+To keep regression coverage concrete, we maintain a curated list of GitHub projects that represent different workloads (Spring Petclinic for day-to-day sanity checks, Apache ServiceMix for multi-module + SOAP stress, and OWASP WebGoat for security-heavy scenarios). The list lives in `docs/test-repositories.md` and documents:
+
+* Clone URLs and quick background on each repo
+* Which iteration deliverables they exercise (API catalog, DB analysis, diagrams, logger insights, PCI/PII exports)
+* Step-by-step instructions for running `/analyze` locally and validating UI/export behavior
+* A checklist covering snapshot verification, `log_statement` / `pii_pci_finding` replacements, and CSV/PDF exports
+
+Every release of the Logger Insights + PCI/PII capability should re-run against these repositories so we can capture timing, snapshot size, and any false positives that might require tuning the `security.scan` configuration.
+
+---
+
 ## 7. API Surface (Backend)
 
 All secured with `X-API-KEY: <value from application.yml>` unless noted.
@@ -1020,6 +1034,8 @@ All secured with `X-API-KEY: <value from application.yml>` unless noted.
 * React: “Database” page (Entities & Interacting Classes + Operations by DAO/Repository)
 
 ### Iteration 5 – Logger Insights + PCI/PII Scan
+
+**Status:** ✅ Completed – see [`docs/iteration-5-completion.md`](docs/iteration-5-completion.md).
 
 * Implement `PiiPciInspector` with patterns + severities + ignore rules from `application.yml`
 * Scan all text files for PII/PCI

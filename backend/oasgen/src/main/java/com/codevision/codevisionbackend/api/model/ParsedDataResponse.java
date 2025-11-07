@@ -7,7 +7,9 @@ import com.codevision.codevisionbackend.api.model.AssetInventory;
 import com.codevision.codevisionbackend.api.model.BuildInfo;
 import com.codevision.codevisionbackend.api.model.ClassMetadataSummary;
 import com.codevision.codevisionbackend.api.model.DbAnalysis;
+import com.codevision.codevisionbackend.api.model.LoggerInsight;
 import com.codevision.codevisionbackend.api.model.MetadataDump;
+import com.codevision.codevisionbackend.api.model.PiiPciFinding;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import java.net.URI;
@@ -30,7 +32,7 @@ import jakarta.annotation.Generated;
  * ParsedDataResponse
  */
 
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2025-10-27T11:51:06.293320-04:00[America/New_York]", comments = "Generator version: 7.5.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2025-11-06T21:06:48.004750-05:00[America/New_York]", comments = "Generator version: 7.5.0")
 public class ParsedDataResponse {
 
   private Long projectId;
@@ -55,6 +57,12 @@ public class ParsedDataResponse {
   private List<@Valid ApiEndpoint> apiEndpoints = new ArrayList<>();
 
   private AssetInventory assets;
+
+  @Valid
+  private List<@Valid LoggerInsight> loggerInsights = new ArrayList<>();
+
+  @Valid
+  private List<@Valid PiiPciFinding> piiPciScan = new ArrayList<>();
 
   public ParsedDataResponse() {
     super();
@@ -286,6 +294,62 @@ public class ParsedDataResponse {
     this.assets = assets;
   }
 
+  public ParsedDataResponse loggerInsights(List<@Valid LoggerInsight> loggerInsights) {
+    this.loggerInsights = loggerInsights;
+    return this;
+  }
+
+  public ParsedDataResponse addLoggerInsightsItem(LoggerInsight loggerInsightsItem) {
+    if (this.loggerInsights == null) {
+      this.loggerInsights = new ArrayList<>();
+    }
+    this.loggerInsights.add(loggerInsightsItem);
+    return this;
+  }
+
+  /**
+   * Catalog of log statements detected during analysis.
+   * @return loggerInsights
+  */
+  @Valid 
+  @Schema(name = "loggerInsights", description = "Catalog of log statements detected during analysis.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @JsonProperty("loggerInsights")
+  public List<@Valid LoggerInsight> getLoggerInsights() {
+    return loggerInsights;
+  }
+
+  public void setLoggerInsights(List<@Valid LoggerInsight> loggerInsights) {
+    this.loggerInsights = loggerInsights;
+  }
+
+  public ParsedDataResponse piiPciScan(List<@Valid PiiPciFinding> piiPciScan) {
+    this.piiPciScan = piiPciScan;
+    return this;
+  }
+
+  public ParsedDataResponse addPiiPciScanItem(PiiPciFinding piiPciScanItem) {
+    if (this.piiPciScan == null) {
+      this.piiPciScan = new ArrayList<>();
+    }
+    this.piiPciScan.add(piiPciScanItem);
+    return this;
+  }
+
+  /**
+   * Potential PCI/PII findings detected during analysis.
+   * @return piiPciScan
+  */
+  @Valid 
+  @Schema(name = "piiPciScan", description = "Potential PCI/PII findings detected during analysis.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @JsonProperty("piiPciScan")
+  public List<@Valid PiiPciFinding> getPiiPciScan() {
+    return piiPciScan;
+  }
+
+  public void setPiiPciScan(List<@Valid PiiPciFinding> piiPciScan) {
+    this.piiPciScan = piiPciScan;
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) {
@@ -304,12 +368,14 @@ public class ParsedDataResponse {
         Objects.equals(this.metadataDump, parsedDataResponse.metadataDump) &&
         Objects.equals(this.dbAnalysis, parsedDataResponse.dbAnalysis) &&
         Objects.equals(this.apiEndpoints, parsedDataResponse.apiEndpoints) &&
-        Objects.equals(this.assets, parsedDataResponse.assets);
+        Objects.equals(this.assets, parsedDataResponse.assets) &&
+        Objects.equals(this.loggerInsights, parsedDataResponse.loggerInsights) &&
+        Objects.equals(this.piiPciScan, parsedDataResponse.piiPciScan);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(projectId, projectName, repoUrl, analyzedAt, buildInfo, classes, metadataDump, dbAnalysis, apiEndpoints, assets);
+    return Objects.hash(projectId, projectName, repoUrl, analyzedAt, buildInfo, classes, metadataDump, dbAnalysis, apiEndpoints, assets, loggerInsights, piiPciScan);
   }
 
   @Override
@@ -326,6 +392,8 @@ public class ParsedDataResponse {
     sb.append("    dbAnalysis: ").append(toIndentedString(dbAnalysis)).append("\n");
     sb.append("    apiEndpoints: ").append(toIndentedString(apiEndpoints)).append("\n");
     sb.append("    assets: ").append(toIndentedString(assets)).append("\n");
+    sb.append("    loggerInsights: ").append(toIndentedString(loggerInsights)).append("\n");
+    sb.append("    piiPciScan: ").append(toIndentedString(piiPciScan)).append("\n");
     sb.append("}");
     return sb.toString();
   }

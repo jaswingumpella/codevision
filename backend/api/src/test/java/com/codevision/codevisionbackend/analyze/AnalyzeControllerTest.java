@@ -46,7 +46,9 @@ class AnalyzeControllerTest {
                 MetadataDump.empty(),
                 emptyDbAnalysis(),
                 List.of(),
-                AssetInventory.empty());
+                AssetInventory.empty(),
+                List.of(),
+                List.of());
         analysisService.setNextOutcome(new AnalysisOutcome(project, data));
 
         ResponseEntity<AnalyzeResponse> response = controller.analyzeRepository(request);
@@ -63,6 +65,10 @@ class AnalyzeControllerTest {
 
         StubAnalysisService() {
             super(
+                    null,
+                    null,
+                    null,
+                    null,
                     null,
                     null,
                     null,

@@ -12,6 +12,10 @@ import com.codevision.codevisionbackend.analyze.scanner.DbEntityRecord;
 import com.codevision.codevisionbackend.analyze.scanner.ImageAssetRecord;
 import com.codevision.codevisionbackend.analyze.scanner.JavaSourceScanner;
 import com.codevision.codevisionbackend.analyze.scanner.JpaEntityScanner;
+import com.codevision.codevisionbackend.analyze.scanner.LogStatementRecord;
+import com.codevision.codevisionbackend.analyze.scanner.LoggerScanner;
+import com.codevision.codevisionbackend.analyze.scanner.PiiPciFindingRecord;
+import com.codevision.codevisionbackend.analyze.scanner.PiiPciInspector;
 import com.codevision.codevisionbackend.analyze.scanner.YamlScanner;
 import com.codevision.codevisionbackend.analyze.scanner.DbAnalysisResult;
 import com.codevision.codevisionbackend.git.GitCloneService;
@@ -26,8 +30,12 @@ import com.codevision.codevisionbackend.project.db.DaoOperation;
 import com.codevision.codevisionbackend.project.db.DaoOperationRepository;
 import com.codevision.codevisionbackend.project.db.DbEntity;
 import com.codevision.codevisionbackend.project.db.DbEntityRepository;
+import com.codevision.codevisionbackend.project.logger.LogStatement;
+import com.codevision.codevisionbackend.project.logger.LogStatementRepository;
 import com.codevision.codevisionbackend.project.metadata.ClassMetadata;
 import com.codevision.codevisionbackend.project.metadata.ClassMetadataRepository;
+import com.codevision.codevisionbackend.project.security.PiiPciFinding;
+import com.codevision.codevisionbackend.project.security.PiiPciFindingRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
@@ -51,12 +59,16 @@ public class AnalysisService {
     private final AssetScanner assetScanner;
     private final JpaEntityScanner jpaEntityScanner;
     private final DaoAnalysisService daoAnalysisService;
+    private final LoggerScanner loggerScanner;
+    private final PiiPciInspector piiPciInspector;
     private final ProjectService projectService;
     private final ClassMetadataRepository classMetadataRepository;
     private final ApiEndpointRepository apiEndpointRepository;
     private final AssetImageRepository assetImageRepository;
     private final DbEntityRepository dbEntityRepository;
     private final DaoOperationRepository daoOperationRepository;
+    private final LogStatementRepository logStatementRepository;
+    private final PiiPciFindingRepository piiPciFindingRepository;
     private final ProjectSnapshotService projectSnapshotService;
     private final ObjectMapper objectMapper;
 
@@ -69,12 +81,16 @@ public class AnalysisService {
             AssetScanner assetScanner,
             JpaEntityScanner jpaEntityScanner,
             DaoAnalysisService daoAnalysisService,
+            LoggerScanner loggerScanner,
+            PiiPciInspector piiPciInspector,
             ProjectService projectService,
             ClassMetadataRepository classMetadataRepository,
             ApiEndpointRepository apiEndpointRepository,
             AssetImageRepository assetImageRepository,
             DbEntityRepository dbEntityRepository,
             DaoOperationRepository daoOperationRepository,
+            LogStatementRepository logStatementRepository,
+            PiiPciFindingRepository piiPciFindingRepository,
             ProjectSnapshotService projectSnapshotService,
             ObjectMapper objectMapper) {
         this.gitCloneService = gitCloneService;
@@ -85,12 +101,16 @@ public class AnalysisService {
         this.assetScanner = assetScanner;
         this.jpaEntityScanner = jpaEntityScanner;
         this.daoAnalysisService = daoAnalysisService;
+        this.loggerScanner = loggerScanner;
+        this.piiPciInspector = piiPciInspector;
         this.projectService = projectService;
         this.classMetadataRepository = classMetadataRepository;
         this.apiEndpointRepository = apiEndpointRepository;
         this.assetImageRepository = assetImageRepository;
         this.dbEntityRepository = dbEntityRepository;
         this.daoOperationRepository = daoOperationRepository;
+        this.logStatementRepository = logStatementRepository;
+        this.piiPciFindingRepository = piiPciFindingRepository;
         this.projectSnapshotService = projectSnapshotService;
         this.objectMapper = objectMapper;
     }
@@ -147,6 +167,13 @@ public class AnalysisService {
             List<ImageAssetRecord> imageAssets = assetScanner.scan(cloneResult.directory());
             log.info("Discovered {} image assets for {}", imageAssets.size(), repoUrl);
             replaceAssetImages(persistedProject, imageAssets);
+            List<PiiPciFindingRecord> piiFindings = piiPciInspector.scan(cloneResult.directory());
+            log.info("Identified {} PII/PCI findings for {}", piiFindings.size(), repoUrl);
+            replacePiiPciFindings(persistedProject, piiFindings);
+            List<LogStatementRecord> logStatements =
+                    loggerScanner.scan(cloneResult.directory(), buildMetadata.moduleRoots());
+            log.info("Captured {} log statements for {}", logStatements.size(), repoUrl);
+            replaceLogStatements(persistedProject, logStatements);
             DbAnalysisSummary dbAnalysisSummary = toDbAnalysisSummary(dbAnalysisResult);
             ParsedDataResponse parsedData =
                     assembleParsedData(
@@ -156,7 +183,9 @@ public class AnalysisService {
                             metadataDump,
                             dbAnalysisSummary,
                             apiEndpoints,
-                            imageAssets);
+                            imageAssets,
+                            logStatements,
+                            piiFindings);
             projectSnapshotService.saveSnapshot(persistedProject, parsedData);
             log.info(
                     "Completed analysis for {} with projectId={}", repoUrl, persistedProject.getId());
@@ -294,7 +323,9 @@ public class AnalysisService {
             MetadataDump metadataDump,
             DbAnalysisSummary dbAnalysis,
             List<ApiEndpointRecord> apiEndpoints,
-            List<ImageAssetRecord> imageAssets) {
+            List<ImageAssetRecord> imageAssets,
+            List<LogStatementRecord> logStatements,
+            List<PiiPciFindingRecord> piiFindings) {
         List<ClassMetadataSummary> classSummaries = classRecords.stream()
                 .map(record -> new ClassMetadataSummary(
                         record.fullyQualifiedName(),
@@ -327,6 +358,28 @@ public class AnalysisService {
                 .toList();
         AssetInventory assetInventory = images.isEmpty() ? AssetInventory.empty() : new AssetInventory(images);
 
+        List<LoggerInsightSummary> loggerInsights = logStatements.stream()
+                .map(record -> new LoggerInsightSummary(
+                        record.className(),
+                        record.filePath(),
+                        record.logLevel(),
+                        record.lineNumber(),
+                        record.messageTemplate(),
+                        record.variables(),
+                        record.piiRisk(),
+                        record.pciRisk()))
+                .toList();
+
+        List<PiiPciFindingSummary> piiSummaries = piiFindings.stream()
+                .map(record -> new PiiPciFindingSummary(
+                        record.filePath(),
+                        record.lineNumber(),
+                        record.snippet(),
+                        record.matchType(),
+                        record.severity(),
+                        record.ignored()))
+                .toList();
+
         return new ParsedDataResponse(
                 project.getId(),
                 project.getProjectName(),
@@ -337,7 +390,9 @@ public class AnalysisService {
                 metadataDump,
                 dbAnalysis,
                 endpointSummaries,
-                assetInventory);
+                assetInventory,
+                loggerInsights,
+                piiSummaries);
     }
 
     private String writeJsonValue(Object value) {
@@ -396,6 +451,58 @@ public class AnalysisService {
         return entity;
     }
 
+    private void replaceLogStatements(Project project, List<LogStatementRecord> logStatements) {
+        logStatementRepository.deleteByProject(project);
+        if (logStatements == null || logStatements.isEmpty()) {
+            log.info("No log statements to persist for projectId={}", project.getId());
+            return;
+        }
+        List<LogStatement> entities = logStatements.stream()
+                .map(record -> mapLogStatement(project, record))
+                .toList();
+        logStatementRepository.saveAll(entities);
+        log.info("Persisted {} log statements for projectId={}", entities.size(), project.getId());
+    }
+
+    private LogStatement mapLogStatement(Project project, LogStatementRecord record) {
+        LogStatement entity = new LogStatement();
+        entity.setProject(project);
+        entity.setClassName(record.className());
+        entity.setFilePath(record.filePath());
+        entity.setLogLevel(record.logLevel());
+        entity.setLineNumber(record.lineNumber());
+        entity.setMessageTemplate(record.messageTemplate());
+        entity.setVariablesJson(writeJsonValue(record.variables()));
+        entity.setPiiRisk(record.piiRisk());
+        entity.setPciRisk(record.pciRisk());
+        return entity;
+    }
+
+    private void replacePiiPciFindings(Project project, List<PiiPciFindingRecord> findings) {
+        piiPciFindingRepository.deleteByProject(project);
+        if (findings == null || findings.isEmpty()) {
+            log.info("No PII/PCI findings to persist for projectId={}", project.getId());
+            return;
+        }
+        List<PiiPciFinding> entities = findings.stream()
+                .map(record -> mapPiiPciFinding(project, record))
+                .toList();
+        piiPciFindingRepository.saveAll(entities);
+        log.info("Persisted {} PII/PCI findings for projectId={}", entities.size(), project.getId());
+    }
+
+    private PiiPciFinding mapPiiPciFinding(Project project, PiiPciFindingRecord record) {
+        PiiPciFinding entity = new PiiPciFinding();
+        entity.setProject(project);
+        entity.setFilePath(record.filePath());
+        entity.setLineNumber(record.lineNumber());
+        entity.setSnippet(record.snippet());
+        entity.setMatchType(record.matchType());
+        entity.setSeverity(record.severity());
+        entity.setIgnored(record.ignored());
+        return entity;
+    }
+
     private void cleanupClone(GitCloneService.CloneResult cloneResult) {
         try {
             gitCloneService.cleanupClone(cloneResult);
@@ -413,6 +520,8 @@ public class AnalysisService {
             assetImageRepository.deleteByProject(existing);
             dbEntityRepository.deleteByProject(existing);
             daoOperationRepository.deleteByProject(existing);
+            logStatementRepository.deleteByProject(existing);
+            piiPciFindingRepository.deleteByProject(existing);
             projectService.delete(existing);
         });
     }
