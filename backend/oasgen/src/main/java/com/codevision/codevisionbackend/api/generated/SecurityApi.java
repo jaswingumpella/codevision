@@ -33,7 +33,7 @@ import java.util.Map;
 import java.util.Optional;
 import jakarta.annotation.Generated;
 
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2025-11-07T00:58:31.998981-05:00[America/New_York]", comments = "Generator version: 7.5.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2025-11-07T01:07:12.199281-05:00[America/New_York]", comments = "Generator version: 7.5.0")
 @Validated
 @Tag(name = "Security", description = "Security and compliance visibility endpoints.")
 public interface SecurityApi {
