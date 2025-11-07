@@ -14,6 +14,11 @@ const ANALYSIS_STEPS = [
   { id: 'diagrams', label: 'Generating diagrams' }
 ];
 
+const API_BASE_URL = (import.meta.env?.VITE_API_BASE_URL || '').trim();
+if (API_BASE_URL) {
+  axios.defaults.baseURL = API_BASE_URL;
+}
+
 const deriveProjectName = (repoUrl) => {
   if (!repoUrl) {
     return '';
@@ -1628,3 +1633,14 @@ function App() {
 }
 
 export default App;
+
+export {
+  deriveProjectName,
+  formatDate,
+  OverviewPanel,
+  ApiSpecsPanel,
+  DatabasePanel,
+  LoggerInsightsPanel,
+  PiiPciPanel,
+  DiagramsPanel
+};

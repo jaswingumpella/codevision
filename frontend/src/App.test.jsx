@@ -91,7 +91,7 @@ describe('App', () => {
       }
     }));
 
-    expect(await screen.findByText(/analysis complete/i)).toBeInTheDocument();
+    expect(await screen.findByText(/latest analysis/i)).toBeInTheDocument();
     expect(screen.getByText(/demo-project/)).toBeInTheDocument();
     expect(screen.getByText(/com\.barclays/)).toBeInTheDocument();
     expect(screen.getByText(/openapi\.yml/)).toBeInTheDocument();
