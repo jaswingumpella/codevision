@@ -53,6 +53,8 @@ Running `mvn -f backend/pom.xml -pl api -am package` now:
 - Copies the generated Vite `dist/` bundle (including `index.html` and hashed assets) into `backend/api/target/classes/static`, which is the Spring Boot resources folder.
 - Bakes the SPA into the runnable jar/containers so hitting `http://localhost:8080/` serves the React UI and delegates API calls to the same origin.
 
+This requires Node.js 18+ and npm 10+ to be available on your PATH; the Docker build installs them automatically, but local Maven builds should have Node installed as well.
+
 Pass `-Dskip.frontend=true` if you only want to build the backend (for example, while iterating on ingestion logic).
 
 ### Run the backend with Docker
@@ -68,7 +70,7 @@ docker run --rm -p 8080:8080 \
 ```
 
 Spring Boot reads environment variables using its relaxed binding, so any property in `application.yml` can be overridden the same way (for example `-e GIT_AUTH_USERNAME=... -e GIT_AUTH_TOKEN=...`). The container stores project data under `/app/data` (which includes `diagram.storage.root`), so keeping that directory on a named volume prevents losing state between restarts.
-The Docker build runs the same Maven packaging command, so the compiled React assets are already embedded and available at `/`.
+The Docker build installs Node.js 18 before running Maven, so the `npm install`/`npm run build` steps succeed even in CI (e.g., Render). The compiled React assets are already embedded and available at `/`.
 
 ### Analyze API (`POST /analyze`)
 

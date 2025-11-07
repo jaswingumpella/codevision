@@ -23,7 +23,7 @@ import jakarta.annotation.Generated;
  * DbEntitySummary
  */
 
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2025-11-07T01:07:12.199281-05:00[America/New_York]", comments = "Generator version: 7.5.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2025-11-07T01:12:28.278930-05:00[America/New_York]", comments = "Generator version: 7.5.0")
 public class DbEntitySummary {
 
   private String entityName;
