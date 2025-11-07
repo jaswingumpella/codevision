@@ -763,11 +763,6 @@ public class DiagramBuilderService {
         List<MethodInvocation> invocations = current.methodName() == null
                 ? List.of()
                 : graph.methodCallsFrom(current.className(), current.methodName());
-        if (invocations.isEmpty()) {
-            traverseClassEdges(current, graph, includeExternal, stack, steps, depth);
-            stack.pop();
-            return;
-        }
         for (MethodInvocation invocation : invocations) {
             if (!includeExternal && invocation.targetExternal()) {
                 continue;
@@ -782,33 +777,6 @@ public class DiagramBuilderService {
             traverseSequence(target, graph, includeExternal, stack, steps, depth + 1);
         }
         stack.pop();
-    }
-
-    private void traverseClassEdges(
-            MethodPointer current,
-            CallGraph graph,
-            boolean includeExternal,
-            Deque<MethodPointer> stack,
-            List<SequenceStep> steps,
-            int depth) {
-        for (String targetClass : graph.targets(current.className())) {
-            GraphNode node = graph.nodes().get(targetClass);
-            if (node == null) {
-                continue;
-            }
-            if (!includeExternal && node.external()) {
-                continue;
-            }
-            MethodPointer target = new MethodPointer(targetClass, null);
-            boolean seen = stack.stream()
-                    .anyMatch(pointer -> pointer.className() != null && pointer.className().equals(targetClass));
-            if (seen) {
-                steps.add(SequenceStep.cycleClass(current.className(), targetClass, node));
-                continue;
-            }
-            steps.add(SequenceStep.callClass(current.className(), targetClass, node));
-            traverseSequence(target, graph, includeExternal, stack, steps, depth + 1);
-        }
     }
 
     private Map<String, List<String>> buildCallFlows(List<ApiEndpointRecord> endpoints, CallGraph graph, int limit) {
@@ -957,28 +925,6 @@ public class DiagramBuilderService {
                     "[cycle -> " + cycleLabel(target) + "]",
                     simple(source.className()),
                     targetNode == null ? simple(target.className()) : targetNode.simpleName());
-        }
-
-        static SequenceStep callClass(String source, String target, GraphNode targetNode) {
-            return new SequenceStep(
-                    source,
-                    null,
-                    target,
-                    null,
-                    "call",
-                    simple(source),
-                    targetNode == null ? simple(target) : targetNode.simpleName());
-        }
-
-        static SequenceStep cycleClass(String source, String target, GraphNode targetNode) {
-            return new SequenceStep(
-                    source,
-                    null,
-                    target,
-                    null,
-                    "[cycle -> " + simple(target) + "]",
-                    simple(source),
-                    targetNode == null ? simple(target) : targetNode.simpleName());
         }
 
         private static String formatMethodLabel(String methodName) {

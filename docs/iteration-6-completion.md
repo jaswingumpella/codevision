@@ -6,8 +6,8 @@
 - Extend the React dashboard with an interactive Diagrams tab that surfaces SVG previews, source code, and filters/toggles.
 
 ## Backend Deliverables
-- **Diagram pipeline:** Added `DiagramBuilderService` with a JavaParser-powered call graph builder that extracts dependency edges, guards against cycles, and emits diagram definitions + call flow summaries. Sequence diagrams get both internal-only and `codeviz2`-external variants, and every diagram has synchronized PlantUML/Mermaid sources.
-- **Per-endpoint call flows:** Sequence diagrams and `callFlows` entries are now emitted per REST/SOAP/legacy endpoint (using `HTTP_METHOD pathOrOperation` labels) so downstream consumers can reason about individual surfaces instead of a single merged flow.
+- **Diagram pipeline:** Added `DiagramBuilderService` with a JavaParser-powered call graph builder that captures method-level invocations (including self-calls), guards against cycles, and emits diagram definitions + call flow summaries. Sequence diagrams get both internal-only and `codeviz2`-external variants, and every diagram has synchronized PlantUML/Mermaid sources.
+- **Per-endpoint call flows:** Sequence diagrams and `callFlows` entries are now emitted per REST/SOAP/legacy endpoint (using `HTTP_METHOD pathOrOperation` labels) so downstream consumers can reason about individual surfaces instead of a single merged flow. Arrow labels come straight from the recorded method names and DAO hops surface the CRUD methods that touch the shared Database participant, eliminating the generic “call” placeholders we had in earlier spikes.
 - **Class/component heuristics:** When the graph lacks explicit edges, we fall back to heuristic arrows (Controller→Service→Repository→Entity). Component nodes now include representative class names so documentation readers can immediately see which code was grouped.
 - **Persistence + storage:** Introduced the `diagram` table, `DiagramService`, and filesystem-backed SVG storage (`diagram.storage.root`, default `./data/diagrams`). Diagrams are regenerated each analysis run, saved alongside metadata JSON, and hydrated into snapshots when missing.
 - **API + schema:** Extended `ParsedDataResponse` with `callFlows` and `diagrams`, updated the OpenAPI contract (new `DiagramDescriptor` schema, `/project/{id}/diagrams`, `/project/{id}/diagram/{diagramId}/svg`), regenerated the OAS module, and wired a new `ProjectDiagramController`.
@@ -32,5 +32,5 @@
 
 ## Known Constraints & Follow-Ups
 - SVG rendering currently relies on PlantUML’s internal renderer; large projects may take noticeable time to render complex diagrams.
-- Call graph derivation focuses on field/constructor dependencies; method call analysis could be expanded in future iterations for richer sequences.
+- Method call analysis still skips reflective/dynamic-proxy edges, so a few flows may terminate early when the target cannot be resolved. The branch simply stops (and is documented in the PRD) to avoid misleading placeholders.
 - Diagram filtering is intentionally lightweight (basic package tabs + externals toggle); future work could add search and package scoping once export requirements firm up.

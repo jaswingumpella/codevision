@@ -507,14 +507,14 @@ Produce rich architectural visualizations for onboarding, audit, and documentati
    * Entities, tables, PKs, relationships
 5. **Sequence Diagrams (Call Flow)**
 
-   * Call chains traced across methods
+   * Call chains traced across individual methods (no more class-only fallbacks). Every arrow label is derived from the invoked method name (e.g., `OrderService.validate()`), and self-calls render as loops on the originating lifeline.
    * Internal calls between first-party classes (highlighted) and external classes (dimmed)
    * Outbound service calls (e.g. via `RestTemplate`, `WebClient`, Feign)
    * Cycle-safe:
 
      * If a method call repeats within the current traversal path, insert a `"(cyclic reference...)"` node rather than recurse
-   * Generated per endpoint so every REST/SOAP/legacy operation gets its own visualisation and call-flow summary (labelled `HTTP_METHOD pathOrOperation`). Metadata captures whether the diagram includes codeviz2 externals, making it easy for the UI to offer a toggle between internal-only and “full” flows.
-   * When we cannot infer edges from the call graph (e.g., tiny projects), we fall back to heuristics (Controller→Service→Repository→Entity) so the diagram still communicates directionality.
+   * Generated per endpoint so every REST/SOAP/legacy operation gets its own visualisation and call-flow summary (labelled `HTTP_METHOD pathOrOperation`). Metadata captures whether the diagram includes codeviz2 externals, making it easy for the UI to offer a toggle between internal-only and “full” flows. DAO arrows into the shared “Database” participant display the concrete repository method list (e.g., `findById(), save(), delete()`) so reviewers understand which persistence operations fire inside the step.
+   * If the call graph truly lacks a method edge (reflection or dynamic proxies), we stop the branch instead of emitting placeholder “call” arrows so diagrams stay trustworthy.
 
 **Outputs**
 
@@ -566,13 +566,14 @@ A call flow is derived from static method-to-method call analysis:
 
 * Build a graph of caller → callee
 * Track outbound service calls for inter-service nodes
+* Persist method-level invocation metadata (source FQN + method, target FQN + method, `external` flag) to drive both diagram arrows and the `callFlows` summary strings (formatted as `Class.method() -> OtherClass.otherMethod()`).
 * During diagramgen DFS:
 
   * Maintain `currentPath` stack
   * On re-entry to a method already in `currentPath`, emit a “cyclic reference” note instead of continuing
   * This prevents infinite recursion in diagrams
 
-This call flow view is included in `ParsedDataResponse.callFlows`, and also used to generate the Sequence Diagram entry in `diagram`.
+This call flow view is included in `ParsedDataResponse.callFlows`, and also used to generate the Sequence Diagram entry in `diagram`. Each summary entry lists the controller/service/repository method pairs rather than unnamed class hops, mirroring the PlantUML/Mermaid output.
 
 ---
 

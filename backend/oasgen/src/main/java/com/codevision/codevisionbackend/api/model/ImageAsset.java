@@ -18,7 +18,7 @@ import jakarta.annotation.Generated;
  * ImageAsset
  */
 
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2025-11-06T22:33:59.387668-05:00[America/New_York]", comments = "Generator version: 7.5.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2025-11-06T23:14:24.607561-05:00[America/New_York]", comments = "Generator version: 7.5.0")
 public class ImageAsset {
 
   private String fileName;

@@ -110,7 +110,7 @@ The frontend lives in [`frontend/`](frontend/). It provides a single-page workfl
 - Database tab with entity ↔ repository mapping and DAO operation breakdowns (inferred CRUD intent, targets, inline queries).
 - Embedded viewers for OpenAPI YAML, WSDL, and XSD definitions plus synthesized SOAP service summaries.
 - Media asset inventory (PNG/JPG/SVG/GIF) listing repository diagrams and screenshots with size + relative path.
-- Diagrams tab with type-level filtering, SVG previews, PlantUML/Mermaid source toggles, a sequence-external toggle, and one-click SVG downloads. Each REST/SOAP/legacy endpoint receives its own sequence diagram and call-flow summary (we label them with the HTTP method + path), and the UI highlights whether a diagram includes `codeviz2` externals. Class/component diagrams stay readable on large or small screens thanks to responsive layout tweaks.
+- Diagrams tab with type-level filtering, SVG previews, PlantUML/Mermaid source toggles, a sequence-external toggle, and one-click SVG downloads. Each REST/SOAP/legacy endpoint receives its own sequence diagram and call-flow summary (labelled with HTTP method + path); every arrow in that diagram comes from the method-level call graph so you see `Service.save()` instead of a generic “call”, self-invocations loop back onto the lifeline, and repository hops annotate the DAO methods executed before the shared “Database” participant. Class/component diagrams stay readable on large or small screens thanks to responsive layout tweaks.
 
 ### Prerequisites
 

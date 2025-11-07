@@ -146,12 +146,12 @@ The backend serialises every analysis into a single `ParsedDataResponse` JSON do
   ],
   "callFlows": {
     "POST /api/orders": [
-      "OrderController -> OrderService",
-      "OrderService -> OrderRepository"
+      "OrderController.createOrder() -> OrderService.validateOrder()",
+      "OrderService.validateOrder() -> OrderRepository.save()"
     ],
     "SOAP placeOrder": [
-      "LegacyOrderEndpoint -> LegacyOrderService",
-      "LegacyOrderService -> LegacyOrderDao"
+      "LegacyOrderEndpoint.placeOrder() -> LegacyOrderService.process()",
+      "LegacyOrderService.process() -> LegacyOrderDao.persist()"
     ]
   },
   "diagrams": [
@@ -184,6 +184,6 @@ The backend serialises every analysis into a single `ParsedDataResponse` JSON do
 - **`assets`** – pointer to image assets (diagrams, screenshots) so exports can embed them.
 - **`loggerInsights`** – populated by the LoggerScanner. Each entry includes `className`, `filePath`, `logLevel`, `lineNumber`, `messageTemplate`, `variables`, and the boolean flags `piiRisk` / `pciRisk`. Use this array to power the `/logger-insights` API and CSV/PDF exports.
 - **`piiPciScan`** – the flattened list of sensitive-data findings captured by `PiiPciInspector`, with `filePath`, `lineNumber`, `snippet`, `matchType`, `severity`, and `ignored` (true when suppressed by an ignore rule). These rows drive the `/pii-pci` API and security exports.
-- **`callFlows` & `diagrams`** – support diagram generation and sequence visualization. `callFlows` now key off endpoint identifiers (`HTTP_METHOD pathOrOperation`) so each API surface has its own hop list, while every diagram entry captures PlantUML/Mermaid source text, SVG availability/download URL, and metadata (e.g., endpoint details plus the `includeExternal` flag for sequence variants).
+- **`callFlows` & `diagrams`** – support diagram generation and sequence visualization. `callFlows` now key off endpoint identifiers (`HTTP_METHOD pathOrOperation`) so each API surface has its own hop list with method-level labels (`Class.method() -> OtherClass.otherMethod()`), while every diagram entry captures PlantUML/Mermaid source text, SVG availability/download URL, and metadata (e.g., endpoint details plus the `includeExternal` flag for sequence variants).
 
 Treat the JSON snapshot as the canonical contract between the ingestion pipeline and every consumer. The REST endpoints (`/project/{id}/overview`, `/project/{id}/api-endpoints`, `/project/{id}/db-analysis`, etc.) simply return slices of this document for UI convenience.
