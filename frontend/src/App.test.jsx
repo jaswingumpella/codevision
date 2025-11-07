@@ -1,9 +1,9 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import App from './App';
-import axios from 'axios';
+import axios from './lib/apiClient';
 
-vi.mock('axios', () => ({
+vi.mock('./lib/apiClient', () => ({
   __esModule: true,
   default: {
     post: vi.fn(),

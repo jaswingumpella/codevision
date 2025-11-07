@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import axios from 'axios';
+import axios from './lib/apiClient';
 import './App.css';
 
 const STATUS_ANALYZED = 'ANALYZED_METADATA';

@@ -45,6 +45,20 @@ mvn -f backend/pom.xml spring-boot:run
 
 The service starts on `http://localhost:8080`.
 
+### Run the backend with Docker
+
+Build the container image defined in [`Dockerfile`](Dockerfile) and start it with a volume for the persistent H2 database/diagram cache:
+
+```bash
+docker build -t codevision-backend .
+docker run --rm -p 8080:8080 \
+  -v codevision-data:/app/data \
+  -e SECURITY_APIKEY=your-api-key \
+  codevision-backend
+```
+
+Spring Boot reads environment variables using its relaxed binding, so any property in `application.yml` can be overridden the same way (for example `-e GIT_AUTH_USERNAME=... -e GIT_AUTH_TOKEN=...`). The container stores project data under `/app/data` (which includes `diagram.storage.root`), so keeping that directory on a named volume prevents losing state between restarts.
+
 ### Analyze API (`POST /analyze`)
 
 - Headers:
@@ -138,6 +152,12 @@ The app is served on `http://localhost:5173` and proxies both `/analyze` and `/p
 ```bash
 npm run build
 ```
+
+### Deploy to Vercel
+
+The repo root now includes a [`vercel.json`](vercel.json) that tells Vercel to install dependencies, build, and serve the Vite frontend that lives under `frontend/`. Deploy by connecting the GitHub repository in the Vercel dashboard—no manual root-directory overrides are required.
+
+Because the Spring Boot backend cannot run on Vercel, configure the frontend to talk to wherever the backend is hosted by setting a `VITE_API_BASE_URL` environment variable in the Vercel project settings (e.g., `https://your-backend.example.com`). The build step will bake this base URL into the static bundle so API calls reach the correct origin. For local development, copy [`frontend/.env.example`](frontend/.env.example) to `.env` and set the same variable if you are not running the backend on `localhost:8080`.
 
 ## Iteration Documentation
 

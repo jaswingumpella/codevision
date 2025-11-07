@@ -1,3 +1,7 @@
 node_modules
 .DS_Store
 .vite
+.env
+.env.local
+.env.*
+!.env.example
