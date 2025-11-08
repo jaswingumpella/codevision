@@ -28,6 +28,10 @@ RUN useradd --system --home /app --shell /usr/sbin/nologin codevision && \
     mkdir -p /app/data && \
     chown -R codevision:codevision /app
 
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends graphviz \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY --from=build --chown=codevision:codevision /workspace/backend/api/target/codevision-backend-api-*.jar /app/app.jar
 
 USER codevision
