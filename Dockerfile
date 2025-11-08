@@ -4,7 +4,7 @@ FROM maven:3.9-eclipse-temurin-21 AS build
 WORKDIR /workspace
 
 RUN apt-get update \
-    && apt-get install -y curl gnupg ca-certificates \
+    && apt-get install -y curl gnupg ca-certificates graphviz \
     && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
     && apt-get install -y nodejs \
     && npm install -g npm@10 \
