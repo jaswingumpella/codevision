@@ -9,7 +9,10 @@ import {
   DatabasePanel,
   LoggerInsightsPanel,
   PiiPciPanel,
-  DiagramsPanel
+  DiagramsPanel,
+  GherkinPanel,
+  MetadataPanel,
+  ExportPanel
 } from './App';
 
 describe('utility helpers', () => {
@@ -238,5 +241,69 @@ describe('DiagramsPanel', () => {
     expect(screen.getByText(/@startuml/i)).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /View Mermaid/i }));
     expect(screen.getByText(/sequenceDiagram/i)).toBeInTheDocument();
+  });
+});
+
+describe('GherkinPanel', () => {
+  it('renders captured scenarios and steps', () => {
+    const features = [
+      {
+        featureTitle: 'User Login',
+        featureFile: 'features/login.feature',
+        scenarios: [
+          { name: 'Happy path', scenarioType: 'SCENARIO', steps: ['Given a valid user', 'When credentials are submitted'] }
+        ]
+      }
+    ];
+    render(<GherkinPanel features={features} loading={false} />);
+    expect(screen.getByText(/User Login/)).toBeInTheDocument();
+    expect(screen.getByText(/Happy path/)).toBeInTheDocument();
+    expect(screen.getByText(/Given a valid user/)).toBeInTheDocument();
+  });
+});
+
+describe('MetadataPanel', () => {
+  it('surfaces OpenAPI and WSDL artifacts', () => {
+    const metadata = {
+      projectName: 'demo',
+      analyzedAt: '2024-05-01T00:00:00Z',
+      snapshotDownloadUrl: '/project/1/export/snapshot',
+      metadataDump: {
+        openApiSpecs: [{ fileName: 'openapi.yaml', content: 'openapi: 3.0.0' }],
+        wsdlDocuments: [{ fileName: 'legacy.wsdl', content: '<definitions />' }],
+        xsdDocuments: [],
+        soapServices: []
+      }
+    };
+    render(<MetadataPanel metadata={metadata} loading={false} />);
+    expect(screen.getByText(/openapi\.yaml/i)).toBeInTheDocument();
+    expect(screen.getByText(/legacy\.wsdl/i)).toBeInTheDocument();
+    expect(screen.getByText(metadata.snapshotDownloadUrl)).toBeInTheDocument();
+  });
+});
+
+describe('ExportPanel', () => {
+  it('triggers download and refresh callbacks', async () => {
+    const user = userEvent.setup();
+    const onDownloadHtml = vi.fn();
+    const onDownloadSnapshot = vi.fn();
+    const onRefreshPreview = vi.fn();
+    render(
+      <ExportPanel
+        projectId={123}
+        onDownloadHtml={onDownloadHtml}
+        onDownloadSnapshot={onDownloadSnapshot}
+        htmlPreview=""
+        loading={false}
+        onRefreshPreview={onRefreshPreview}
+      />
+    );
+    await user.click(screen.getByRole('button', { name: /Download Project HTML/i }));
+    await user.click(screen.getByRole('button', { name: /Download ParsedDataResponse\.json/i }));
+    await user.click(screen.getByRole('button', { name: /Refresh Preview/i }));
+    expect(onDownloadHtml).toHaveBeenCalled();
+    expect(onDownloadSnapshot).toHaveBeenCalled();
+    expect(onRefreshPreview).toHaveBeenCalled();
+    expect(screen.getByText(/Preview will appear here/i)).toBeInTheDocument();
   });
 });

@@ -147,6 +147,7 @@ npm run build
 - Iteration 4 summary: [`docs/iteration-4-completion.md`](docs/iteration-4-completion.md)
 - Iteration 5 summary: [`docs/iteration-5-completion.md`](docs/iteration-5-completion.md)
 - Iteration 6 summary: [`docs/iteration-6-completion.md`](docs/iteration-6-completion.md)
+- Iteration 7 summary: [`docs/iteration-7-completion.md`](docs/iteration-7-completion.md)
 
 ## Database
 

@@ -8,6 +8,7 @@ import com.codevision.codevisionbackend.api.model.BuildInfo;
 import com.codevision.codevisionbackend.api.model.ClassMetadataSummary;
 import com.codevision.codevisionbackend.api.model.DbAnalysis;
 import com.codevision.codevisionbackend.api.model.DiagramDescriptor;
+import com.codevision.codevisionbackend.api.model.GherkinFeature;
 import com.codevision.codevisionbackend.api.model.LoggerInsight;
 import com.codevision.codevisionbackend.api.model.MetadataDump;
 import com.codevision.codevisionbackend.api.model.PiiPciFinding;
@@ -35,7 +36,7 @@ import jakarta.annotation.Generated;
  * ParsedDataResponse
  */
 
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2025-11-07T00:36:01.617691-05:00[America/New_York]", comments = "Generator version: 7.5.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2025-11-08T10:09:44.785384-05:00[America/New_York]", comments = "Generator version: 7.5.0")
 public class ParsedDataResponse {
 
   private Long projectId;
@@ -66,6 +67,9 @@ public class ParsedDataResponse {
 
   @Valid
   private List<@Valid PiiPciFinding> piiPciScan = new ArrayList<>();
+
+  @Valid
+  private List<@Valid GherkinFeature> gherkinFeatures = new ArrayList<>();
 
   @Valid
   private Map<String, List<String>> callFlows = new HashMap<>();
@@ -359,6 +363,34 @@ public class ParsedDataResponse {
     this.piiPciScan = piiPciScan;
   }
 
+  public ParsedDataResponse gherkinFeatures(List<@Valid GherkinFeature> gherkinFeatures) {
+    this.gherkinFeatures = gherkinFeatures;
+    return this;
+  }
+
+  public ParsedDataResponse addGherkinFeaturesItem(GherkinFeature gherkinFeaturesItem) {
+    if (this.gherkinFeatures == null) {
+      this.gherkinFeatures = new ArrayList<>();
+    }
+    this.gherkinFeatures.add(gherkinFeaturesItem);
+    return this;
+  }
+
+  /**
+   * BDD feature files and scenarios discovered during analysis.
+   * @return gherkinFeatures
+  */
+  @Valid 
+  @Schema(name = "gherkinFeatures", description = "BDD feature files and scenarios discovered during analysis.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @JsonProperty("gherkinFeatures")
+  public List<@Valid GherkinFeature> getGherkinFeatures() {
+    return gherkinFeatures;
+  }
+
+  public void setGherkinFeatures(List<@Valid GherkinFeature> gherkinFeatures) {
+    this.gherkinFeatures = gherkinFeatures;
+  }
+
   public ParsedDataResponse callFlows(Map<String, List<String>> callFlows) {
     this.callFlows = callFlows;
     return this;
@@ -436,13 +468,14 @@ public class ParsedDataResponse {
         Objects.equals(this.assets, parsedDataResponse.assets) &&
         Objects.equals(this.loggerInsights, parsedDataResponse.loggerInsights) &&
         Objects.equals(this.piiPciScan, parsedDataResponse.piiPciScan) &&
+        Objects.equals(this.gherkinFeatures, parsedDataResponse.gherkinFeatures) &&
         Objects.equals(this.callFlows, parsedDataResponse.callFlows) &&
         Objects.equals(this.diagrams, parsedDataResponse.diagrams);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(projectId, projectName, repoUrl, analyzedAt, buildInfo, classes, metadataDump, dbAnalysis, apiEndpoints, assets, loggerInsights, piiPciScan, callFlows, diagrams);
+    return Objects.hash(projectId, projectName, repoUrl, analyzedAt, buildInfo, classes, metadataDump, dbAnalysis, apiEndpoints, assets, loggerInsights, piiPciScan, gherkinFeatures, callFlows, diagrams);
   }
 
   @Override
@@ -461,6 +494,7 @@ public class ParsedDataResponse {
     sb.append("    assets: ").append(toIndentedString(assets)).append("\n");
     sb.append("    loggerInsights: ").append(toIndentedString(loggerInsights)).append("\n");
     sb.append("    piiPciScan: ").append(toIndentedString(piiPciScan)).append("\n");
+    sb.append("    gherkinFeatures: ").append(toIndentedString(gherkinFeatures)).append("\n");
     sb.append("    callFlows: ").append(toIndentedString(callFlows)).append("\n");
     sb.append("    diagrams: ").append(toIndentedString(diagrams)).append("\n");
     sb.append("}");

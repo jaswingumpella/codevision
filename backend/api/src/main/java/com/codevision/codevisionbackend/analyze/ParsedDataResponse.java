@@ -1,7 +1,5 @@
 package com.codevision.codevisionbackend.analyze;
 
-import com.codevision.codevisionbackend.analyze.LoggerInsightSummary;
-import com.codevision.codevisionbackend.analyze.PiiPciFindingSummary;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -21,6 +19,7 @@ public record ParsedDataResponse(
         AssetInventory assets,
         List<LoggerInsightSummary> loggerInsights,
         List<PiiPciFindingSummary> piiPciScan,
+        List<GherkinFeatureSummary> gherkinFeatures,
         Map<String, List<String>> callFlows,
         List<DiagramSummary> diagrams) {
 
@@ -32,6 +31,7 @@ public record ParsedDataResponse(
         assets = assets == null ? AssetInventory.empty() : assets;
         loggerInsights = loggerInsights == null ? List.of() : List.copyOf(loggerInsights);
         piiPciScan = piiPciScan == null ? List.of() : List.copyOf(piiPciScan);
+        gherkinFeatures = gherkinFeatures == null ? List.of() : List.copyOf(gherkinFeatures);
         callFlows = callFlows == null ? Map.of() : Map.copyOf(callFlows);
         diagrams = diagrams == null ? List.of() : List.copyOf(diagrams);
     }

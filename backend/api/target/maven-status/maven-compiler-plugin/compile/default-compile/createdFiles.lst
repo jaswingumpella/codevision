@@ -11,6 +11,7 @@ com/codevision/codevisionbackend/analyze/scanner/PiiPciInspector$RiskAssessment.
 com/codevision/codevisionbackend/analyze/LoggerInsightSummary.class
 com/codevision/codevisionbackend/analyze/diagram/DiagramBuilderService$MethodPointer.class
 com/codevision/codevisionbackend/analyze/diagram/DiagramDefinition.class
+com/codevision/codevisionbackend/analyze/GherkinScenarioSummary.class
 com/codevision/codevisionbackend/analyze/scanner/ApiScanner.class
 com/codevision/codevisionbackend/project/logger/LogStatement.class
 com/codevision/codevisionbackend/analyze/scanner/LoggerScanner.class
@@ -24,7 +25,9 @@ com/codevision/codevisionbackend/analyze/scanner/DaoOperationRecord.class
 com/codevision/codevisionbackend/analyze/scanner/DaoAnalysisService.class
 com/codevision/codevisionbackend/analyze/diagram/DiagramBuilderService$SequenceStep.class
 com/codevision/codevisionbackend/analyze/scanner/ApiEndpointRecord$ApiSpecArtifactRecord.class
+com/codevision/codevisionbackend/analyze/scanner/GherkinScanner.class
 com/codevision/codevisionbackend/analyze/scanner/ClassMetadataRecord$SourceSet.class
+com/codevision/codevisionbackend/analyze/GherkinFeatureSummary.class
 com/codevision/codevisionbackend/project/ProjectSnapshot.class
 com/codevision/codevisionbackend/analyze/scanner/ClassMetadataRecord.class
 com/codevision/codevisionbackend/analyze/scanner/DbEntityRecord.class
@@ -52,7 +55,9 @@ com/codevision/codevisionbackend/api/ApiModelMapper.class
 com/codevision/codevisionbackend/analyze/MetadataDump$SpecDocument.class
 com/codevision/codevisionbackend/project/asset/AssetImage.class
 com/codevision/codevisionbackend/analyze/scanner/ApiScanner$OpenApiOperation.class
+com/codevision/codevisionbackend/analyze/scanner/GherkinScanner$1.class
 com/codevision/codevisionbackend/project/metadata/ClassMetadata.class
+com/codevision/codevisionbackend/project/export/ExportService.class
 com/codevision/codevisionbackend/analyze/diagram/CallGraph$MethodInvocation.class
 com/codevision/codevisionbackend/project/diagram/DiagramStorageService.class
 com/codevision/codevisionbackend/CodevisionBackendApplication.class
@@ -65,6 +70,7 @@ com/codevision/codevisionbackend/project/ProjectService.class
 com/codevision/codevisionbackend/analyze/scanner/ApiEndpointRecord.class
 com/codevision/codevisionbackend/project/ProjectSnapshotService.class
 com/codevision/codevisionbackend/project/logger/LogStatementRepository.class
+com/codevision/codevisionbackend/analyze/scanner/GherkinScanner$ScenarioBuilder.class
 com/codevision/codevisionbackend/analyze/scanner/PiiPciInspector.class
 com/codevision/codevisionbackend/analyze/diagram/DiagramBuilderService.class
 com/codevision/codevisionbackend/project/db/DaoOperationRepository.class
@@ -79,6 +85,8 @@ com/codevision/codevisionbackend/project/diagram/Diagram.class
 com/codevision/codevisionbackend/analyze/AssetInventory.class
 com/codevision/codevisionbackend/analyze/scanner/DbEntityRecord$EntityField.class
 com/codevision/codevisionbackend/git/GitCloneService$CloneResult.class
+com/codevision/codevisionbackend/project/ProjectMetadataController.class
+com/codevision/codevisionbackend/project/ProjectExportController.class
 com/codevision/codevisionbackend/analyze/AnalysisService.class
 com/codevision/codevisionbackend/analyze/diagram/DiagramGenerationResult.class
 com/codevision/codevisionbackend/git/GitCloneService.class

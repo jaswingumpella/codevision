@@ -284,6 +284,11 @@ ParsedDataResponse:
       description: Potential PCI/PII findings detected during analysis.
       items:
         $ref: '#/PiiPciFinding'
+    gherkinFeatures:
+      type: array
+      description: BDD feature files and scenarios discovered during analysis.
+      items:
+        $ref: '#/GherkinFeature'
     callFlows:
       type: object
       description: High-level call flow summaries derived from the call graph.
@@ -429,6 +434,65 @@ ProjectApiEndpointsResponse:
       description: Endpoint catalog for the project.
       items:
         $ref: '#/ApiEndpoint'
+
+GherkinFeature:
+  type: object
+  properties:
+    featureFile:
+      type: string
+      description: Relative path to the feature file.
+    featureTitle:
+      type: string
+      description: Title declared in the `Feature:` header.
+    scenarios:
+      type: array
+      description: Scenarios declared inside the feature file.
+      items:
+        $ref: '#/GherkinScenario'
+
+GherkinScenario:
+  type: object
+  properties:
+    name:
+      type: string
+      description: Scenario or background name.
+    scenarioType:
+      type: string
+      description: Scenario classification (SCENARIO, BACKGROUND, SCENARIO_OUTLINE, etc.).
+    steps:
+      type: array
+      description: Ordered list of steps captured from the scenario body.
+      items:
+        type: string
+
+ProjectMetadataResponse:
+  type: object
+  required:
+    - projectId
+    - metadataDump
+  properties:
+    projectId:
+      type: integer
+      format: int64
+      description: Identifier of the associated project.
+    projectName:
+      type: string
+      description: Project name resolved during analysis.
+    repoUrl:
+      type: string
+      format: uri
+      description: Repository URL associated with the project.
+    analyzedAt:
+      type: string
+      format: date-time
+      description: Timestamp of the last completed analysis.
+    buildInfo:
+      $ref: '#/BuildInfo'
+    metadataDump:
+      $ref: '#/MetadataDump'
+    snapshotDownloadUrl:
+      type: string
+      description: Relative link to the `/project/{id}/export/snapshot` endpoint for convenience.
 
 LoggerInsight:
   type: object

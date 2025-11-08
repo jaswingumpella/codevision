@@ -2,6 +2,7 @@ package com.codevision.codevisionbackend.analyze;
 
 import com.codevision.codevisionbackend.analyze.diagram.DiagramBuilderService;
 import com.codevision.codevisionbackend.analyze.diagram.DiagramGenerationResult;
+import com.codevision.codevisionbackend.analyze.GherkinFeatureSummary;
 import com.codevision.codevisionbackend.analyze.scanner.ApiEndpointRecord;
 import com.codevision.codevisionbackend.analyze.scanner.ApiScanner;
 import com.codevision.codevisionbackend.analyze.scanner.AssetScanner;
@@ -11,6 +12,7 @@ import com.codevision.codevisionbackend.analyze.scanner.ClassMetadataRecord;
 import com.codevision.codevisionbackend.analyze.scanner.DaoAnalysisService;
 import com.codevision.codevisionbackend.analyze.scanner.DaoOperationRecord;
 import com.codevision.codevisionbackend.analyze.scanner.DbEntityRecord;
+import com.codevision.codevisionbackend.analyze.scanner.GherkinScanner;
 import com.codevision.codevisionbackend.analyze.scanner.ImageAssetRecord;
 import com.codevision.codevisionbackend.analyze.scanner.JavaSourceScanner;
 import com.codevision.codevisionbackend.analyze.scanner.JpaEntityScanner;
@@ -78,6 +80,7 @@ public class AnalysisService {
     private final DiagramBuilderService diagramBuilderService;
     private final DiagramService diagramService;
     private final ObjectMapper objectMapper;
+    private final GherkinScanner gherkinScanner;
 
     public AnalysisService(
             GitCloneService gitCloneService,
@@ -90,6 +93,7 @@ public class AnalysisService {
             DaoAnalysisService daoAnalysisService,
             LoggerScanner loggerScanner,
             PiiPciInspector piiPciInspector,
+            GherkinScanner gherkinScanner,
             ProjectService projectService,
             ClassMetadataRepository classMetadataRepository,
             ApiEndpointRepository apiEndpointRepository,
@@ -112,6 +116,7 @@ public class AnalysisService {
         this.daoAnalysisService = daoAnalysisService;
         this.loggerScanner = loggerScanner;
         this.piiPciInspector = piiPciInspector;
+        this.gherkinScanner = gherkinScanner;
         this.projectService = projectService;
         this.classMetadataRepository = classMetadataRepository;
         this.apiEndpointRepository = apiEndpointRepository;
@@ -185,6 +190,8 @@ public class AnalysisService {
                     loggerScanner.scan(cloneResult.directory(), buildMetadata.moduleRoots());
             log.info("Captured {} log statements for {}", logStatements.size(), repoUrl);
             replaceLogStatements(persistedProject, logStatements);
+            List<GherkinFeatureSummary> gherkinFeatures = gherkinScanner.scan(cloneResult.directory());
+            log.info("Discovered {} Gherkin feature files for {}", gherkinFeatures.size(), repoUrl);
             DbAnalysisSummary dbAnalysisSummary = toDbAnalysisSummary(dbAnalysisResult);
             DiagramGenerationResult diagramGeneration =
                     diagramBuilderService.generate(
@@ -206,6 +213,7 @@ public class AnalysisService {
                             imageAssets,
                             logStatements,
                             piiFindings,
+                            gherkinFeatures,
                             diagramGeneration.callFlows(),
                             diagramSummaries);
             projectSnapshotService.saveSnapshot(persistedProject, parsedData);
@@ -348,6 +356,7 @@ public class AnalysisService {
             List<ImageAssetRecord> imageAssets,
             List<LogStatementRecord> logStatements,
             List<PiiPciFindingRecord> piiFindings,
+            List<GherkinFeatureSummary> gherkinFeatures,
             Map<String, List<String>> callFlows,
             List<DiagramSummary> diagrams) {
         List<ClassMetadataSummary> classSummaries = classRecords.stream()
@@ -417,6 +426,7 @@ public class AnalysisService {
                 assetInventory,
                 loggerInsights,
                 piiSummaries,
+                gherkinFeatures,
                 callFlows,
                 diagrams);
     }

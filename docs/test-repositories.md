@@ -42,5 +42,7 @@ Use the repositories below to exercise CodeVision across different architectural
 - [ ] Analyzer card collapses into the “Latest analysis” summary after a successful run, exposes project metadata, and the Hide/Show + Edit inputs actions work; failed runs automatically reopen the form.
 - [ ] The new analysis timeline reports each step (`Analyze → Overview → API → Database → Logger → PCI/PII → Diagrams`) with sensible statuses; abort a run mid-way to ensure remaining steps flip to `Skipped`.
 - [ ] OpenAPI sections in Overview and API Specs display the new actionable guidance (“Add Swagger annotations or include openapi.yaml/swagger.json…”) whenever no specs are found.
+- [ ] Metadata tab exposes captured OpenAPI/WSDL/XSD content and displays the snapshot download link for AI workflows.
+- [ ] Export tab downloads the HTML + JSON bundles and renders the inline HTML preview without console errors (Petclinic is a quick sanity check).
 
 Record findings (especially false positives or performance anomalies) so the rule set in `security.scan` can be tuned per environment.

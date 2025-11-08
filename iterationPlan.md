@@ -473,7 +473,7 @@ Generate and view diagrams, including call flows, ERDs, components, class diagra
 
 ---
 
-## Iteration 7 – Full project export (Confluence-style HTML) + Metadata dump
+## Iteration 7 – Full project export (Confluence-style HTML) + Metadata dump *(Status: ✅ Completed – see [`docs/iteration-7-completion.md`](docs/iteration-7-completion.md))*
 
 ### Goal
 

@@ -47,6 +47,7 @@ class ProjectOverviewControllerTest {
                 AssetInventory.empty(),
                 List.of(),
                 List.of(),
+                List.of(),
                 Map.of(),
                 List.of());
         snapshotService.setSnapshot(Optional.of(response));
@@ -87,6 +88,7 @@ class ProjectOverviewControllerTest {
                 AssetInventory.empty(),
                 List.of(),
                 List.of(),
+                List.of(),
                 Map.of(),
                 List.of());
         snapshotService.setSnapshot(Optional.of(response));
@@ -117,6 +119,7 @@ class ProjectOverviewControllerTest {
                 summary,
                 List.of(),
                 AssetInventory.empty(),
+                List.of(),
                 List.of(),
                 List.of(),
                 Map.of(),
