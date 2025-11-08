@@ -35,6 +35,7 @@ VOLUME ["/app/data"]
 EXPOSE 8080
 
 # Use Docker/Kubernetes env vars (e.g., SECURITY_APIKEY) to override properties from application.yml
-ENV SPRING_PROFILES_ACTIVE=default
+ENV SPRING_PROFILES_ACTIVE=default \
+    GRAPHVIZ_DOT=/usr/bin/dot
 
 ENTRYPOINT ["java","-jar","/app/app.jar"]
