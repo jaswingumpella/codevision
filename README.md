@@ -31,10 +31,13 @@ security:
 diagram:
   storage:
     root: ./data/diagrams
+  svg:
+    enabled: true
 ```
 
 If you do not need authenticated cloning, leave the values blank. Update the `security.apiKey` to protect API calls. When the key is blank, the API key filter is effectively disabled for development.
 `diagram.storage.root` controls where rendered SVG assets are cached; the directory is created automatically if it does not exist.
+Set `diagram.svg.enabled` to `false` (or the environment variable `DIAGRAM_SVG_ENABLED=false`) if you are deploying to a constrained runtime that cannot spare extra Metaspace for PlantUML rendering; the app will still persist PlantUML/Mermaid sources but will skip SVG generation.
 
 ### Run the backend
 
