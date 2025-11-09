@@ -20,6 +20,8 @@
 # OpenAPI generator state
 backend/oasgen/.openapi-generator/
 .m2/
+.m2-repo/
+.m2-work/
 .env
 
 # Local Spring overrides
