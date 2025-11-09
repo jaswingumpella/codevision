@@ -16,9 +16,23 @@ import GlobalSearchBar from './components/search/GlobalSearchBar';
 import SearchResultsPanel from './components/search/SearchResultsPanel';
 import LoadingTimeline from './components/progress/LoadingTimeline';
 import useMediaQuery from './hooks/useMediaQuery';
-import { deriveProjectName, textMatches } from './utils/formatters';
+import { deriveProjectName, textMatches, formatDate } from './utils/formatters';
 import { buildFriendlyError, ERROR_SUGGESTIONS } from './utils/errors';
-import { ANALYSIS_STEPS, STATUS_ANALYZED } from './utils/constants';
+import { ANALYSIS_STEPS, STATUS_ANALYZED, JOB_STATUS } from './utils/constants';
+
+const sleep = (ms) =>
+  new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+
+const createAbortError = () => {
+  if (typeof DOMException === 'function') {
+    return new DOMException('Aborted', 'AbortError');
+  }
+  const error = new Error('Aborted');
+  error.name = 'AbortError';
+  return error;
+};
 
 function App() {
   const [repoUrl, setRepoUrl] = useState('');
@@ -37,6 +51,7 @@ function App() {
   const [piiFindings, setPiiFindings] = useState([]);
   const [piiLoading, setPiiLoading] = useState(false);
   const [projectId, setProjectId] = useState(null);
+  const [analysisJob, setAnalysisJob] = useState(null);
   const [diagrams, setDiagrams] = useState([]);
   const [diagramLoading, setDiagramLoading] = useState(false);
   const [diagramSvgContent, setDiagramSvgContent] = useState({});
@@ -53,6 +68,7 @@ function App() {
   const [globalSearchQuery, setGlobalSearchQuery] = useState('');
   const isCompactLayout = useMediaQuery('(max-width: 960px)');
   const tabRefs = useRef({});
+  const jobPollRef = useRef({ cancelled: false });
 
   const projectName = useMemo(() => deriveProjectName(repoUrl), [repoUrl]);
   const diagramsByType = useMemo(() => {
@@ -181,6 +197,39 @@ function App() {
       setActiveTab(match.tabValue);
     },
     [setActiveTab]
+  );
+
+  const pollAnalysisJob = useCallback(
+    async (jobId, cancelToken) => {
+      let delayMs = 1000;
+      while (true) {
+        if (cancelToken.cancelled) {
+          throw createAbortError();
+        }
+        const response = await axios.get(`/analyze/${jobId}`, {
+          headers: {
+            ...(apiKey ? { 'X-API-KEY': apiKey } : {})
+          }
+        });
+        if (cancelToken.cancelled) {
+          throw createAbortError();
+        }
+        const job = response.data;
+        setAnalysisJob(job);
+        if (job?.status === JOB_STATUS.FAILED) {
+          const jobError = new Error(job.errorMessage || 'Analysis job failed');
+          jobError.isJobFailure = true;
+          jobError.job = job;
+          throw jobError;
+        }
+        if (job?.status === JOB_STATUS.SUCCEEDED && job.projectId) {
+          return job;
+        }
+        await sleep(delayMs);
+        delayMs = Math.min(delayMs + 500, 3000);
+      }
+    },
+    [apiKey]
   );
 
 
@@ -345,8 +394,19 @@ function App() {
     loadExportPreview(false);
   }, [activeTab, projectId, loadExportPreview]);
 
+  useEffect(() => {
+    return () => {
+      jobPollRef.current.cancelled = true;
+    };
+  }, []);
+
   const handleSubmit = async (event) => {
     event.preventDefault();
+    if (jobPollRef.current) {
+      jobPollRef.current.cancelled = true;
+    }
+    const pollToken = { cancelled: false };
+    jobPollRef.current = pollToken;
     setLoading(true);
     setErrorState(null);
     setResult(null);
@@ -361,6 +421,7 @@ function App() {
     setPiiFindings([]);
     setPiiLoading(false);
     setProjectId(null);
+    setAnalysisJob(null);
     setDiagrams([]);
     setDiagramSvgContent({});
     setDiagramLoading(false);
@@ -391,180 +452,190 @@ function App() {
         }
       );
 
-      const payload = response.data;
-      console.info('Analysis response received', payload);
-      setResult({ ...payload, projectName });
-      setProjectId(payload?.projectId || null);
+      const jobDescriptor = response.data;
+      console.info('Analysis job queued', jobDescriptor);
+      if (!jobDescriptor?.jobId) {
+        throw new Error('Backend did not return a job ID for the analysis request.');
+      }
+      setAnalysisJob(jobDescriptor);
+      updateStepStatuses([{ id: 'analyze', status: 'active' }]);
+
+      const completedJob = await pollAnalysisJob(jobDescriptor.jobId, pollToken);
+      console.info('Analysis job completed', completedJob);
+      if (!completedJob?.projectId) {
+        throw new Error('Analysis completed, but the backend did not return a project ID.');
+      }
+
+      setAnalysisJob(completedJob);
+      setProjectId(completedJob.projectId);
+      setResult({
+        jobId: completedJob.jobId,
+        projectId: completedJob.projectId,
+        projectName,
+        repoUrl,
+        status: STATUS_ANALYZED,
+        analyzedAt: completedJob.completedAt || null
+      });
+
       updateStepStatuses([
         { id: 'analyze', status: 'complete' },
         { id: 'overview', status: 'active' }
       ]);
 
-      if (payload?.projectId) {
+      const targetProjectId = completedJob.projectId;
+      try {
+        const overviewResponse = await axios.get(`/project/${targetProjectId}/overview`, {
+          headers: {
+            ...authHeaders()
+          }
+        });
+        console.info('Loaded project overview', {
+          projectId: targetProjectId,
+          classCount: overviewResponse.data?.classes?.length ?? 0
+        });
+        setOverview(overviewResponse.data);
+        updateStepStatuses([
+          { id: 'overview', status: 'complete' },
+          { id: 'api', status: 'active' }
+        ]);
         try {
-          const overviewResponse = await axios.get(`/project/${payload.projectId}/overview`, {
+          setApiLoading(true);
+          const endpointsResponse = await axios.get(`/project/${targetProjectId}/api-endpoints`, {
             headers: {
               ...authHeaders()
             }
           });
-          console.info('Loaded project overview', {
-            projectId: payload.projectId,
-            classCount: overviewResponse.data?.classes?.length ?? 0
+          console.info('Loaded API endpoints', {
+            projectId: targetProjectId,
+            endpointCount: endpointsResponse.data?.endpoints?.length ?? 0
           });
-          setOverview(overviewResponse.data);
+          setApiCatalog(endpointsResponse.data);
           updateStepStatuses([
-            { id: 'overview', status: 'complete' },
-            { id: 'api', status: 'active' }
+            { id: 'api', status: 'complete' },
+            { id: 'db', status: 'active' }
           ]);
-          try {
-            setApiLoading(true);
-            const endpointsResponse = await axios.get(`/project/${payload.projectId}/api-endpoints`, {
-              headers: {
-                ...authHeaders()
-              }
-            });
-            console.info('Loaded API endpoints', {
-              projectId: payload.projectId,
-              endpointCount: endpointsResponse.data?.endpoints?.length ?? 0
-            });
-            setApiCatalog(endpointsResponse.data);
-            updateStepStatuses([
-              { id: 'api', status: 'complete' },
-              { id: 'db', status: 'active' }
-            ]);
-          } catch (catalogError) {
-            console.warn('Failed to load API endpoint catalog', catalogError);
-            setApiCatalog(null);
-            updateStepStatuses([
-              { id: 'api', status: 'error' },
-              { id: 'db', status: 'active' }
-            ]);
-          } finally {
-            setApiLoading(false);
-          }
-
-          try {
-            setDbLoading(true);
-            const dbResponse = await axios.get(`/project/${payload.projectId}/db-analysis`, {
-              headers: {
-                ...authHeaders()
-              }
-            });
-            console.info('Loaded database analysis', {
-              projectId: payload.projectId,
-              entityCount: dbResponse.data?.dbAnalysis?.entities?.length ?? 0
-            });
-            setDbAnalysis(dbResponse.data?.dbAnalysis ?? null);
-            updateStepStatuses([
-              { id: 'db', status: 'complete' },
-              { id: 'logger', status: 'active' }
-            ]);
-          } catch (dbError) {
-            console.warn('Failed to load database analysis', dbError);
-            setDbAnalysis(null);
-            updateStepStatuses([
-              { id: 'db', status: 'error' },
-              { id: 'logger', status: 'active' }
-            ]);
-          } finally {
-            setDbLoading(false);
-          }
-
-          try {
-            setLoggerLoading(true);
-            const loggerResponse = await axios.get(`/project/${payload.projectId}/logger-insights`, {
-              headers: {
-                ...authHeaders()
-              }
-            });
-            console.info('Loaded logger insights', {
-              projectId: payload.projectId,
-              count: loggerResponse.data?.loggerInsights?.length ?? 0
-            });
-            setLoggerInsights(loggerResponse.data?.loggerInsights ?? []);
-            updateStepStatuses([
-              { id: 'logger', status: 'complete' },
-              { id: 'pii', status: 'active' }
-            ]);
-          } catch (loggerError) {
-            console.warn('Failed to load logger insights', loggerError);
-            setLoggerInsights([]);
-            updateStepStatuses([
-              { id: 'logger', status: 'error' },
-              { id: 'pii', status: 'active' }
-            ]);
-          } finally {
-            setLoggerLoading(false);
-          }
-
-          try {
-            setPiiLoading(true);
-            const piiResponse = await axios.get(`/project/${payload.projectId}/pii-pci`, {
-              headers: {
-                ...authHeaders()
-              }
-            });
-            console.info('Loaded PCI / PII findings', {
-              projectId: payload.projectId,
-              count: piiResponse.data?.findings?.length ?? 0
-            });
-            setPiiFindings(piiResponse.data?.findings ?? []);
-            updateStepStatuses([
-              { id: 'pii', status: 'complete' },
-              { id: 'diagrams', status: 'active' }
-            ]);
-          } catch (piiError) {
-            console.warn('Failed to load PCI / PII findings', piiError);
-            setPiiFindings([]);
-            updateStepStatuses([
-              { id: 'pii', status: 'error' },
-              { id: 'diagrams', status: 'active' }
-            ]);
-          } finally {
-            setPiiLoading(false);
-          }
-
-          try {
-            setDiagramLoading(true);
-            const diagramsResponse = await axios.get(`/project/${payload.projectId}/diagrams`, {
-              headers: {
-                ...authHeaders()
-              }
-            });
-            const diagramList = Array.isArray(diagramsResponse.data?.diagrams)
-              ? diagramsResponse.data.diagrams
-              : [];
-            setDiagrams(diagramList);
-            if (diagramList.length > 0) {
-              const firstDiagram = diagramList[0];
-              setActiveDiagramType((firstDiagram.diagramType || 'CLASS').toUpperCase());
-              setActiveDiagramId(firstDiagram.diagramId ?? null);
-              setSequenceIncludeExternal(Boolean(firstDiagram.metadata?.includeExternal));
-            } else {
-              setActiveDiagramId(null);
-            }
-            updateStepStatuses([{ id: 'diagrams', status: 'complete' }]);
-          } catch (diagramError) {
-            console.warn('Failed to load diagrams', diagramError);
-            setDiagrams([]);
-            setActiveDiagramId(null);
-            updateStepStatuses([{ id: 'diagrams', status: 'error' }]);
-          } finally {
-            setDiagramLoading(false);
-          }
-        } catch (fetchError) {
-          console.warn('Failed to load project overview', fetchError);
+        } catch (catalogError) {
+          console.warn('Failed to load API endpoint catalog', catalogError);
+          setApiCatalog(null);
           updateStepStatuses([
-            { id: 'overview', status: 'error' },
             { id: 'api', status: 'error' },
-            { id: 'db', status: 'error' },
-            { id: 'logger', status: 'error' },
-            { id: 'pii', status: 'error' },
-            { id: 'diagrams', status: 'error' }
+            { id: 'db', status: 'active' }
           ]);
-          setErrorState(buildFriendlyError(fetchError, repoUrl));
+        } finally {
+          setApiLoading(false);
         }
-      } else {
+
+        try {
+          setDbLoading(true);
+          const dbResponse = await axios.get(`/project/${targetProjectId}/db-analysis`, {
+            headers: {
+              ...authHeaders()
+            }
+          });
+          console.info('Loaded database analysis', {
+            projectId: targetProjectId,
+            entityCount: dbResponse.data?.dbAnalysis?.entities?.length ?? 0
+          });
+          setDbAnalysis(dbResponse.data?.dbAnalysis ?? null);
+          updateStepStatuses([
+            { id: 'db', status: 'complete' },
+            { id: 'logger', status: 'active' }
+          ]);
+        } catch (dbError) {
+          console.warn('Failed to load database analysis', dbError);
+          setDbAnalysis(null);
+          updateStepStatuses([
+            { id: 'db', status: 'error' },
+            { id: 'logger', status: 'active' }
+          ]);
+        } finally {
+          setDbLoading(false);
+        }
+
+        try {
+          setLoggerLoading(true);
+          const loggerResponse = await axios.get(`/project/${targetProjectId}/logger-insights`, {
+            headers: {
+              ...authHeaders()
+            }
+          });
+          console.info('Loaded logger insights', {
+            projectId: targetProjectId,
+            count: loggerResponse.data?.loggerInsights?.length ?? 0
+          });
+          setLoggerInsights(loggerResponse.data?.loggerInsights ?? []);
+          updateStepStatuses([
+            { id: 'logger', status: 'complete' },
+            { id: 'pii', status: 'active' }
+          ]);
+        } catch (loggerError) {
+          console.warn('Failed to load logger insights', loggerError);
+          setLoggerInsights([]);
+          updateStepStatuses([
+            { id: 'logger', status: 'error' },
+            { id: 'pii', status: 'active' }
+          ]);
+        } finally {
+          setLoggerLoading(false);
+        }
+
+        try {
+          setPiiLoading(true);
+          const piiResponse = await axios.get(`/project/${targetProjectId}/pii-pci`, {
+            headers: {
+              ...authHeaders()
+            }
+          });
+          console.info('Loaded PCI / PII findings', {
+            projectId: targetProjectId,
+            count: piiResponse.data?.findings?.length ?? 0
+          });
+          setPiiFindings(piiResponse.data?.findings ?? []);
+          updateStepStatuses([
+            { id: 'pii', status: 'complete' },
+            { id: 'diagrams', status: 'active' }
+          ]);
+        } catch (piiError) {
+          console.warn('Failed to load PCI / PII findings', piiError);
+          setPiiFindings([]);
+          updateStepStatuses([
+            { id: 'pii', status: 'error' },
+            { id: 'diagrams', status: 'active' }
+          ]);
+        } finally {
+          setPiiLoading(false);
+        }
+
+        try {
+          setDiagramLoading(true);
+          const diagramsResponse = await axios.get(`/project/${targetProjectId}/diagrams`, {
+            headers: {
+              ...authHeaders()
+            }
+          });
+          const diagramList = Array.isArray(diagramsResponse.data?.diagrams)
+            ? diagramsResponse.data.diagrams
+            : [];
+          setDiagrams(diagramList);
+          if (diagramList.length > 0) {
+            const firstDiagram = diagramList[0];
+            setActiveDiagramType((firstDiagram.diagramType || 'CLASS').toUpperCase());
+            setActiveDiagramId(firstDiagram.diagramId ?? null);
+            setSequenceIncludeExternal(Boolean(firstDiagram.metadata?.includeExternal));
+          } else {
+            setActiveDiagramId(null);
+          }
+          updateStepStatuses([{ id: 'diagrams', status: 'complete' }]);
+        } catch (diagramError) {
+          console.warn('Failed to load diagrams', diagramError);
+          setDiagrams([]);
+          setActiveDiagramId(null);
+          updateStepStatuses([{ id: 'diagrams', status: 'error' }]);
+        } finally {
+          setDiagramLoading(false);
+        }
+      } catch (fetchError) {
+        console.warn('Failed to load project overview', fetchError);
         updateStepStatuses([
           { id: 'overview', status: 'error' },
           { id: 'api', status: 'error' },
@@ -573,18 +644,26 @@ function App() {
           { id: 'pii', status: 'error' },
           { id: 'diagrams', status: 'error' }
         ]);
+        setErrorState(buildFriendlyError(fetchError, repoUrl));
+      }
+    } catch (err) {
+      if (err?.name === 'AbortError') {
+        return;
+      }
+      console.error('Repository analysis failed', err);
+      updateStepStatuses([{ id: 'analyze', status: 'error' }]);
+      if (err?.isJobFailure && err.job) {
         setErrorState({
-          message: 'Analysis completed, but the backend did not return a project ID.',
-          raw: '',
+          message: err.message || 'Analysis job failed.',
+          raw: err.job.errorMessage || '',
           suggestions: ERROR_SUGGESTIONS.generic,
           repoUrl
         });
+      } else {
+        setErrorState(buildFriendlyError(err, repoUrl));
       }
-    } catch (err) {
-      console.error('Repository analysis failed', err);
-      updateStepStatuses([{ id: 'analyze', status: 'error' }]);
-      setErrorState(buildFriendlyError(err, repoUrl));
     } finally {
+      pollToken.cancelled = true;
       console.debug('Analysis request finalized');
       setLoading(false);
       setLoadingSteps([]);
@@ -815,6 +894,20 @@ function App() {
                       <pre className="error-details">{errorState.raw}</pre>
                     </details>
                   ) : null}
+                </div>
+              )}
+              {analysisJob && (
+                <div
+                  className="job-status"
+                  aria-live="polite"
+                  role={analysisJob.status === JOB_STATUS.FAILED ? 'alert' : 'status'}
+                >
+                  <p className="hint">
+                    <strong>Job ID:</strong> <code>{analysisJob.jobId}</code>
+                  </p>
+                  <p className="hint">
+                    {analysisJob.statusMessage || `Status: ${analysisJob.status || 'UNKNOWN'}`}
+                  </p>
                 </div>
               )}
               {result && result.status === STATUS_ANALYZED && (

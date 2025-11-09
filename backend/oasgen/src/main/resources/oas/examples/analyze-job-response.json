@@ -1,0 +1,13 @@
+{
+  "summary": "Analysis job succeeded",
+  "value": {
+    "jobId": "27981d4a-fadc-45dc-872d-f5fa6f9a531a",
+    "repoUrl": "https://github.com/org/repo.git",
+    "status": "SUCCEEDED",
+    "statusMessage": "Snapshot saved",
+    "projectId": 1042,
+    "createdAt": "2025-03-01T15:32:11.034Z",
+    "startedAt": "2025-03-01T15:32:12.500Z",
+    "completedAt": "2025-03-01T15:33:01.207Z"
+  }
+}

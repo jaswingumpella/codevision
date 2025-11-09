@@ -14,6 +14,15 @@ import {
   ExportPanel
 } from './components/panels';
 
+vi.mock('react-window', () => {
+  const MockList = ({ itemCount, itemData, children }) => (
+    <div data-testid="mock-react-window">
+      {Array.from({ length: itemCount }).map((_, index) => children({ index, style: {}, data: itemData }))}
+    </div>
+  );
+  return { List: MockList };
+});
+
 describe('utility helpers', () => {
   it('derives project names from repo urls', () => {
     expect(deriveProjectName('https://github.com/org/repo.git')).toBe('repo');
@@ -300,12 +309,12 @@ describe('ExportPanel', () => {
         onRefreshPreview={onRefreshPreview}
       />
     );
-    await user.click(screen.getByRole('button', { name: /Download Project HTML/i }));
-    await user.click(screen.getByRole('button', { name: /Download ParsedDataResponse\.json/i }));
-    await user.click(screen.getByRole('button', { name: /Refresh Preview/i }));
+    await user.click(screen.getByRole('button', { name: /Download HTML/i }));
+    await user.click(screen.getByRole('button', { name: /Download Snapshot JSON/i }));
+    await user.click(screen.getByRole('button', { name: /Refresh preview/i }));
     expect(onDownloadHtml).toHaveBeenCalled();
     expect(onDownloadSnapshot).toHaveBeenCalled();
     expect(onRefreshPreview).toHaveBeenCalled();
-    expect(screen.getByText(/Preview will appear here/i)).toBeInTheDocument();
+    expect(screen.getByText(/Run an analysis and refresh to view the Confluence-ready HTML/i)).toBeInTheDocument();
   });
 });

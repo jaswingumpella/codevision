@@ -21,6 +21,7 @@
   - `AnalysisService` orchestrates cloning, scanning, metadata persistence, and snapshot creation.
   - `ProjectSnapshotService` now hydrates snapshot reads by merging persisted JSON with `class_metadata` rows when the stored snapshot is sparse.
   - New `GET /project/{id}/overview` endpoint returns `ParsedDataResponse` for UI consumption while `POST /analyze` continues to respond with `{"projectId": ..., "status": "ANALYZED_METADATA"}`.
+  > **Update (Iteration 10):** `/analyze` now returns job metadata (`jobId`, `status`, `projectId`, timestamps) and must be paired with `GET /analyze/{jobId}` for progress polling. The remainder of this document reflects the original synchronous implementation that shipped with Iteration 2.
 
 ## Frontend Deliverables
 - React UI enhanced with an overview panel that, after a successful analysis, fetches `/project/{id}/overview` and displays:

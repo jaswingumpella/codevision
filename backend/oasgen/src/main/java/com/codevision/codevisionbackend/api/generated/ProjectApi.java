@@ -34,7 +34,7 @@ import java.util.Map;
 import java.util.Optional;
 import jakarta.annotation.Generated;
 
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2025-11-09T00:46:30.720126-05:00[America/New_York]", comments = "Generator version: 7.5.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2025-11-09T02:46:14.127269-05:00[America/New_York]", comments = "Generator version: 7.5.0")
 @Validated
 @Tag(name = "Project", description = "Endpoints that expose stored project overview information.")
 public interface ProjectApi {

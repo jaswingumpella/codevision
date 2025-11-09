@@ -11,17 +11,49 @@ AnalyzeRequest:
 AnalyzeResponse:
   type: object
   required:
-    - projectId
+    - jobId
     - status
+    - repoUrl
+    - createdAt
   properties:
+    jobId:
+      type: string
+      format: uuid
+      description: Unique identifier assigned to the analysis job.
     projectId:
       type: integer
       format: int64
-      description: Identifier assigned to the analyzed project.
+      description: Identifier assigned to the analyzed project once the job succeeds.
+    repoUrl:
+      type: string
+      format: uri
+      description: Repository URL associated with the analysis job.
     status:
       type: string
       description: Current status of the analysis workflow.
-      example: ANALYZED_METADATA
+      enum:
+        - QUEUED
+        - RUNNING
+        - SUCCEEDED
+        - FAILED
+    statusMessage:
+      type: string
+      description: Friendly text describing the most recent job milestone.
+    createdAt:
+      type: string
+      format: date-time
+      description: Timestamp when the job was created.
+    startedAt:
+      type: string
+      format: date-time
+      description: Timestamp when the worker began executing the job.
+    completedAt:
+      type: string
+      format: date-time
+      description: Timestamp when the job finished, regardless of success or failure.
+    errorMessage:
+      type: string
+      description: Failure summary populated when the job ends in FAILED status.
 
 BuildInfo:
   type: object

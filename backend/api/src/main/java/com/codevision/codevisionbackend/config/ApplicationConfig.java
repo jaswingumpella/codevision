@@ -8,6 +8,7 @@ import org.springframework.context.annotation.Configuration;
     GitAuthProperties.class,
     SecurityProperties.class,
     SecurityScanProperties.class,
-    DiagramStorageProperties.class
+    DiagramStorageProperties.class,
+    AnalysisJobExecutorProperties.class
 })
 public class ApplicationConfig {}

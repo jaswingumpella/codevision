@@ -1,6 +1,7 @@
 DROP TABLE IF EXISTS class_metadata;
 DROP TABLE IF EXISTS project_snapshot;
-DROP TABLE IF EXISTS project;
+DROP TABLE IF EXISTS analysis_job;
+DROP TABLE IF EXISTS project CASCADE;
 
 CREATE TABLE project (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -11,6 +12,21 @@ CREATE TABLE project (
     build_artifact_id VARCHAR(255),
     build_version VARCHAR(255),
     build_java_version VARCHAR(255)
+);
+
+CREATE TABLE analysis_job (
+    id UUID PRIMARY KEY,
+    repo_url VARCHAR(2048) NOT NULL,
+    status VARCHAR(32) NOT NULL,
+    status_message VARCHAR(512),
+    project_id BIGINT,
+    error_message VARCHAR(1024),
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL,
+    started_at TIMESTAMP,
+    completed_at TIMESTAMP,
+    CONSTRAINT fk_analysis_job_project FOREIGN KEY (project_id)
+        REFERENCES project (id) ON DELETE SET NULL
 );
 
 CREATE TABLE project_snapshot (

@@ -27,8 +27,8 @@ paths:
       operationId: analyzeRepository
       tags:
         - Analysis
-      summary: Trigger analysis for a repository
-      description: Starts a background analysis workflow for the supplied repository URL.
+      summary: Enqueue repository analysis
+      description: Creates an asynchronous job for the supplied repository URL so clients can poll for progress without HTTP timeouts.
       security:
         - ApiKeyAuth: []
       requestBody:
@@ -41,8 +41,8 @@ paths:
               analyzeRequest:
                 $ref: ./examples/analyze-post-request.json
       responses:
-        '200':
-          description: Analysis request accepted and the snapshot metadata has been persisted.
+        '202':
+          description: Analysis job accepted and queued for background processing.
           content:
             application/json:
               schema:
@@ -52,6 +52,39 @@ paths:
                   $ref: ./examples/analyze-post-response.json
         '400':
           description: The request payload failed validation.
+        '401':
+          description: Missing or invalid API key.
+        '503':
+          description: Worker queue is saturated; retry after existing jobs complete.
+  /analyze/{jobId}:
+    get:
+      operationId: getAnalysisJob
+      tags:
+        - Analysis
+      summary: Retrieve analysis job status
+      description: Returns current status, timestamps, and resulting project ID (if available) for a queued analysis job.
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          description: Identifier returned by POST /analyze.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Analysis job status retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: ./components/schemas.yaml#/AnalyzeResponse
+              examples:
+                jobStatus:
+                  $ref: ./examples/analyze-job-response.json
+        '404':
+          description: No job was found for the supplied identifier.
         '401':
           description: Missing or invalid API key.
   /project/{projectId}/overview:

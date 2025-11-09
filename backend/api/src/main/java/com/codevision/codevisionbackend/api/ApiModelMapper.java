@@ -6,23 +6,25 @@ import com.codevision.codevisionbackend.analyze.BuildInfo;
 import com.codevision.codevisionbackend.analyze.ClassMetadataSummary;
 import com.codevision.codevisionbackend.analyze.DbAnalysisSummary;
 import com.codevision.codevisionbackend.analyze.DiagramSummary;
-import com.codevision.codevisionbackend.analyze.LoggerInsightSummary;
 import com.codevision.codevisionbackend.analyze.GherkinFeatureSummary;
 import com.codevision.codevisionbackend.analyze.GherkinScenarioSummary;
+import com.codevision.codevisionbackend.analyze.LoggerInsightSummary;
 import com.codevision.codevisionbackend.analyze.MetadataDump;
 import com.codevision.codevisionbackend.analyze.MetadataDump.SoapPortSummary;
 import com.codevision.codevisionbackend.analyze.MetadataDump.SoapServiceSummary;
 import com.codevision.codevisionbackend.analyze.ParsedDataResponse;
 import com.codevision.codevisionbackend.analyze.PiiPciFindingSummary;
+import com.codevision.codevisionbackend.analyze.job.AnalysisJob;
+import com.codevision.codevisionbackend.api.model.AnalyzeResponse;
+import com.codevision.codevisionbackend.api.model.DiagramDescriptor;
 import com.codevision.codevisionbackend.api.model.GherkinFeature;
 import com.codevision.codevisionbackend.api.model.GherkinScenario;
-import com.codevision.codevisionbackend.api.model.DiagramDescriptor;
 import com.codevision.codevisionbackend.api.model.LoggerInsight;
 import com.codevision.codevisionbackend.api.model.PiiPciFinding;
 import com.codevision.codevisionbackend.api.model.ProjectDiagramsResponse;
 import com.codevision.codevisionbackend.api.model.ProjectLoggerInsightsResponse;
-import com.codevision.codevisionbackend.api.model.ProjectPiiPciResponse;
 import com.codevision.codevisionbackend.api.model.ProjectMetadataResponse;
+import com.codevision.codevisionbackend.api.model.ProjectPiiPciResponse;
 import java.net.URI;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -34,10 +36,25 @@ import org.springframework.stereotype.Component;
 @Component
 public class ApiModelMapper {
 
-    public com.codevision.codevisionbackend.api.model.AnalyzeResponse toAnalyzeResponse(Long projectId, String status) {
-        return new com.codevision.codevisionbackend.api.model.AnalyzeResponse()
-                .projectId(projectId)
-                .status(status);
+    public AnalyzeResponse toAnalyzeResponse(AnalysisJob job) {
+        if (job == null) {
+            return null;
+        }
+        AnalyzeResponse.StatusEnum statusEnum =
+                job.getStatus() != null ? AnalyzeResponse.StatusEnum.fromValue(job.getStatus().name()) : null;
+        AnalyzeResponse response = new AnalyzeResponse()
+                .jobId(job.getId())
+                .status(statusEnum)
+                .repoUrl(toUri(job.getRepoUrl()))
+                .statusMessage(job.getStatusMessage())
+                .projectId(job.getProjectId())
+                .createdAt(job.getCreatedAt())
+                .startedAt(job.getStartedAt())
+                .completedAt(job.getCompletedAt());
+        if (job.getErrorMessage() != null && !job.getErrorMessage().isEmpty()) {
+            response.setErrorMessage(job.getErrorMessage());
+        }
+        return response;
     }
 
     public com.codevision.codevisionbackend.api.model.ParsedDataResponse toParsedDataResponse(

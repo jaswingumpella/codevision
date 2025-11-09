@@ -3,6 +3,15 @@ import userEvent from '@testing-library/user-event';
 import App from './App';
 import axios from './lib/apiClient';
 
+vi.mock('react-window', () => {
+  const MockList = ({ itemCount, itemData, children }) => (
+    <div data-testid="mock-react-window">
+      {Array.from({ length: itemCount }).map((_, index) => children({ index, style: {}, data: itemData }))}
+    </div>
+  );
+  return { List: MockList };
+});
+
 vi.mock('./lib/apiClient', () => ({
   __esModule: true,
   default: {
@@ -52,9 +61,24 @@ describe('App', () => {
 
   it('submits analysis request and renders overview details', async () => {
     axios.post.mockResolvedValueOnce({
-      data: { projectId: 101, status: 'ANALYZED_METADATA' }
+      data: {
+        jobId: 'job-123',
+        repoUrl: 'https://example.com/org/repo.git',
+        status: 'QUEUED',
+        statusMessage: 'Queued for analysis',
+        createdAt: new Date('2024-05-01T11:59:00Z').toISOString()
+      }
     });
     axios.get
+      .mockResolvedValueOnce({
+        data: {
+          jobId: 'job-123',
+          projectId: 101,
+          repoUrl: 'https://example.com/org/repo.git',
+          status: 'SUCCEEDED',
+          completedAt: new Date('2024-05-01T12:00:00Z').toISOString()
+        }
+      })
       .mockResolvedValueOnce({ data: mockOverview })
       .mockResolvedValueOnce({ data: { endpoints: [] } })
       .mockResolvedValueOnce({ data: { dbAnalysis: null } })
@@ -85,15 +109,25 @@ describe('App', () => {
       )
     );
 
-    await waitFor(() => expect(axios.get).toHaveBeenCalledWith('/project/101/overview', {
-      headers: {
-        'X-API-KEY': 'super-secret'
-      }
-    }));
+    await waitFor(() =>
+      expect(axios.get).toHaveBeenCalledWith('/analyze/job-123', {
+        headers: {
+          'X-API-KEY': 'super-secret'
+        }
+      })
+    );
+
+    await waitFor(() =>
+      expect(axios.get).toHaveBeenCalledWith('/project/101/overview', {
+        headers: {
+          'X-API-KEY': 'super-secret'
+        }
+      })
+    );
 
     expect(await screen.findByText(/latest analysis/i)).toBeInTheDocument();
     expect(screen.getByText(/demo-project/)).toBeInTheDocument();
-    expect(screen.getByText(/com\.barclays/)).toBeInTheDocument();
+    expect(screen.getAllByText(/com\.barclays/).length).toBeGreaterThan(0);
     expect(screen.getByText(/openapi\.yml/)).toBeInTheDocument();
   });
 
@@ -108,5 +142,33 @@ describe('App', () => {
 
     expect(await screen.findByText(/analysis could not be completed/i)).toBeInTheDocument();
     expect(screen.getByText(/Retry the analysis/i)).toBeInTheDocument();
+  });
+
+  it('surfaces job failures returned by the poll endpoint', async () => {
+    axios.post.mockResolvedValueOnce({
+      data: {
+        jobId: 'job-failed',
+        repoUrl: 'https://example.com/org/repo.git',
+        status: 'QUEUED',
+        statusMessage: 'Queued'
+      }
+    });
+    axios.get.mockResolvedValueOnce({
+      data: {
+        jobId: 'job-failed',
+        status: 'FAILED',
+        errorMessage: 'Repository clone timed out',
+        statusMessage: 'Failed'
+      }
+    });
+
+    render(<App />);
+
+    const repoInput = screen.getByLabelText(/repository url/i);
+    await userEvent.type(repoInput, 'https://example.com/org/repo.git');
+    await userEvent.click(screen.getByRole('button', { name: /analyze/i }));
+
+    const failureNotices = await screen.findAllByText(/Repository clone timed out/i);
+    expect(failureNotices.length).toBeGreaterThan(0);
   });
 });

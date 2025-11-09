@@ -7,6 +7,7 @@ package com.codevision.codevisionbackend.api.generated;
 
 import com.codevision.codevisionbackend.api.model.AnalyzeRequest;
 import com.codevision.codevisionbackend.api.model.AnalyzeResponse;
+import java.util.UUID;
 import io.swagger.v3.oas.annotations.ExternalDocumentation;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -33,7 +34,7 @@ import java.util.Map;
 import java.util.Optional;
 import jakarta.annotation.Generated;
 
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2025-11-09T00:46:30.720126-05:00[America/New_York]", comments = "Generator version: 7.5.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2025-11-09T02:46:14.127269-05:00[America/New_York]", comments = "Generator version: 7.5.0")
 @Validated
 @Tag(name = "Analysis", description = "Endpoints used to trigger repository analysis workflows.")
 public interface AnalysisApi {
@@ -43,25 +44,27 @@ public interface AnalysisApi {
     }
 
     /**
-     * POST /analyze : Trigger analysis for a repository
-     * Starts a background analysis workflow for the supplied repository URL.
+     * POST /analyze : Enqueue repository analysis
+     * Creates an asynchronous job for the supplied repository URL so clients can poll for progress without HTTP timeouts.
      *
      * @param analyzeRequest  (required)
-     * @return Analysis request accepted and the snapshot metadata has been persisted. (status code 200)
+     * @return Analysis job accepted and queued for background processing. (status code 202)
      *         or The request payload failed validation. (status code 400)
      *         or Missing or invalid API key. (status code 401)
+     *         or Worker queue is saturated; retry after existing jobs complete. (status code 503)
      */
     @Operation(
         operationId = "analyzeRepository",
-        summary = "Trigger analysis for a repository",
-        description = "Starts a background analysis workflow for the supplied repository URL.",
+        summary = "Enqueue repository analysis",
+        description = "Creates an asynchronous job for the supplied repository URL so clients can poll for progress without HTTP timeouts.",
         tags = { "Analysis" },
         responses = {
-            @ApiResponse(responseCode = "200", description = "Analysis request accepted and the snapshot metadata has been persisted.", content = {
+            @ApiResponse(responseCode = "202", description = "Analysis job accepted and queued for background processing.", content = {
                 @Content(mediaType = "application/json", schema = @Schema(implementation = AnalyzeResponse.class))
             }),
             @ApiResponse(responseCode = "400", description = "The request payload failed validation."),
-            @ApiResponse(responseCode = "401", description = "Missing or invalid API key.")
+            @ApiResponse(responseCode = "401", description = "Missing or invalid API key."),
+            @ApiResponse(responseCode = "503", description = "Worker queue is saturated; retry after existing jobs complete.")
         },
         security = {
             @SecurityRequirement(name = "ApiKeyAuth")
@@ -80,7 +83,55 @@ public interface AnalysisApi {
         getRequest().ifPresent(request -> {
             for (MediaType mediaType: MediaType.parseMediaTypes(request.getHeader("Accept"))) {
                 if (mediaType.isCompatibleWith(MediaType.valueOf("application/json"))) {
-                    String exampleString = "{ \"projectId\" : 0, \"status\" : \"ANALYZED_METADATA\" }";
+                    String exampleString = "{ \"repoUrl\" : \"https://openapi-generator.tech\", \"jobId\" : \"046b6c7f-0b8a-43b9-b35d-6489e6daee91\", \"createdAt\" : \"2000-01-23T04:56:07.000+00:00\", \"completedAt\" : \"2000-01-23T04:56:07.000+00:00\", \"errorMessage\" : \"errorMessage\", \"startedAt\" : \"2000-01-23T04:56:07.000+00:00\", \"projectId\" : 0, \"statusMessage\" : \"statusMessage\", \"status\" : \"QUEUED\" }";
+                    ApiUtil.setExampleResponse(request, "application/json", exampleString);
+                    break;
+                }
+            }
+        });
+        return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
+
+    }
+
+
+    /**
+     * GET /analyze/{jobId} : Retrieve analysis job status
+     * Returns current status, timestamps, and resulting project ID (if available) for a queued analysis job.
+     *
+     * @param jobId Identifier returned by POST /analyze. (required)
+     * @return Analysis job status retrieved successfully. (status code 200)
+     *         or No job was found for the supplied identifier. (status code 404)
+     *         or Missing or invalid API key. (status code 401)
+     */
+    @Operation(
+        operationId = "getAnalysisJob",
+        summary = "Retrieve analysis job status",
+        description = "Returns current status, timestamps, and resulting project ID (if available) for a queued analysis job.",
+        tags = { "Analysis" },
+        responses = {
+            @ApiResponse(responseCode = "200", description = "Analysis job status retrieved successfully.", content = {
+                @Content(mediaType = "application/json", schema = @Schema(implementation = AnalyzeResponse.class))
+            }),
+            @ApiResponse(responseCode = "404", description = "No job was found for the supplied identifier."),
+            @ApiResponse(responseCode = "401", description = "Missing or invalid API key.")
+        },
+        security = {
+            @SecurityRequirement(name = "ApiKeyAuth")
+        }
+    )
+    @RequestMapping(
+        method = RequestMethod.GET,
+        value = "/analyze/{jobId}",
+        produces = { "application/json" }
+    )
+    
+    default ResponseEntity<AnalyzeResponse> getAnalysisJob(
+        @Parameter(name = "jobId", description = "Identifier returned by POST /analyze.", required = true, in = ParameterIn.PATH) @PathVariable("jobId") UUID jobId
+    ) {
+        getRequest().ifPresent(request -> {
+            for (MediaType mediaType: MediaType.parseMediaTypes(request.getHeader("Accept"))) {
+                if (mediaType.isCompatibleWith(MediaType.valueOf("application/json"))) {
+                    String exampleString = "{ \"repoUrl\" : \"https://openapi-generator.tech\", \"jobId\" : \"046b6c7f-0b8a-43b9-b35d-6489e6daee91\", \"createdAt\" : \"2000-01-23T04:56:07.000+00:00\", \"completedAt\" : \"2000-01-23T04:56:07.000+00:00\", \"errorMessage\" : \"errorMessage\", \"startedAt\" : \"2000-01-23T04:56:07.000+00:00\", \"projectId\" : 0, \"statusMessage\" : \"statusMessage\", \"status\" : \"QUEUED\" }";
                     ApiUtil.setExampleResponse(request, "application/json", exampleString);
                     break;
                 }

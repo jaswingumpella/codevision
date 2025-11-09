@@ -9,6 +9,7 @@
 - `GitCloneService` clones public repositories by default and applies credentials only when `git.auth` values are supplied.
 - `ProjectService` performs overwrite semantics on the `project` table using the repository URL as the unique key and stamps the latest analysis time.
 - `/analyze` endpoint accepts `{"repoUrl": "..."}` and returns `{"projectId": ..., "status": "ANALYZED_BASE"}` after cloning and persisting.
+  > **Update (Iteration 10):** `/analyze` has since become an asynchronous job endpoint (`POST /analyze` + `GET /analyze/{jobId}`) that returns job metadata instead of a completed project payload.
 - `ApiKeyFilter` guards non-GET requests when `security.apiKey` is populated.
 - PostgreSQL persists project records (initially via the local Docker container, now also via Render-managed instance).
 

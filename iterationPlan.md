@@ -810,3 +810,33 @@ Replace the brittle, file-based H2 datastore with a managed PostgreSQL instance 
 * Backend boots locally against the dockerized Postgres container (schema auto-creates, `/analyze` runs, restart retains projects).
 * Render deployment variables point at the managed Postgres service and retain data across restarts.
 * README / PRD / iteration plan all reflect Postgres as the canonical datastore, there’s a documented migration helper, and onboarding now describes the Docker/Testcontainers requirements for local + CI.
+
+## Iteration 10 – Async analysis job queue *(Status: ✅ Completed – see [`docs/iteration-10-completion.md`](docs/iteration-10-completion.md))*
+
+### Goal
+
+Scale `/analyze` beyond single minute HTTP windows by turning the synchronous workflow into a durable job queue. Requests should return instantly with a job identifier, workers execute the heavy clone/scan pipeline in the background, and the UI can poll (or later subscribe) for progress without being blocked by timeouts.
+
+### Backend
+
+* Introduce an `analysis_job` table + JPA aggregate that tracks repo URL, status (QUEUED/RUNNING/SUCCEEDED/FAILED), timestamps, optional progress metrics, and links to the resulting `projectId`.
+* Add an `AnalysisJobService` and worker that persists jobs, enqueues them on a bounded `TaskExecutor`, runs the existing `AnalysisService` work, and records success/failure details. Jobs should capture the last status message and exception summary for troubleshooting.
+* Update `/analyze` to return `202 Accepted` + a job descriptor instead of blocking for completion. Provide a new `GET /analyze/{jobId}` endpoint that surfaces live status, timestamps, projectId, and failure metadata so clients can poll safely.
+* Extend the OpenAPI spec / generated interfaces / ApiModelMapper to cover the new response fields, regenerate the Spring interfaces, and add controller/service tests that verify queueing, success, and failure reporting paths.
+
+### UI / DX
+
+* Update the React analyzer card to handle the new asynchronous flow: submit the repo, display the returned job metadata, and poll `/analyze/{jobId}` until the job transitions to `SUCCEEDED` (then kick off the existing overview/API/DB/etc. fetch chain) or `FAILED` (surface actionable errors).
+* Keep the LoadingTimeline in sync with job states so users see that analysis is queued/running before downstream tabs light up. Show the job ID + repo context in the collapsed card once analysis completes.
+* Expand Vitest coverage to assert that polling happens, failures surface to the error banner, and success triggers the cascaded data fetches only after the job finishes.
+
+### Persistence / DevOps
+
+* Ship Flyway/DDL updates (and H2 test schema changes) for `analysis_job` so local + CI runs can create the new table automatically. Capture retention expectations (e.g., purge jobs older than N days later).
+* Make the worker executor tunable via `analysis.jobs.maxConcurrency` (or similar) so Render deployments can keep concurrency low while local machines can crank it up.
+
+### Done Criteria
+
+* `POST /analyze` returns immediately with job metadata, `GET /analyze/{jobId}` streams status transitions, and long-running repos (ServiceMix/WebGoat) no longer time out.
+* Analyzer UI shows queued/running states, polls until success, and gracefully reports failures without freezing the dashboard.
+* Backend + frontend tests cover the new flow, docs / README describe the job-based API, and the iteration entry is marked complete once merged.

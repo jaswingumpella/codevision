@@ -14,18 +14,25 @@ Use the repositories below to exercise CodeVision across different architectural
    ```bash
    git clone https://github.com/spring-projects/spring-petclinic.git
    ```
-2. **Point CodeVision at the clone**:
+2. **Point CodeVision at the clone and capture the job ID**:
    ```bash
-   curl -X POST http://localhost:8080/analyze \
+   JOB_ID=$(curl -s -X POST http://localhost:8080/analyze \
      -H 'Content-Type: application/json' \
      -H 'X-API-KEY: <your-key>' \
-     -d '{"repoUrl": "file:///absolute/path/to/spring-petclinic"}'
+     -d '{"repoUrl": "file:///absolute/path/to/spring-petclinic"}' | jq -r '.jobId')
+   echo "Queued job ${JOB_ID}"
    ```
-3. **Review the dashboard** after analysis completes:
+3. **Poll the job until it succeeds**:
+   ```bash
+   curl -s http://localhost:8080/analyze/${JOB_ID} \
+     -H 'X-API-KEY: <your-key>'
+   ```
+   Repeat the GET call every few seconds until it reports `status: "SUCCEEDED"` (or inspect the `errorMessage` field if it fails).
+4. **Review the dashboard** after analysis completes:
    - Verify Overview, API Specs, Database, Logger Insights, and PCI/PII tabs populate.
    - Download CSV/PDF exports for logs and PCI/PII findings.
    - Fetch `/project/{id}/overview`, `/logger-insights`, `/pii-pci`, and `/export/*` endpoints to confirm payloads.
-4. **Repeat for ServiceMix and WebGoat** to exercise larger and security-heavy cases. Capture timing, snapshot size, and any scanner findings for regression tracking.
+5. **Repeat for ServiceMix and WebGoat** to exercise larger and security-heavy cases. Capture timing, snapshot size, and any scanner findings for regression tracking.
 
 ## Validation Checklist
 

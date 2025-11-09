@@ -1,109 +1,102 @@
 package com.codevision.codevisionbackend.analyze;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.when;
 
-import com.codevision.codevisionbackend.analyze.AssetInventory;
-import com.codevision.codevisionbackend.analyze.DbAnalysisSummary;
+import com.codevision.codevisionbackend.analyze.job.AnalysisJob;
+import com.codevision.codevisionbackend.analyze.job.AnalysisJobService;
+import com.codevision.codevisionbackend.analyze.job.AnalysisJobStatus;
 import com.codevision.codevisionbackend.api.ApiModelMapper;
 import com.codevision.codevisionbackend.api.model.AnalyzeRequest;
 import com.codevision.codevisionbackend.api.model.AnalyzeResponse;
-import com.codevision.codevisionbackend.project.Project;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.net.URI;
 import java.time.OffsetDateTime;
-import java.util.List;
-import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 class AnalyzeControllerTest {
 
-    private StubAnalysisService analysisService;
+    private AnalysisJobService jobService;
     private AnalyzeController controller;
 
     @BeforeEach
     void setUp() {
-        analysisService = new StubAnalysisService();
-        controller = new AnalyzeController(analysisService, new ApiModelMapper());
+        jobService = Mockito.mock(AnalysisJobService.class);
+        controller = new AnalyzeController(jobService, new ApiModelMapper());
     }
 
     @Test
-    void analyzeReturnsAnalyzedMetadataStatus() {
-        AnalyzeRequest request = new AnalyzeRequest();
-        request.setRepoUrl(URI.create("https://example.com/repo.git"));
+    void analyzeReturnsAcceptedJobDescriptor() {
+        AnalysisJob job = new AnalysisJob();
+        job.setId(UUID.randomUUID());
+        job.setRepoUrl("https://example.com/repo.git");
+        job.setStatus(AnalysisJobStatus.QUEUED);
+        job.setStatusMessage("Queued for analysis");
+        job.setCreatedAt(OffsetDateTime.now());
+        job.setUpdatedAt(job.getCreatedAt());
+        when(jobService.enqueue(anyString())).thenReturn(job);
 
-        Project project = new Project(request.getRepoUrl().toString(), "demo", OffsetDateTime.now());
-        project.setId(321L);
-        ParsedDataResponse data = new ParsedDataResponse(
-                project.getId(),
-                "demo",
-                project.getRepoUrl(),
-                project.getLastAnalyzedAt(),
-                new BuildInfo("com.barclays", "demo", "1.0.0", "21"),
-                List.of(),
-                MetadataDump.empty(),
-                emptyDbAnalysis(),
-                List.of(),
-                AssetInventory.empty(),
-                List.of(),
-                List.of(),
-                List.of(),
-                Map.of(),
-                List.of());
-        analysisService.setNextOutcome(new AnalysisOutcome(project, data));
+        AnalyzeRequest request = new AnalyzeRequest();
+        request.setRepoUrl(URI.create(job.getRepoUrl()));
 
         ResponseEntity<AnalyzeResponse> response = controller.analyzeRepository(request);
 
+        assertEquals(HttpStatus.ACCEPTED, response.getStatusCode());
+        AnalyzeResponse body = response.getBody();
+        assertEquals(job.getId(), body.getJobId());
+        assertEquals(AnalyzeResponse.StatusEnum.QUEUED, body.getStatus());
+        assertNull(body.getProjectId());
+    }
+
+    @Test
+    void getAnalysisJobReturnsStatusWhenPresent() {
+        AnalysisJob job = new AnalysisJob();
+        job.setId(UUID.randomUUID());
+        job.setRepoUrl("https://example.com/repo.git");
+        job.setStatus(AnalysisJobStatus.SUCCEEDED);
+        job.setStatusMessage("Snapshot saved");
+        job.setProjectId(99L);
+        job.setCreatedAt(OffsetDateTime.now().minusMinutes(1));
+        job.setStartedAt(job.getCreatedAt());
+        job.setCompletedAt(OffsetDateTime.now());
+        job.setUpdatedAt(job.getCompletedAt());
+        UUID jobId = job.getId();
+        when(jobService.findJob(jobId)).thenReturn(Optional.of(job));
+
+        ResponseEntity<AnalyzeResponse> response = controller.getAnalysisJob(jobId);
+
         assertEquals(HttpStatus.OK, response.getStatusCode());
         AnalyzeResponse body = response.getBody();
-        assertEquals(project.getId(), body.getProjectId());
-        assertEquals(AnalyzeController.STATUS_ANALYZED_METADATA, body.getStatus());
+        assertEquals(jobId, body.getJobId());
+        assertEquals(job.getProjectId(), body.getProjectId());
+        assertEquals(AnalyzeResponse.StatusEnum.SUCCEEDED, body.getStatus());
     }
 
-    private static class StubAnalysisService extends AnalysisService {
+    @Test
+    void getAnalysisJobReturnsNotFoundWhenMissing() {
+        UUID jobId = UUID.randomUUID();
+        when(jobService.findJob(jobId)).thenReturn(Optional.empty());
 
-        private AnalysisOutcome nextOutcome;
+        ResponseEntity<AnalyzeResponse> response = controller.getAnalysisJob(jobId);
 
-        StubAnalysisService() {
-            super(
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    new ObjectMapper());
-        }
-
-        void setNextOutcome(AnalysisOutcome outcome) {
-            this.nextOutcome = outcome;
-        }
-
-        @Override
-        public AnalysisOutcome analyze(String repoUrl) {
-            return nextOutcome;
-        }
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
     }
 
-    private DbAnalysisSummary emptyDbAnalysis() {
-        return new DbAnalysisSummary(List.of(), Map.of(), Map.of());
+    @Test
+    void analyzeReturnsBadRequestWhenEnqueueFailsValidation() {
+        AnalyzeRequest request = new AnalyzeRequest();
+        request.setRepoUrl(URI.create("https://example.com/repo.git"));
+        when(jobService.enqueue(anyString())).thenThrow(new IllegalArgumentException("bad"));
+
+        ResponseEntity<AnalyzeResponse> response = controller.analyzeRepository(request);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
     }
 }

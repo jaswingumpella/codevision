@@ -1,6 +1,7 @@
 com/codevision/codevisionbackend/project/security/SecurityExportService.class
 com/codevision/codevisionbackend/analyze/scanner/LogStatementRecord.class
 com/codevision/codevisionbackend/analyze/scanner/JavaSourceScanner.class
+com/codevision/codevisionbackend/analyze/job/AnalysisJobStatus.class
 com/codevision/codevisionbackend/analyze/DbAnalysisSummary$DbEntitySummary.class
 com/codevision/codevisionbackend/analyze/BuildInfo.class
 com/codevision/codevisionbackend/analyze/scanner/YamlScanner.class
@@ -28,9 +29,11 @@ com/codevision/codevisionbackend/analyze/scanner/ApiEndpointRecord$ApiSpecArtifa
 com/codevision/codevisionbackend/analyze/scanner/GherkinScanner.class
 com/codevision/codevisionbackend/analyze/scanner/ClassMetadataRecord$SourceSet.class
 com/codevision/codevisionbackend/analyze/GherkinFeatureSummary.class
+com/codevision/codevisionbackend/config/AnalysisJobExecutorProperties.class
 com/codevision/codevisionbackend/project/ProjectSnapshot.class
 com/codevision/codevisionbackend/analyze/scanner/ClassMetadataRecord.class
 com/codevision/codevisionbackend/analyze/scanner/DbEntityRecord.class
+com/codevision/codevisionbackend/analyze/job/AnalysisJobService.class
 com/codevision/codevisionbackend/analyze/scanner/JpaEntityScanner.class
 com/codevision/codevisionbackend/analyze/scanner/DbEntityRecord$EntityRelationship.class
 com/codevision/codevisionbackend/project/api/ApiEndpoint.class
@@ -57,6 +60,7 @@ com/codevision/codevisionbackend/project/asset/AssetImage.class
 com/codevision/codevisionbackend/analyze/scanner/ApiScanner$OpenApiOperation.class
 com/codevision/codevisionbackend/analyze/scanner/GherkinScanner$1.class
 com/codevision/codevisionbackend/project/metadata/ClassMetadata.class
+com/codevision/codevisionbackend/config/AnalysisJobExecutorConfig.class
 com/codevision/codevisionbackend/project/export/ExportService.class
 com/codevision/codevisionbackend/analyze/diagram/CallGraph$MethodInvocation.class
 com/codevision/codevisionbackend/project/diagram/DiagramStorageService.class
@@ -65,6 +69,7 @@ com/codevision/codevisionbackend/analyze/AssetInventory$ImageAsset.class
 com/codevision/codevisionbackend/analyze/ApiEndpointSummary$ApiSpecArtifact.class
 com/codevision/codevisionbackend/project/db/DaoOperation.class
 com/codevision/codevisionbackend/analyze/scanner/WsdlInspector.class
+com/codevision/codevisionbackend/analyze/job/AnalysisJob.class
 com/codevision/codevisionbackend/analyze/DbAnalysisSummary.class
 com/codevision/codevisionbackend/project/ProjectService.class
 com/codevision/codevisionbackend/analyze/scanner/ApiEndpointRecord.class
@@ -98,6 +103,7 @@ com/codevision/codevisionbackend/analyze/MetadataDump$OpenApiSpec.class
 com/codevision/codevisionbackend/analyze/scanner/BuildMetadataExtractor$BuildMetadata.class
 com/codevision/codevisionbackend/analyze/PiiPciFindingSummary.class
 com/codevision/codevisionbackend/analyze/scanner/YamlScanner$1.class
+com/codevision/codevisionbackend/analyze/job/AnalysisJobRepository.class
 com/codevision/codevisionbackend/analyze/ParsedDataResponse.class
 com/codevision/codevisionbackend/analyze/diagram/CallGraphBuilder.class
 com/codevision/codevisionbackend/analyze/AnalyzeController.class

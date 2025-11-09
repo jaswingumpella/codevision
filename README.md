@@ -4,8 +4,9 @@ CodeVision ingests a Git repository, extracts structural metadata, and surfaces 
 
 ## Backend (Spring Boot)
 
-The backend lives in [`backend/`](backend/). It exposes a synchronous `/analyze` endpoint that clones a Git repository, extracts build/class/API metadata, and records a snapshot in PostgreSQL. Companion endpoints return the stored data for the UI and integrations:
+The backend lives in [`backend/`](backend/). It now exposes an asynchronous `/analyze` job queue: `POST /analyze` enqueues a background analysis (returning a job ID immediately) and `GET /analyze/{jobId}` lets clients poll progress until the job succeeds or fails. Once the job completes, companion endpoints return the stored data for the UI and integrations:
 
+- `GET /analyze/{jobId}` – fetch the latest status/timestamps/project ID for a queued analysis job.
 - `GET /project/{id}/overview` – the latest `ParsedDataResponse`.
 - `GET /project/{id}/api-endpoints` – the persisted API catalog (requires the API key when security is enabled).
 - `GET /project/{id}/db-analysis` – entities, repositories, and CRUD intent summaries captured during analysis.
@@ -118,27 +119,49 @@ docker run --rm -p 8080:8080 \
 
 Every property in `application.yml` can be overridden the same way (for example `-e GIT_AUTH_USERNAME=...`).
 
-### Analyze API (`POST /analyze`)
+### Analyze API (`POST /analyze` + `GET /analyze/{jobId}`)
 
-- Headers:
-  - `Content-Type: application/json`
-  - `X-API-KEY: <value>` (required only when `security.apiKey` is populated)
-- Request body:
+1. **Enqueue a job (`POST /analyze`)**
+   - Headers:
+     - `Content-Type: application/json`
+     - `X-API-KEY: <value>` (required only when `security.apiKey` is populated)
+   - Request body:
 
-  ```json
-  {
-    "repoUrl": "https://github.com/org/repo.git"
-  }
-  ```
+     ```json
+     {
+       "repoUrl": "https://github.com/org/repo.git"
+     }
+     ```
 
-- Response body:
+   - Response body:
 
-  ```json
-  {
-    "projectId": 1,
-    "status": "ANALYZED_METADATA"
-  }
-  ```
+     ```json
+     {
+       "jobId": "27981d4a-fadc-45dc-872d-f5fa6f9a531a",
+       "repoUrl": "https://github.com/org/repo.git",
+       "status": "QUEUED",
+       "statusMessage": "Queued for analysis",
+       "createdAt": "2025-03-01T15:32:11.034Z"
+     }
+     ```
+
+2. **Poll for completion (`GET /analyze/{jobId}`)**
+   - Response body when the job succeeds:
+
+     ```json
+     {
+       "jobId": "27981d4a-fadc-45dc-872d-f5fa6f9a531a",
+       "repoUrl": "https://github.com/org/repo.git",
+       "status": "SUCCEEDED",
+       "statusMessage": "Snapshot saved",
+       "projectId": 1,
+       "createdAt": "2025-03-01T15:32:11.034Z",
+       "startedAt": "2025-03-01T15:32:12.500Z",
+       "completedAt": "2025-03-01T15:33:01.207Z"
+     }
+     ```
+
+   - Failed jobs use the same schema but report `status: "FAILED"` and populate `errorMessage`.
 
 ### Overview API (`GET /project/{id}/overview`)
 
@@ -273,7 +296,7 @@ After the schema has been created (either by running locally with `SPRING_JPA_HI
 - `db_entity` – extracted JPA entity metadata (tables, PKs, relationships)
 - `dao_operation` – classified DAO/repository operations with inferred CRUD intent
 - `diagram` – stored diagram definitions (type, title, source text, SVG path, metadata JSON)
-Re-running `/analyze` with the same repository URL overwrites the project metadata and regenerates the snapshot/class records so the UI always reflects the latest scan.
+Re-running `/analyze` with the same repository URL simply enqueues a new job; once that job reaches `SUCCEEDED`, the backend overwrites the existing project metadata and regenerates the snapshot/class records so the UI always reflects the latest scan.
 
 ### Migrating legacy H2 data
 
