@@ -30,6 +30,21 @@ Add the following variables to your Render service (Dashboard → Service → En
 
 After saving the variables, trigger a redeploy so Spring Boot picks up the new datasource configuration.
 
+### Local development against Render
+
+You can target the same managed instance from your laptop—helpful when Docker or Homebrew Postgres is unavailable. Copy `.env.example` to `.env` and paste the Render values shown above, then run:
+
+```bash
+SPRING_DATASOURCE_URL=jdbc:postgresql://dpg-d480qabipnbc73d6felg-a.oregon-postgres.render.com:5432/codevision_postgres \
+SPRING_DATASOURCE_USERNAME=codevision_postgres_user \
+SPRING_DATASOURCE_PASSWORD='N7f455H9K9YZxicckzibPgLF29fHU4h3' \
+SPRING_DATASOURCE_MAX_POOL_SIZE=5 \
+SPRING_DATASOURCE_MIN_IDLE=1 \
+mvn -f backend/pom.xml -pl api spring-boot:run
+```
+
+`application.yml` still lists `localhost` as the default, so exporting the variables (or using `.env`) is mandatory anytime the real database is not on your machine. Check `env | grep SPRING_DATASOURCE` if you see Hikari trying to connect to `localhost:5432`.
+
 ## Verifying connectivity
 
 From your laptop you can run:

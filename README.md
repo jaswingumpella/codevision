@@ -19,7 +19,7 @@ The backend lives in [`backend/`](backend/). It exposes a synchronous `/analyze`
 
 ### Configuration
 
-Set the desired credentials in [`backend/src/main/resources/application.yml`](backend/src/main/resources/application.yml):
+Set the desired credentials in [`backend/api/src/main/resources/application.yml`](backend/api/src/main/resources/application.yml) or through environment variables (`SPRING_*`, `GIT_*`, etc.). The repo ships with a `.env.example`; copy it to `.env` so Spring Boot automatically reads the datasource configuration when you run `mvn` locally.
 
 ```yaml
 git:
@@ -39,6 +39,26 @@ If you do not need authenticated cloning, leave the values blank. Update the `se
 `diagram.storage.root` controls where rendered SVG assets are cached; the directory is created automatically if it does not exist.
 Set `diagram.svg.enabled` to `false` (or the environment variable `DIAGRAM_SVG_ENABLED=false`) if you are deploying to a constrained runtime that cannot spare extra Metaspace for PlantUML rendering; the app will still persist PlantUML/Mermaid sources but will skip SVG generation.
 
+> **Tip:** `diagram.svg.enabled=false` disables PlantUML SVG rendering (useful for constrained hosts) while still persisting PlantUML/Mermaid sources.
+
+### Database setup
+
+- **Runtime profile (PostgreSQL):** `application.yml` defaults to `jdbc:postgresql://localhost:5432/codevision`, but every property can be overridden via env vars. Point the service at the managed Render instance by exporting:
+
+  ```bash
+  export SPRING_DATASOURCE_URL=jdbc:postgresql://dpg-d480qabipnbc73d6felg-a.oregon-postgres.render.com:5432/codevision_postgres
+  export SPRING_DATASOURCE_USERNAME=codevision_postgres_user
+  export SPRING_DATASOURCE_PASSWORD='N7f455H9K9YZxicckzibPgLF29fHU4h3'
+  export SPRING_DATASOURCE_MAX_POOL_SIZE=5
+  export SPRING_DATASOURCE_MIN_IDLE=1
+  ```
+
+  These match the values documented in [`docs/render-postgres.md`](docs/render-postgres.md); switch to the internal hostname when running inside Render. Checking `env | grep SPRING_DATASOURCE` before launching ensures the app never tries to open `localhost:5432`.
+
+- **Test profile (in-memory H2):** Repository and service tests activate the `test` profile via `@ActiveProfiles("test")`. The matching [`application-test.yml`](backend/api/src/test/resources/application-test.yml) connects to H2 in PostgreSQL compatibility mode and disables Hibernate DDL so we can control the schema. `ProjectSnapshotServiceTest` and related slices execute [`schema-h2.sql`](backend/api/src/test/resources/schema-h2.sql) before every method to create the lightweight tables they need. When you add a new JPA entity that participates in slice or repository tests, mirror its table definition in that script (including foreign keys) so H2 stays in sync with the production schema.
+
+- **Maven repo location:** This environment blocks remote downloads and guards `~/.m2`. When running tests locally, either fix your `.m2` permissions or pass `-Dmaven.repo.local=/path/you/own` so Maven can cache dependencies without elevated privileges.
+
 ### Run the backend
 
 ```bash
@@ -47,6 +67,16 @@ mvn -f backend/pom.xml spring-boot:run
 ```
 
 The service starts on `http://localhost:8080`.
+
+### Run the backend tests
+
+Repository and slice tests run entirely against the embedded H2 database. Invoke them from the repo root:
+
+```bash
+SPRING_PROFILES_ACTIVE=test mvn -f backend/pom.xml -pl api test
+```
+
+Surefire will pick up `application-test.yml`, connect to the in-memory datasource, and execute `schema-h2.sql` ahead of each method so tables such as `project`, `project_snapshot`, and `class_metadata` exist before the repositories run. If you introduce a new table that participates in these tests, mirror the DDL in that script—H2 runs in PostgreSQL compatibility mode, so most DDL can be copied directly from your migration.
 
 ### Package the React frontend into the backend
 
@@ -62,18 +92,31 @@ Pass `-Dskip.frontend=true` if you only want to build the backend (for example, 
 
 ### Run the backend with Docker
 
-Build the container image defined in [`Dockerfile`](Dockerfile) and start it with a volume for the persistent H2 database/diagram cache:
+Build the container image defined in [`Dockerfile`](Dockerfile); it installs Node.js 18, builds the React bundle, and bakes the static assets into the runnable jar. When you run the container you must provide the Postgres connection details (either pointing at Render or at the local Compose service):
 
 ```bash
+# (optional) start the local database defined in docker-compose.yml
+docker compose up -d postgres
+
+# build + run the backend image
 docker build -t codevision-backend .
 docker run --rm -p 8080:8080 \
-  -v codevision-data:/app/data \
+  --env-file .env \
   -e SECURITY_APIKEY=your-api-key \
   codevision-backend
 ```
 
-Spring Boot reads environment variables using its relaxed binding, so any property in `application.yml` can be overridden the same way (for example `-e GIT_AUTH_USERNAME=... -e GIT_AUTH_TOKEN=...`). The container stores project data under `/app/data` (which includes `diagram.storage.root`), so keeping that directory on a named volume prevents losing state between restarts.
-The Docker build installs Node.js 18 before running Maven, so the `npm install`/`npm run build` steps succeed even in CI (e.g., Render). The compiled React assets are already embedded and available at `/`.
+Using `--env-file .env` keeps the container’s datasource settings in sync with your local runs. To target Render, either edit `.env` or pass the three datasource variables explicitly:
+
+```bash
+docker run --rm -p 8080:8080 \
+  -e SPRING_DATASOURCE_URL=jdbc:postgresql://... \
+  -e SPRING_DATASOURCE_USERNAME=... \
+  -e SPRING_DATASOURCE_PASSWORD=... \
+  codevision-backend
+```
+
+Every property in `application.yml` can be overridden the same way (for example `-e GIT_AUTH_USERNAME=...`).
 
 ### Analyze API (`POST /analyze`)
 
@@ -191,7 +234,7 @@ CodeVision now persists all analysis results in PostgreSQL so history survives R
 
 ### Local workflow
 
-1. Copy the sample env file: `cp .env.example .env`. By default it points at the managed Render instance so your laptop and Render share the same data set.
+1. Copy the sample env file: `cp .env.example .env`. By default it points at the managed Render instance so your laptop and Render share the same data set. Spring Boot automatically loads this file when you run `mvn spring-boot:run`.
 2. If you prefer to run Postgres locally, uncomment the “local Docker” block in `.env` and start the container: `docker compose up -d postgres`.
 3. Run `mvn -f backend/pom.xml spring-boot:run` and analyze repos as usual. When using the managed instance, your local runs immediately populate the Render database.
 
@@ -210,6 +253,8 @@ SPRING_DATASOURCE_MIN_IDLE=1
 ```
 
 Use the internal hostname (`dpg-d480qabipnbc73d6felg-a`) when wiring another Render service in the same region to avoid egress charges; the external hostname (ending in `.oregon-postgres.render.com`) works everywhere else (local laptops, CI).
+
+After the schema has been created (either by running locally with `SPRING_JPA_HIBERNATE_DDL_AUTO=update` once or by applying the SQL in [`backend/api/src/test/resources/schema-h2.sql`](backend/api/src/test/resources/schema-h2.sql)), set `SPRING_JPA_HIBERNATE_DDL_AUTO=validate` or `none` in Render so production deploys never attempt destructive DDL.
 
 ### Schema
 

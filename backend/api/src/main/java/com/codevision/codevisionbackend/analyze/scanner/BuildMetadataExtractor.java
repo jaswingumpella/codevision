@@ -7,6 +7,7 @@ import java.io.Reader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
@@ -63,7 +64,10 @@ public class BuildMetadataExtractor {
     }
 
     private BuildInfo inferBuildInfoFromModules(Set<Path> moduleRoots) {
-        for (Path moduleRoot : moduleRoots) {
+        List<Path> orderedRoots = moduleRoots.stream()
+                .sorted(Comparator.comparingInt(path -> path.normalize().getNameCount()))
+                .toList();
+        for (Path moduleRoot : orderedRoots) {
             Path pom = moduleRoot.resolve("pom.xml");
             if (!Files.exists(pom)) {
                 continue;
