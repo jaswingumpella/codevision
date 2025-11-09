@@ -46,7 +46,7 @@ public class LogStatement {
     private String messageTemplate;
 
     @Lob
-    @Column(name = "variables_json", columnDefinition = "CLOB")
+    @Column(name = "variables_json")
     private String variablesJson;
 
     @Column(name = "pii_risk", nullable = false)

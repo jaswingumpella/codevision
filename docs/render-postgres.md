@@ -42,3 +42,17 @@ psql -h dpg-d480qabipnbc73d6felg-a.oregon-postgres.render.com \
 ```
 
 Inside Render, use the internal hostname in the same command. Once the backend restarts, `/actuator/health` should report `{"status":"UP"}` and `/analyze` invocations will persist data directly in the managed database.
+
+## Migrating existing H2 data
+
+If you ran CodeVision before the Postgres switch, execute the migration helper once so those historical analyses land in the managed database:
+
+```bash
+export PG_URL=jdbc:postgresql://dpg-d480qabipnbc73d6felg-a:5432/codevision_postgres   # or the external hostname
+export PG_USER=codevision_postgres_user
+export PG_PASSWORD='N7f455H9K9YZxicckzibPgLF29fHU4h3'
+mvn dependency:get -Dartifact=com.h2database:h2:2.2.224
+scripts/migration/run-h2-to-postgres.sh
+```
+
+The script copies every table (project, class metadata, snapshots, API catalog, diagrams, etc.) from the on-disk H2 file into Postgres. It is safe to re-run; `ON CONFLICT DO NOTHING` ensures existing rows are left untouched. After it finishes successfully you can delete `backend/api/data/codevision.mv.db` so no secrets linger on disk.

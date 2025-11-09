@@ -10,7 +10,7 @@
 - `ProjectService` performs overwrite semantics on the `project` table using the repository URL as the unique key and stamps the latest analysis time.
 - `/analyze` endpoint accepts `{"repoUrl": "..."}` and returns `{"projectId": ..., "status": "ANALYZED_BASE"}` after cloning and persisting.
 - `ApiKeyFilter` guards non-GET requests when `security.apiKey` is populated.
-- H2 database persists project records at `backend/data/codevision`.
+- PostgreSQL persists project records (initially via the local Docker container, now also via Render-managed instance).
 
 ## Frontend Deliverables
 - Vite + React single-page form with fields for repository URL and optional API key.

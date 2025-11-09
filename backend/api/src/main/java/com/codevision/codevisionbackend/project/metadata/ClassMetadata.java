@@ -52,10 +52,10 @@ public class ClassMetadata {
     private boolean userCode;
 
     @Lob
-    @Column(name = "annotations_json", columnDefinition = "CLOB")
+    @Column(name = "annotations_json")
     private String annotationsJson;
 
     @Lob
-    @Column(name = "interfaces_json", columnDefinition = "CLOB")
+    @Column(name = "interfaces_json")
     private String interfacesJson;
 }

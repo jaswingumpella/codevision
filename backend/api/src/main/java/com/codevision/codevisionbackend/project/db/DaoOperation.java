@@ -43,7 +43,6 @@ public class DaoOperation {
     private String targetDescriptor;
 
     @Lob
-    @Column(name = "query_snippet", columnDefinition = "CLOB")
+    @Column(name = "query_snippet")
     private String querySnippet;
 }
-

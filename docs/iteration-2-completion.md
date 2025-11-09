@@ -31,7 +31,7 @@
 
 ## Configuration Notes
 - Existing configuration keys remain (`git.auth.*`, `security.apiKey`). Leaving `security.apiKey` blank disables API key enforcement for local development.
-- H2 files continue to live under `backend/data/`; tables now include `project`, `project_snapshot`, and `class_metadata`.
+- PostgreSQL tables now include `project`, `project_snapshot`, and `class_metadata` (the local Docker DB mirrors Render so snapshots survive restarts).
 
 ## Verification
 - Automated: `mvn test` inside `backend/` and `npm test` (optional) inside `frontend/`.

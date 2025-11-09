@@ -46,7 +46,6 @@ public class ApiEndpoint {
     private String controllerMethod;
 
     @Lob
-    @Column(name = "spec_artifacts_json", columnDefinition = "CLOB")
+    @Column(name = "spec_artifacts_json")
     private String specArtifactsJson;
 }
-

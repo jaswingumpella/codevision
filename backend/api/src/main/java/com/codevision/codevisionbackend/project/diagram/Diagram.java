@@ -43,17 +43,17 @@ public class Diagram {
     private int sequenceOrder;
 
     @Lob
-    @Column(name = "plantuml_source", columnDefinition = "CLOB")
+    @Column(name = "plantuml_source")
     private String plantumlSource;
 
     @Lob
-    @Column(name = "mermaid_source", columnDefinition = "CLOB")
+    @Column(name = "mermaid_source")
     private String mermaidSource;
 
     @Column(name = "svg_path", length = 1024)
     private String svgPath;
 
     @Lob
-    @Column(name = "metadata_json", columnDefinition = "CLOB")
+    @Column(name = "metadata_json")
     private String metadataJson;
 }

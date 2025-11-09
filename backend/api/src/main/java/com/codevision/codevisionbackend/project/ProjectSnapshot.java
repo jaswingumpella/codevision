@@ -41,7 +41,7 @@ public class ProjectSnapshot implements Persistable<Long> {
 
     @Setter
     @Lob
-    @Column(name = "snapshot_json", nullable = false, columnDefinition = "CLOB")
+    @Column(name = "snapshot_json", nullable = false)
     private String snapshotJson;
 
     @Setter

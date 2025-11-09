@@ -37,7 +37,7 @@ public class PiiPciFinding {
     private Integer lineNumber;
 
     @Lob
-    @Column(name = "snippet", columnDefinition = "CLOB")
+    @Column(name = "snippet")
     private String snippet;
 
     @Column(name = "match_type", nullable = false)

@@ -31,7 +31,7 @@ Be able to submit a repo URL, clone it (private or public), identify it as a pro
     * Derives `projectName` from repo URL.
   * `ProjectService` that:
 
-    * Creates/updates a `project` row in H2 using `repoUrl` as unique key.
+* Creates/updates a `project` row in PostgreSQL using `repoUrl` as unique key.
     * Stores `projectName`, `lastAnalyzedAt`.
     * Overwrite behavior: if that repoUrl exists, wipe and reinsert (Option B).
 * Add API key check for protected endpoints via a filter using `X-API-KEY` and config property `security.apiKey`.
@@ -51,7 +51,7 @@ Be able to submit a repo URL, clone it (private or public), identify it as a pro
 
 ### Persistence
 
-* H2 schema:
+* PostgreSQL schema:
 
   * `project(id, repo_url UNIQUE, project_name, last_analyzed_at)`
 * Wire Spring Data JPA repos for `ProjectRepository`.
@@ -60,7 +60,7 @@ Be able to submit a repo URL, clone it (private or public), identify it as a pro
 
 * User can point to a public or private repo URL in the UI.
 * Repo is cloned locally.
-* Project row exists in H2.
+* Project row exists in PostgreSQL.
 * Re-running with same repo URL overwrites the row cleanly without error.
 
 ---
@@ -145,7 +145,7 @@ Extract basic structural metadata from the repo and persist it. Handle cyclic re
 ### Done Criteria
 
 * After Analyze, the Overview page shows build info + class list count + openapi presence.
-* H2 contains structured class metadata.
+* PostgreSQL contains structured class metadata.
 * Snapshot JSON is stored once per project.
 * No infinite recursion, even if classes refer to each other in cycles.
 
@@ -579,13 +579,13 @@ Backend Deliverables: Set up a Spring Boot application (Java 21). Implement GitC
 
 Frontend Deliverables: Initialize a React app (via Vite). Create a simple page with a form to input a Git repo URL (and an optional API key, if the backend requires one). Clicking “Analyze” calls the backend /analyze endpoint. Upon success, display the returned project ID (and maybe the derived project name) as a confirmation. Set up basic project structure for the UI with Axios (including API key header insertion) and a success/failure notification component.
 
-Result: By the end of Iteration 1, a user can enter a repository URL in the UI, the system will clone the repo and store minimal info in H2, and the UI will show a confirmation with the project identifier. Re-submitting the same URL will update the existing record (overwrite behavior confirmed). This proves the end-to-end pipeline (UI -> backend -> DB) for a simple case and sets up the groundwork for adding analysis features.
+Result: By the end of Iteration 1, a user can enter a repository URL in the UI, the system will clone it and store minimal info in PostgreSQL, and the UI will show a confirmation with the project identifier. Re-submitting the same URL will update the existing record (overwrite behavior confirmed). This proves the end-to-end pipeline (UI -> backend -> DB) for a simple case and sets up the groundwork for adding analysis features.
 
 Iteration 2 – Source Discovery & Metadata (✅ Completed)
 
 Goal: Extend the analysis to actually parse the repository’s source code and collect basic metadata, providing an initial project “overview”. Ensure cycle-safe handling in this process.
 
-Backend Deliverables: Introduce JavaSourceScanner to walk through the repository’s src/main/java and src/test/java directories (for each Maven module, as detected from the root POM). Integrate JavaParser to parse each Java file. For every class, create a ClassMetadataRecord capturing its fully-qualified name, package, implemented interfaces, annotations, source set (Main or Test), and an inferred stereotype (e.g. CONTROLLER, SERVICE, etc.). Implement the heuristic to mark classes under certain packages as first-party (userCode=true) – initially using default prefixes (com.barclays, com.codeviz2) with the intent to make this configurable later. All parsed classes are saved to a new class_metadata table in H2.
+Backend Deliverables: Introduce JavaSourceScanner to walk through the repository’s src/main/java and src/test/java directories (for each Maven module, as detected from the root POM). Integrate JavaParser to parse each Java file. For every class, create a ClassMetadataRecord capturing its fully-qualified name, package, implemented interfaces, annotations, source set (Main or Test), and an inferred stereotype (e.g. CONTROLLER, SERVICE, etc.). Implement the heuristic to mark classes under certain packages as first-party (userCode=true) – initially using default prefixes (com.barclays, com.codeviz2) with the intent to make this configurable later. All parsed classes are saved to a new class_metadata table in PostgreSQL.
 
 Add a BuildMetadataExtractor to parse pom.xml: retrieve the project’s Maven groupId, artifactId, version, and the Java target version (from plugin or properties). If the project is multi-module (root POM has modules), iterate through modules to ensure their sources are scanned too. Store build info in the project record (new columns for group, artifact, version, java version) and also prepare it for the overview JSON.
 
@@ -781,7 +781,7 @@ Close the UX gaps discovered during internal dogfooding: hidden Diagrams tab on 
 
 At this point, CodeDocGen v1 meets the PRD’s vision functionally, but running on Render highlighted a reliability gap: the on-disk H2 database lives on ephemeral storage, so every restart wipes the user’s analysis history. To keep the product usable in hosted scenarios we are extending the plan with a focused persistence-hardening iteration.
 
-## Iteration 9 – PostgreSQL persistence hardening *(Status: 🚧 Planned)*
+## Iteration 9 – PostgreSQL persistence hardening *(Status: ✅ Completed – scripts/migration/run-h2-to-postgres.sh ships the data mover)*
 
 ### Goal
 
@@ -798,7 +798,7 @@ Replace the brittle, file-based H2 datastore with a managed PostgreSQL instance 
 
 * Introduce a `docker-compose.postgres.yml` (or similar) that boots a local Postgres 15 instance with persistent volumes, matching production schemas and credentials via `.env`.
 * Document the exact env vars Render must supply (`SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD`, `SPRING_JPA_HIBERNATE_DDL_AUTO` override if needed).
-* Provide a lightweight migration/story for existing H2 data (explicitly call out that historic local runs will be dropped, but offer an export/import script if feasible).
+* Provide a lightweight migration/story for existing H2 data (done: `scripts/migration/H2ToPostgresMigrator.java` copies every table from the legacy `.mv.db` into Render’s Postgres using `ON CONFLICT DO NOTHING` so it can be re-run safely).
 
 ### UI / DX
 
@@ -809,4 +809,4 @@ Replace the brittle, file-based H2 datastore with a managed PostgreSQL instance 
 
 * Backend boots locally against the dockerized Postgres container (schema auto-creates, `/analyze` runs, restart retains projects).
 * Render deployment variables point at the managed Postgres service and retain data across restarts.
-* README / PRD / iteration plan all reflect Postgres as the canonical datastore, and there is a documented local workflow that new contributors can follow without manual DB installs.
+* README / PRD / iteration plan all reflect Postgres as the canonical datastore, there’s a documented migration helper, and onboarding now describes the Docker/Testcontainers requirements for local + CI.

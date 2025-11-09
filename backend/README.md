@@ -27,6 +27,10 @@ The backend no longer writes to an embedded H2 file. Point it at PostgreSQL inst
 
 Render (and other hosts) must provide the same variables so the backend can connect to the managed Postgres instance. You can also override `SPRING_DATASOURCE_MAX_POOL_SIZE` / `SPRING_DATASOURCE_MIN_IDLE` per environment.
 
+### Migrating the legacy H2 file
+
+If you have historical data trapped in `backend/api/data/codevision.mv.db`, run `scripts/migration/run-h2-to-postgres.sh` (see the root README for detailed steps). The tool copies every table into Postgres and bumps each identity sequence so new analyses keep auto-incrementing.
+
 ## Run the API locally
 
 ```bash
@@ -47,3 +51,5 @@ mvn -f backend/pom.xml -Pcoverage verify
 ```
 
 Reports are written to `backend/api/target/site/jacoco` for the API module (and equivalent folders for others). The `verify` phase fails if bundle-wide line or branch coverage dips below 90%.
+
+> **Note:** Tests require Docker (for Testcontainers). If Docker isn’t available locally or in CI you’ll need to skip the suites or provide an alternative Postgres endpoint manually.

@@ -40,15 +40,14 @@ public class DbEntity {
     private String tableName;
 
     @Lob
-    @Column(name = "primary_keys_json", columnDefinition = "CLOB")
+    @Column(name = "primary_keys_json")
     private String primaryKeysJson;
 
     @Lob
-    @Column(name = "fields_json", columnDefinition = "CLOB")
+    @Column(name = "fields_json")
     private String fieldsJson;
 
     @Lob
-    @Column(name = "relationships_json", columnDefinition = "CLOB")
+    @Column(name = "relationships_json")
     private String relationshipsJson;
 }
-

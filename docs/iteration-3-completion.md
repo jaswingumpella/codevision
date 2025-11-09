@@ -31,7 +31,7 @@
 - Pagination state resets between analyses so navigating multiple repositories remains intuitive.
 
 ## Configuration & Data Store
-- H2 now contains `api_endpoint` and `asset_image` in addition to prior tables.
+- PostgreSQL now contains `api_endpoint` and `asset_image` in addition to prior tables.
 - No configuration changes are required; existing `application.yml` keys continue to work. Leaving `security.apiKey` blank still disables the API key filter for local development.
 
 ## Verification
@@ -53,4 +53,3 @@
 - The Confluence export and JSON snapshot now have richer payloads; downstream consumers should expect the new fields.
 
 Iteration 4 (Database analysis) builds on these foundations, leveraging endpoint metadata and assets for compliance-driven views of persistence and DAO activity.
-

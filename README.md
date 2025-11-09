@@ -221,5 +221,33 @@ Use the internal hostname (`dpg-d480qabipnbc73d6felg-a`) when wiring another Ren
 - `db_entity` – extracted JPA entity metadata (tables, PKs, relationships)
 - `dao_operation` – classified DAO/repository operations with inferred CRUD intent
 - `diagram` – stored diagram definitions (type, title, source text, SVG path, metadata JSON)
-
 Re-running `/analyze` with the same repository URL overwrites the project metadata and regenerates the snapshot/class records so the UI always reflects the latest scan.
+
+### Migrating legacy H2 data
+
+If you previously ran CodeVision against the embedded H2 files, run the migration helper once to push that history into the managed Postgres instance:
+
+```bash
+# ensure the destination DB variables point at Render
+export PG_URL=jdbc:postgresql://dpg-d480qabipnbc73d6felg-a.oregon-postgres.render.com:5432/codevision_postgres
+export PG_USER=codevision_postgres_user
+export PG_PASSWORD='N7f455H9K9YZxicckzibPgLF29fHU4h3'
+
+# pull the H2 jar if you don't already have it
+mvn dependency:get -Dartifact=com.h2database:h2:2.2.224
+
+# run the migrator (idempotent; uses ON CONFLICT DO NOTHING)
+scripts/migration/run-h2-to-postgres.sh
+```
+
+`scripts/migration/H2ToPostgresMigrator.java` reads the on-disk H2 database, inserts every row into Postgres while preserving primary keys, and then bumps each identity sequence so new analyses continue incrementing correctly. After it succeeds you can delete `backend/api/data/codevision.mv.db`.
+
+### Testing
+
+Backend tests now target PostgreSQL via Testcontainers. Make sure Docker is reachable before running:
+
+```bash
+mvn -f backend/pom.xml test
+```
+
+If Docker (or outgoing network access for Testcontainers images) is unavailable, the suite will fail to start.
