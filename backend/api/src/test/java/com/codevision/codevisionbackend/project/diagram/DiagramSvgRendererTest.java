@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test;
 
 class DiagramSvgRendererTest {
 
-    private final DiagramSvgRenderer renderer = new DiagramSvgRenderer();
+    private final DiagramSvgRenderer renderer = new DiagramSvgRenderer(true);
 
     @Test
     void rendersSvgForValidPlantUmlSource() {
