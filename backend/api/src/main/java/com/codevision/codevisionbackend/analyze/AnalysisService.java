@@ -657,7 +657,13 @@ public class AnalysisService {
                     fingerprints.put(descriptor.key(), tree.getId().name());
                     continue;
                 }
-                String modulePath = descriptor.relativePath().toString().replace('\\', '/');
+                String modulePath = descriptor.relativePath() == null
+                        ? ""
+                        : descriptor.relativePath().toString().replace('\\', '/');
+                if (modulePath.isBlank()) {
+                    fingerprints.put(descriptor.key(), tree.getId().name());
+                    continue;
+                }
                 try (TreeWalk treeWalk = TreeWalk.forPath(git.getRepository(), modulePath, tree)) {
                     fingerprints.put(descriptor.key(), treeWalk != null ? treeWalk.getObjectId(0).name() : commitHash);
                 }

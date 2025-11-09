@@ -32,7 +32,7 @@ import java.util.Map;
 import java.util.Optional;
 import jakarta.annotation.Generated;
 
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2025-11-09T15:19:53.093271-05:00[America/New_York]", comments = "Generator version: 7.5.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2025-11-09T15:30:27.709921-05:00[America/New_York]", comments = "Generator version: 7.5.0")
 @Validated
 @Tag(name = "Export", description = "Downloadable documentation bundles and snapshots.")
 public interface ExportApi {
