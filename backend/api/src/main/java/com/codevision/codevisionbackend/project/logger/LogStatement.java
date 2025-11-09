@@ -8,7 +8,6 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.Lob;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.Getter;
@@ -45,8 +44,7 @@ public class LogStatement {
     @Column(name = "message_template", length = 2000)
     private String messageTemplate;
 
-    @Lob
-    @Column(name = "variables_json")
+    @Column(name = "variables_json", columnDefinition = "text")
     private String variablesJson;
 
     @Column(name = "pii_risk", nullable = false)

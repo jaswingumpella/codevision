@@ -8,7 +8,6 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.Lob;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.Getter;
@@ -36,8 +35,7 @@ public class PiiPciFinding {
     @Column(name = "line_number")
     private Integer lineNumber;
 
-    @Lob
-    @Column(name = "snippet")
+    @Column(name = "snippet", columnDefinition = "text")
     private String snippet;
 
     @Column(name = "match_type", nullable = false)

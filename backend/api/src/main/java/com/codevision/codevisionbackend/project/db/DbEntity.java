@@ -8,7 +8,6 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.Lob;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.Getter;
@@ -39,15 +38,12 @@ public class DbEntity {
     @Column(name = "table_name", length = 256)
     private String tableName;
 
-    @Lob
-    @Column(name = "primary_keys_json")
+    @Column(name = "primary_keys_json", columnDefinition = "text")
     private String primaryKeysJson;
 
-    @Lob
-    @Column(name = "fields_json")
+    @Column(name = "fields_json", columnDefinition = "text")
     private String fieldsJson;
 
-    @Lob
-    @Column(name = "relationships_json")
+    @Column(name = "relationships_json", columnDefinition = "text")
     private String relationshipsJson;
 }

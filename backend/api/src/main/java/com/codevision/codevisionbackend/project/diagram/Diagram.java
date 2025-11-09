@@ -10,7 +10,6 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.Lob;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.Getter;
@@ -42,18 +41,15 @@ public class Diagram {
     @Column(name = "sequence_order")
     private int sequenceOrder;
 
-    @Lob
-    @Column(name = "plantuml_source")
+    @Column(name = "plantuml_source", columnDefinition = "text")
     private String plantumlSource;
 
-    @Lob
-    @Column(name = "mermaid_source")
+    @Column(name = "mermaid_source", columnDefinition = "text")
     private String mermaidSource;
 
     @Column(name = "svg_path", length = 1024)
     private String svgPath;
 
-    @Lob
-    @Column(name = "metadata_json")
+    @Column(name = "metadata_json", columnDefinition = "text")
     private String metadataJson;
 }

@@ -8,7 +8,6 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.Lob;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.Getter;
@@ -51,11 +50,9 @@ public class ClassMetadata {
     @Column(name = "user_code", nullable = false)
     private boolean userCode;
 
-    @Lob
-    @Column(name = "annotations_json")
+    @Column(name = "annotations_json", columnDefinition = "text")
     private String annotationsJson;
 
-    @Lob
-    @Column(name = "interfaces_json")
+    @Column(name = "interfaces_json", columnDefinition = "text")
     private String interfacesJson;
 }

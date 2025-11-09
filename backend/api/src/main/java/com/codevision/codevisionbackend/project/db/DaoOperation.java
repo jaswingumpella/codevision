@@ -8,7 +8,6 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.Lob;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.Getter;
@@ -42,7 +41,6 @@ public class DaoOperation {
     @Column(name = "target_descriptor", length = 512)
     private String targetDescriptor;
 
-    @Lob
-    @Column(name = "query_snippet")
+    @Column(name = "query_snippet", columnDefinition = "text")
     private String querySnippet;
 }

@@ -45,3 +45,5 @@ security:
 diagram:
   storage:
     root: ./data/diagrams
+  svg:
+    enabled: true

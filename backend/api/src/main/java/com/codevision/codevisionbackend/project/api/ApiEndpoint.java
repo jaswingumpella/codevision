@@ -8,7 +8,6 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.Lob;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.Getter;
@@ -45,7 +44,6 @@ public class ApiEndpoint {
     @Column(name = "controller_method", length = 512)
     private String controllerMethod;
 
-    @Lob
-    @Column(name = "spec_artifacts_json")
+    @Column(name = "spec_artifacts_json", columnDefinition = "text")
     private String specArtifactsJson;
 }
