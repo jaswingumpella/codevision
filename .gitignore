@@ -21,3 +21,6 @@
 backend/oasgen/.openapi-generator/
 .m2/
 .env
+
+# Local Spring overrides
+backend/api/src/main/resources/application.yml
