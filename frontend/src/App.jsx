@@ -1,1192 +1,30 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import axios from './lib/apiClient';
 import './App.css';
-
-const STATUS_ANALYZED = 'ANALYZED_METADATA';
-const PAGE_SIZE = 10;
-const ANALYSIS_STEPS = [
-  { id: 'analyze', label: 'Cloning repository and running analysis' },
-  { id: 'overview', label: 'Loading project overview' },
-  { id: 'api', label: 'Mapping APIs and OpenAPI specs' },
-  { id: 'db', label: 'Inspecting database entities' },
-  { id: 'logger', label: 'Gathering logger insights' },
-  { id: 'pii', label: 'Scanning for PCI / PII risks' },
-  { id: 'diagrams', label: 'Generating diagrams' }
-];
-
-const deriveProjectName = (repoUrl) => {
-  if (!repoUrl) {
-    return '';
-  }
-  let sanitized = repoUrl.trim();
-  if (sanitized.endsWith('/')) {
-    sanitized = sanitized.slice(0, -1);
-  }
-  const lastSlash = sanitized.lastIndexOf('/') + 1;
-  let name = sanitized.slice(lastSlash);
-  if (name.endsWith('.git')) {
-    name = name.slice(0, -4);
-  }
-  return name;
-};
-
-const formatDate = (value) => {
-  if (!value) {
-    return '—';
-  }
-  try {
-    return new Date(value).toLocaleString();
-  } catch {
-    return value;
-  }
-};
-
-const OverviewPanel = ({ overview, loading }) => {
-  if (loading) {
-    return (
-      <div className="overview-content">
-        <h2>Project Overview</h2>
-        <p className="overview-hint">Analyzing repository… this can take a moment.</p>
-      </div>
-    );
-  }
-
-  if (!overview) {
-    return (
-      <div className="overview-content">
-        <h2>Project Overview</h2>
-        <p className="overview-hint">Run an analysis to populate project metadata.</p>
-      </div>
-    );
-  }
-
-  const classList = overview.classes ?? [];
-  const totalClasses = classList.length;
-  const mainClasses = classList.filter((cls) => cls.sourceSet === 'MAIN').length;
-  const testClasses = totalClasses - mainClasses;
-  const openApiSpecs = overview.metadataDump?.openApiSpecs ?? [];
-
-  return (
-    <div className="overview-content">
-      <header className="overview-header">
-        <div>
-          <h2>{overview.projectName}</h2>
-          <p className="overview-hint">{overview.repoUrl}</p>
-        </div>
-        <span className="pill">Last analyzed: {formatDate(overview.analyzedAt)}</span>
-      </header>
-
-      <section className="overview-section">
-        <h3>Build</h3>
-        <div className="stat-grid">
-          <div className="stat">
-            <span className="stat-label">Group</span>
-            <span className="stat-value">{overview.buildInfo?.groupId || '—'}</span>
-          </div>
-          <div className="stat">
-            <span className="stat-label">Artifact</span>
-            <span className="stat-value">{overview.buildInfo?.artifactId || '—'}</span>
-          </div>
-          <div className="stat">
-            <span className="stat-label">Version</span>
-            <span className="stat-value">{overview.buildInfo?.version || '—'}</span>
-          </div>
-          <div className="stat">
-            <span className="stat-label">Java</span>
-            <span className="stat-value">{overview.buildInfo?.javaVersion || '—'}</span>
-          </div>
-        </div>
-      </section>
-
-      <section className="overview-section">
-        <h3>Class Coverage</h3>
-        <div className="stat-grid">
-          <div className="stat">
-            <span className="stat-label">Total Classes</span>
-            <span className="stat-value">{totalClasses}</span>
-          </div>
-          <div className="stat">
-            <span className="stat-label">Main Source</span>
-            <span className="stat-value">{mainClasses}</span>
-          </div>
-          <div className="stat">
-            <span className="stat-label">Tests</span>
-            <span className="stat-value">{testClasses}</span>
-          </div>
-        </div>
-      </section>
-
-      <section className="overview-section">
-        <h3>OpenAPI Specs</h3>
-        {openApiSpecs.length === 0 ? (
-          <div className="empty-state">
-            <p className="overview-hint">No OpenAPI definitions detected.</p>
-            <p className="overview-hint">
-              Add Swagger annotations or commit an <code>openapi.yaml</code>/<code>swagger.json</code> so we can render specs.
-            </p>
-          </div>
-        ) : (
-          <ul className="openapi-list">
-            {openApiSpecs.map((spec) => (
-              <li key={spec.fileName}>
-                <span className="openapi-name">{spec.fileName}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-    </div>
-  );
-};
-
-const ApiSpecsPanel = ({ overview, apiCatalog, loading }) => {
-  const [pages, setPages] = useState({ REST: 0, SOAP: 0, LEGACY: 0 });
-
-  useEffect(() => {
-    setPages({ REST: 0, SOAP: 0, LEGACY: 0 });
-  }, [apiCatalog, overview]);
-
-  if (loading) {
-    return (
-      <div className="overview-content">
-        <h2>API Catalog</h2>
-        <p className="overview-hint">Loading endpoints…</p>
-      </div>
-    );
-  }
-
-  if (!overview) {
-    return (
-      <div className="overview-content">
-        <h2>API Catalog</h2>
-        <p className="overview-hint">Run an analysis to view endpoints and specifications.</p>
-      </div>
-    );
-  }
-
-  const endpoints = apiCatalog?.endpoints ?? [];
-  const grouped = useMemo(() => {
-    const buckets = {
-      REST: [],
-      SOAP: [],
-      LEGACY: []
-    };
-    endpoints.forEach((endpoint) => {
-      if ((endpoint.protocol || '').toUpperCase() === 'REST') {
-        buckets.REST.push(endpoint);
-      } else if ((endpoint.protocol || '').toUpperCase() === 'SOAP') {
-        buckets.SOAP.push(endpoint);
-      } else {
-        buckets.LEGACY.push(endpoint);
-      }
-    });
-    return buckets;
-  }, [endpoints]);
-
-  const metadata = overview.metadataDump ?? {};
-  const openApiSpecs = metadata.openApiSpecs ?? [];
-  const wsdlDocs = metadata.wsdlDocuments ?? [];
-  const xsdDocs = metadata.xsdDocuments ?? [];
-  const soapServices = metadata.soapServices ?? [];
-  const assets = overview.assets?.images ?? [];
-
-  const renderEndpoints = (title, type, list) => {
-    if (list.length === 0) {
-      return (
-        <section className="api-section" key={title}>
-          <h3>{title}</h3>
-          <p className="overview-hint">No endpoints found.</p>
-        </section>
-      );
-    }
-
-    const totalPages = Math.ceil(list.length / PAGE_SIZE);
-    const currentPage = Math.min(pages[type] ?? 0, Math.max(totalPages - 1, 0));
-    const sliceStart = currentPage * PAGE_SIZE;
-    const pageItems = list.slice(sliceStart, sliceStart + PAGE_SIZE);
-
-    const goToPage = (nextPage) => {
-      setPages((prev) => ({ ...prev, [type]: nextPage }));
-    };
-
-    return (
-      <section className="api-section" key={title}>
-        <h3>{title}</h3>
-        <table className="api-table">
-          <thead>
-            <tr>
-              <th>Method</th>
-              <th>Path / Operation</th>
-              <th>Class</th>
-              <th>Handler</th>
-              <th>Specs</th>
-            </tr>
-          </thead>
-          <tbody>
-            {pageItems.map((endpoint, index) => (
-              <tr key={`${endpoint.controllerClass}-${endpoint.controllerMethod}-${index}`}>
-                <td>{endpoint.httpMethod || '—'}</td>
-                <td>{endpoint.pathOrOperation}</td>
-                <td>{endpoint.controllerClass}</td>
-                <td>{endpoint.controllerMethod || '—'}</td>
-                <td>
-                  {endpoint.specArtifacts && endpoint.specArtifacts.length > 0 ? (
-                    endpoint.specArtifacts.map((artifact) => (
-                      <span key={`${artifact.type}-${artifact.name}`} className="spec-pill">
-                        {artifact.type}: {artifact.name}
-                      </span>
-                    ))
-                  ) : (
-                    <span className="overview-hint">None</span>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {totalPages > 1 && (
-          <div className="pagination">
-            <button
-              type="button"
-              className="pagination-button"
-              onClick={() => goToPage(currentPage - 1)}
-              disabled={currentPage === 0}
-            >
-              Previous
-            </button>
-            <span className="pagination-info">Page {currentPage + 1} of {totalPages}</span>
-            <button
-              type="button"
-              className="pagination-button"
-              onClick={() => goToPage(currentPage + 1)}
-              disabled={currentPage >= totalPages - 1}
-            >
-              Next
-            </button>
-          </div>
-        )}
-      </section>
-    );
-  };
-
-  return (
-    <div className="overview-content">
-      <h2>API Catalog</h2>
-      {renderEndpoints('REST Endpoints', 'REST', grouped.REST)}
-      {renderEndpoints('SOAP Endpoints', 'SOAP', grouped.SOAP)}
-      {renderEndpoints('Legacy Endpoints', 'LEGACY', grouped.LEGACY)}
-
-      <section className="api-section">
-        <h3>OpenAPI Specifications</h3>
-        {openApiSpecs.length === 0 ? (
-          <div className="empty-state">
-            <p className="overview-hint">No OpenAPI specs found for this project.</p>
-            <p className="overview-hint">
-              Push an <code>openapi</code> file or annotate controllers with Swagger so downstream docs can be generated.
-            </p>
-          </div>
-        ) : (
-          openApiSpecs.map((spec) => (
-            <details key={spec.fileName} className="spec-doc" open={false}>
-              <summary>{spec.fileName}</summary>
-              <pre>{spec.content}</pre>
-            </details>
-          ))
-        )}
-      </section>
-
-      <section className="api-section">
-        <h3>SOAP Specifications</h3>
-        {wsdlDocs.length === 0 && xsdDocs.length === 0 ? (
-          <p className="overview-hint">No SOAP documents detected.</p>
-        ) : (
-          <div className="spec-doc-group">
-            {wsdlDocs.map((doc) => (
-              <details key={`wsdl-${doc.fileName}`} className="spec-doc">
-                <summary>{doc.fileName}</summary>
-                <pre>{doc.content}</pre>
-              </details>
-            ))}
-            {xsdDocs.map((doc) => (
-              <details key={`xsd-${doc.fileName}`} className="spec-doc">
-                <summary>{doc.fileName}</summary>
-                <pre>{doc.content}</pre>
-              </details>
-            ))}
-            {soapServices.length > 0 && (
-              <div className="soap-summary">
-                <h4>Service Summary</h4>
-                {soapServices.map((service) => (
-                  <div key={`${service.fileName}-${service.serviceName}`} className="soap-service">
-                    <strong>{service.serviceName}</strong>
-                    <span className="overview-hint">Source: {service.fileName}</span>
-                    <ul>
-                      {(service.ports || []).map((port) => (
-                        <li key={`${service.serviceName}-${port.portName}`}>
-                          <strong>{port.portName}:</strong> {(port.operations || []).join(', ') || '—'}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </section>
-
-      <section className="api-section">
-        <h3>Media Assets</h3>
-        {assets.length === 0 ? (
-          <p className="overview-hint">No image assets detected.</p>
-        ) : (
-          <ul className="asset-list">
-            {assets.map((asset) => (
-              <li key={asset.relativePath}>
-                <span className="asset-name">{asset.fileName}</span>
-                <span className="asset-path">{asset.relativePath}</span>
-                {asset.sizeBytes ? <span className="asset-size">{asset.sizeBytes.toLocaleString()} bytes</span> : null}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-    </div>
-  );
-};
-
-const DatabasePanel = ({ analysis, loading }) => {
-  if (loading) {
-    return (
-      <div className="overview-content">
-        <h2>Database Analysis</h2>
-        <p className="overview-hint">Loading database metadata…</p>
-      </div>
-    );
-  }
-
-  if (!analysis) {
-    return (
-      <div className="overview-content">
-        <h2>Database Analysis</h2>
-        <p className="overview-hint">Run an analysis to view entities and repository activity.</p>
-      </div>
-    );
-  }
-
-  const entities = Array.isArray(analysis.entities) ? analysis.entities : [];
-  const classesByEntity = analysis.classesByEntity || {};
-  const operationsByClass = analysis.operationsByClass || {};
-
-  const entityRows = [...entities.map((entity) => {
-    const entityName = entity.entityName || entity.fullyQualifiedName || entity.tableName || 'Unknown entity';
-    const classList = classesByEntity[entity.entityName] || classesByEntity[entityName] || [];
-    return {
-      key: `${entityName}-${entity.tableName || 'nt'}`,
-      entityName,
-      tableName: entity.tableName || '—',
-      primaryKeys: (entity.primaryKeys || []).filter(Boolean).join(', ') || '—',
-      classes: Array.isArray(classList) ? classList : []
-    };
-  }),
-  ...Object.entries(classesByEntity)
-      .filter(([name]) => !entities.some((entity) => (entity.entityName || entity.fullyQualifiedName) === name))
-      .map(([name, classList]) => ({
-        key: `extra-${name}`,
-        entityName: name,
-        tableName: '—',
-        primaryKeys: '—',
-        classes: Array.isArray(classList) ? classList : []
-      }))]
-    .filter(Boolean)
-    .sort((a, b) => a.entityName.localeCompare(b.entityName));
-
-  const operationRows = Object.entries(operationsByClass)
-    .flatMap(([repository, ops]) => {
-      const entries = Array.isArray(ops) ? ops : [];
-      return entries
-        .filter(Boolean)
-        .map((op, index) => ({
-          key: `${repository}-${op.methodName || index}`,
-          repository,
-          methodName: op.methodName || '—',
-          operationType: op.operationType || '—',
-          target: op.target || '—',
-          querySnippet: op.querySnippet || ''
-        }));
-    })
-    .sort((a, b) => {
-      const repoCompare = a.repository.localeCompare(b.repository);
-      if (repoCompare !== 0) {
-        return repoCompare;
-      }
-      return a.methodName.localeCompare(b.methodName);
-    });
-
-  return (
-    <div className="overview-content">
-      <h2>Database Analysis</h2>
-
-      <section className="api-section">
-        <h3>Entities and Interacting Classes</h3>
-        {entityRows.length === 0 ? (
-          <p className="overview-hint">No JPA entities detected.</p>
-        ) : (
-          <table className="api-table">
-            <thead>
-              <tr>
-                <th>Entity</th>
-                <th>Table</th>
-                <th>Primary Keys</th>
-                <th>Classes Using It</th>
-              </tr>
-            </thead>
-            <tbody>
-              {entityRows.map((row) => (
-                <tr key={row.key}>
-                  <td>{row.entityName}</td>
-                  <td>{row.tableName}</td>
-                  <td>{row.primaryKeys}</td>
-                  <td>
-                    {row.classes.length === 0 ? (
-                      <span className="overview-hint">—</span>
-                    ) : (
-                      row.classes.map((cls) => (
-                        <div key={`${row.key}-${cls}`}>{cls}</div>
-                      ))
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </section>
-
-      <section className="api-section">
-        <h3>DAO Operations by Class</h3>
-        {operationRows.length === 0 ? (
-          <p className="overview-hint">No repository or DAO methods were classified.</p>
-        ) : (
-          <table className="api-table">
-            <thead>
-              <tr>
-                <th>Repository / DAO</th>
-                <th>Method</th>
-                <th>Operation</th>
-                <th>Target</th>
-                <th>Query Snippet</th>
-              </tr>
-            </thead>
-            <tbody>
-              {operationRows.map((row) => (
-                <tr key={row.key}>
-                  <td>{row.repository}</td>
-                  <td>{row.methodName}</td>
-                  <td>{row.operationType}</td>
-                  <td>{row.target}</td>
-                  <td>
-                    {row.querySnippet ? (
-                      <code className="query-snippet">{row.querySnippet}</code>
-                    ) : (
-                      <span className="overview-hint">—</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </section>
-    </div>
-  );
-};
-
-const LoggerInsightsPanel = ({ insights, loading, onDownloadCsv, onDownloadPdf }) => {
-  const [classFilter, setClassFilter] = useState('');
-  const [levelFilter, setLevelFilter] = useState('ALL');
-  const [piiOnly, setPiiOnly] = useState(false);
-  const [pciOnly, setPciOnly] = useState(false);
-  const [expanded, setExpanded] = useState(false);
-
-  if (loading) {
-    return (
-      <div className="overview-content">
-        <h2>Logger Insights</h2>
-        <p className="overview-hint">Scanning log statements…</p>
-      </div>
-    );
-  }
-
-  const normalizedFilter = classFilter.trim().toLowerCase();
-  const filtered = (insights || []).filter((entry) => {
-    const levelMatches = levelFilter === 'ALL' || (entry.logLevel || '').toUpperCase() === levelFilter;
-    const classMatches = !normalizedFilter || (entry.className || '').toLowerCase().includes(normalizedFilter);
-    const piiMatches = !piiOnly || entry.piiRisk;
-    const pciMatches = !pciOnly || entry.pciRisk;
-    return levelMatches && classMatches && piiMatches && pciMatches;
-  });
-
-  const renderMessage = (message) => {
-    if (!message) {
-      return '—';
-    }
-    if (expanded || message.length <= 140) {
-      return message;
-    }
-    return `${message.slice(0, 140)}…`;
-  };
-
-  const exportDisabled = typeof onDownloadCsv !== 'function' || typeof onDownloadPdf !== 'function';
-
-  return (
-    <div className="overview-content">
-      <h2>Logger Insights</h2>
-
-      <div className="filter-controls">
-        <label htmlFor="classFilter">
-          Class Filter
-          <input
-            id="classFilter"
-            type="text"
-            placeholder="com.example.OrderService"
-            value={classFilter}
-            onChange={(event) => setClassFilter(event.target.value)}
-          />
-        </label>
-
-        <label htmlFor="levelFilter">
-          Level
-          <select id="levelFilter" value={levelFilter} onChange={(event) => setLevelFilter(event.target.value)}>
-            {['ALL', 'TRACE', 'DEBUG', 'INFO', 'WARN', 'ERROR'].map((level) => (
-              <option key={level} value={level}>{level}</option>
-            ))}
-          </select>
-        </label>
-
-        <div className="toggle-group">
-          <label>
-            <input type="checkbox" checked={piiOnly} onChange={(event) => setPiiOnly(event.target.checked)} />
-            Only PII risk
-          </label>
-          <label>
-            <input type="checkbox" checked={pciOnly} onChange={(event) => setPciOnly(event.target.checked)} />
-            Only PCI risk
-          </label>
-        </div>
-      </div>
-
-      <div className="export-actions">
-        <button type="button" onClick={() => setExpanded(true)} className="ghost-button">
-          Expand All
-        </button>
-        <button type="button" onClick={() => setExpanded(false)} className="ghost-button">
-          Collapse All
-        </button>
-        <button type="button" onClick={onDownloadCsv} disabled={exportDisabled}>
-          Download CSV
-        </button>
-        <button type="button" onClick={onDownloadPdf} disabled={exportDisabled}>
-          Download PDF
-        </button>
-      </div>
-
-      {filtered.length === 0 ? (
-        <p className="overview-hint">No log statements match the selected filters.</p>
-      ) : (
-        <table className="api-table">
-          <thead>
-            <tr>
-              <th>Class</th>
-              <th>File</th>
-              <th>Level</th>
-              <th>Line</th>
-              <th>Message</th>
-              <th>Variables</th>
-              <th>PII</th>
-              <th>PCI</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((entry, index) => (
-              <tr key={`${entry.className}-${entry.lineNumber}-${index}`}>
-                <td>{entry.className || '—'}</td>
-                <td>{entry.filePath || '—'}</td>
-                <td>{entry.logLevel || '—'}</td>
-                <td>{entry.lineNumber >= 0 ? entry.lineNumber : '—'}</td>
-                <td>{renderMessage(entry.messageTemplate)}</td>
-                <td>{entry.variables && entry.variables.length > 0 ? entry.variables.join(', ') : '—'}</td>
-                <td>
-                  <span className={`badge ${entry.piiRisk ? 'badge-alert' : 'badge-muted'}`}>
-                    {entry.piiRisk ? 'Yes' : 'No'}
-                  </span>
-                </td>
-                <td>
-                  <span className={`badge ${entry.pciRisk ? 'badge-alert' : 'badge-muted'}`}>
-                    {entry.pciRisk ? 'Yes' : 'No'}
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </div>
-  );
-};
-
-const PiiPciPanel = ({ findings, loading, onDownloadCsv, onDownloadPdf }) => {
-  const [typeFilter, setTypeFilter] = useState('ALL');
-  const [severityFilter, setSeverityFilter] = useState('ALL');
-  const [hideIgnored, setHideIgnored] = useState(false);
-
-  if (loading) {
-    return (
-      <div className="overview-content">
-        <h2>PCI / PII Scan</h2>
-        <p className="overview-hint">Collecting sensitive data findings…</p>
-      </div>
-    );
-  }
-
-  const filtered = (findings || []).filter((entry) => {
-    const typeMatches = typeFilter === 'ALL' || (entry.matchType || '').toUpperCase() === typeFilter;
-    const severityMatches = severityFilter === 'ALL' || (entry.severity || '').toUpperCase() === severityFilter;
-    const ignoreMatches = !hideIgnored || !entry.ignored;
-    return typeMatches && severityMatches && ignoreMatches;
-  });
-
-  const exportDisabled = typeof onDownloadCsv !== 'function' || typeof onDownloadPdf !== 'function';
-
-  return (
-    <div className="overview-content">
-      <h2>PCI / PII Scan</h2>
-
-      <div className="filter-controls">
-        <label htmlFor="typeFilter">
-          Match Type
-          <select id="typeFilter" value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}>
-            {['ALL', 'PII', 'PCI'].map((type) => (
-              <option key={type} value={type}>{type}</option>
-            ))}
-          </select>
-        </label>
-
-        <label htmlFor="severityFilter">
-          Severity
-          <select id="severityFilter" value={severityFilter} onChange={(event) => setSeverityFilter(event.target.value)}>
-            {['ALL', 'LOW', 'MEDIUM', 'HIGH'].map((level) => (
-              <option key={level} value={level}>{level}</option>
-            ))}
-          </select>
-        </label>
-
-        <div className="toggle-group">
-          <label>
-            <input type="checkbox" checked={hideIgnored} onChange={(event) => setHideIgnored(event.target.checked)} />
-            Hide ignored matches
-          </label>
-        </div>
-      </div>
-
-      <div className="export-actions">
-        <button type="button" onClick={onDownloadCsv} disabled={exportDisabled}>
-          Download CSV
-        </button>
-        <button type="button" onClick={onDownloadPdf} disabled={exportDisabled}>
-          Download PDF
-        </button>
-      </div>
-
-      {filtered.length === 0 ? (
-        <p className="overview-hint">No findings match the selected filters.</p>
-      ) : (
-        <table className="api-table">
-          <thead>
-            <tr>
-              <th>File</th>
-              <th>Line</th>
-              <th>Snippet</th>
-              <th>Type</th>
-              <th>Severity</th>
-              <th>Ignored?</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((entry, index) => (
-              <tr key={`${entry.filePath}-${entry.lineNumber}-${index}`}>
-                <td>{entry.filePath || '—'}</td>
-                <td>{entry.lineNumber > 0 ? entry.lineNumber : '—'}</td>
-                <td>
-                  {entry.snippet ? (
-                    <code className="query-snippet">{entry.snippet}</code>
-                  ) : (
-                    <span className="overview-hint">—</span>
-                  )}
-                </td>
-                <td>
-                  <span className="badge badge-info">{entry.matchType || '—'}</span>
-                </td>
-                <td>
-                  <span className={`badge ${entry.severity === 'HIGH' ? 'badge-alert' : 'badge-info'}`}>
-                    {entry.severity || '—'}
-                  </span>
-                </td>
-                <td>{entry.ignored ? 'Yes' : 'No'}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </div>
-  );
-};
-
-const GherkinPanel = ({ features, loading }) => {
-  if (loading) {
-    return (
-      <div className="overview-content">
-        <h2>Gherkin Features</h2>
-        <p className="overview-hint">Loading scenarios…</p>
-      </div>
-    );
-  }
-
-  if (!features || features.length === 0) {
-    return (
-      <div className="overview-content">
-        <h2>Gherkin Features</h2>
-        <p className="overview-hint">No .feature files were detected during the last analysis.</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="overview-content">
-      <h2>Gherkin Features</h2>
-      <p className="overview-hint">
-        These scenarios come straight from your repository&apos;s <code>.feature</code> files. Expand a feature to review the captured
-        steps and share them with QA or AI copilots.
-      </p>
-      <div className="gherkin-grid">
-        {features.map((feature) => (
-          <details key={`${feature.featureTitle}-${feature.featureFile}`} className="gherkin-card" open>
-            <summary>
-              <div>
-                <strong>{feature.featureTitle || 'Untitled feature'}</strong>
-                <p className="overview-hint">{feature.featureFile || 'Unknown path'}</p>
-              </div>
-            </summary>
-            {Array.isArray(feature.scenarios) && feature.scenarios.length > 0 ? (
-              feature.scenarios.map((scenario) => (
-                <div key={`${feature.featureTitle}-${scenario.name}`} className="gherkin-scenario">
-                  <h4>
-                    {scenario.name || 'Scenario'}
-                    {scenario.scenarioType ? <span className="pill pill--muted">{scenario.scenarioType}</span> : null}
-                  </h4>
-                  {Array.isArray(scenario.steps) && scenario.steps.length > 0 ? (
-                    <ul>
-                      {scenario.steps.map((step, index) => (
-                        <li key={`${scenario.name}-${index}`}>{step}</li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="overview-hint">No steps recorded.</p>
-                  )}
-                </div>
-              ))
-            ) : (
-              <p className="overview-hint">No scenarios found for this feature.</p>
-            )}
-          </details>
-        ))}
-      </div>
-    </div>
-  );
-};
-
-const MetadataPanel = ({ metadata, loading }) => {
-  if (loading) {
-    return (
-      <div className="overview-content">
-        <h2>Metadata &amp; Specs</h2>
-        <p className="overview-hint">Collecting metadata artifacts…</p>
-      </div>
-    );
-  }
-
-  if (!metadata) {
-    return (
-      <div className="overview-content">
-        <h2>Metadata &amp; Specs</h2>
-        <p className="overview-hint">Switch to this tab after running an analysis to view OpenAPI/WSDL/XSD captures.</p>
-      </div>
-    );
-  }
-
-  const dump = metadata.metadataDump || {};
-  const openApiSpecs = dump.openApiSpecs || [];
-  const wsdlDocs = dump.wsdlDocuments || [];
-  const xsdDocs = dump.xsdDocuments || [];
-  const soapServices = dump.soapServices || [];
-
-  return (
-    <div className="overview-content">
-      <h2>Metadata &amp; Specs</h2>
-      <p className="overview-hint">
-        Download the snapshot JSON and feed it to GitLab Duo, ChatGPT, or other copilots for deeper reasoning. Specs listed here
-        mirror the raw artifacts captured on disk.
-      </p>
-      <dl className="metadata-summary">
-        <div>
-          <dt>Project</dt>
-          <dd>{metadata.projectName || '—'}</dd>
-        </div>
-        <div>
-          <dt>Analyzed</dt>
-          <dd>{formatDate(metadata.analyzedAt)}</dd>
-        </div>
-        <div>
-          <dt>Snapshot API</dt>
-          <dd>
-            <code>{metadata.snapshotDownloadUrl || `/project/${metadata.projectId}/export/snapshot`}</code>
-          </dd>
-        </div>
-      </dl>
-
-      <section className="api-section">
-        <h3>OpenAPI Specs ({openApiSpecs.length})</h3>
-        {openApiSpecs.length === 0 ? (
-          <p className="overview-hint">No OpenAPI files were captured.</p>
-        ) : (
-          openApiSpecs.map((spec) => (
-            <details key={spec.fileName} className="spec-doc" open={false}>
-              <summary>{spec.fileName}</summary>
-              <pre>{spec.content}</pre>
-            </details>
-          ))
-        )}
-      </section>
-
-      <section className="api-section">
-        <h3>WSDL Documents ({wsdlDocs.length})</h3>
-        {wsdlDocs.length === 0 ? (
-          <p className="overview-hint">No WSDL files detected.</p>
-        ) : (
-          wsdlDocs.map((doc) => (
-            <details key={`wsdl-${doc.fileName}`} className="spec-doc" open={false}>
-              <summary>{doc.fileName}</summary>
-              <pre>{doc.content}</pre>
-            </details>
-          ))
-        )}
-      </section>
-
-      <section className="api-section">
-        <h3>XSD Documents ({xsdDocs.length})</h3>
-        {xsdDocs.length === 0 ? (
-          <p className="overview-hint">No XSD files detected.</p>
-        ) : (
-          xsdDocs.map((doc) => (
-            <details key={`xsd-${doc.fileName}`} className="spec-doc" open={false}>
-              <summary>{doc.fileName}</summary>
-              <pre>{doc.content}</pre>
-            </details>
-          ))
-        )}
-      </section>
-
-      {soapServices.length > 0 && (
-        <section className="api-section">
-          <h3>SOAP Services</h3>
-          <div className="soap-summary">
-            {soapServices.map((service) => (
-              <div key={`${service.fileName}-${service.serviceName}`} className="soap-service">
-                <strong>{service.serviceName}</strong>
-                <span className="overview-hint">{service.fileName}</span>
-                <ul>
-                  {(service.ports || []).map((port) => (
-                    <li key={`${service.serviceName}-${port.portName}`}>
-                      <strong>{port.portName}:</strong> {(port.operations || []).join(', ') || '—'}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-    </div>
-  );
-};
-
-const ExportPanel = ({
-  projectId,
-  onDownloadHtml,
-  onDownloadSnapshot,
-  htmlPreview,
-  loading,
-  onRefreshPreview
-}) => (
-  <div className="overview-content">
-    <h2>Exports &amp; Downloads</h2>
-    <p className="overview-hint">
-      Ship this Confluence-ready HTML bundle to auditors or paste the snapshot JSON into an AI assistant for deeper Q&amp;A.
-    </p>
-    <div className="export-actions">
-      <button type="button" onClick={onDownloadHtml} disabled={!projectId}>
-        Download Project HTML
-      </button>
-      <button type="button" onClick={onDownloadSnapshot} disabled={!projectId}>
-        Download ParsedDataResponse.json
-      </button>
-      <button type="button" className="ghost-button" onClick={onRefreshPreview} disabled={loading || !projectId}>
-        {loading ? 'Refreshing…' : 'Refresh Preview'}
-      </button>
-    </div>
-    <div className="export-preview">
-      {loading ? (
-        <p className="overview-hint">Rendering HTML preview…</p>
-      ) : htmlPreview ? (
-        <iframe title="Confluence export preview" srcDoc={htmlPreview} />
-      ) : (
-        <p className="overview-hint">Preview will appear here after the export endpoint responds.</p>
-      )}
-    </div>
-  </div>
-);
-
-const DIAGRAM_TYPE_LABELS = {
-  CLASS: 'Class',
-  COMPONENT: 'Component',
-  USE_CASE: 'Use Case',
-  ERD: 'ERD',
-  DB_SCHEMA: 'DB Schema',
-  SEQUENCE: 'Sequence'
-};
-
-const DIAGRAM_TYPE_ORDER = ['CLASS', 'COMPONENT', 'USE_CASE', 'ERD', 'DB_SCHEMA', 'SEQUENCE'];
-
-const DiagramsPanel = ({
-  diagramsByType,
-  loading,
-  activeType,
-  onTypeChange,
-  activeDiagram,
-  onSelectDiagram,
-  svgContent,
-  onDownloadSvg,
-  sequenceIncludeExternal,
-  onSequenceToggle
-}) => {
-  const [sourceVisibility, setSourceVisibility] = useState({ plantuml: false, mermaid: false });
-
-  useEffect(() => {
-    setSourceVisibility({ plantuml: false, mermaid: false });
-  }, [activeDiagram]);
-
-  const rawDiagrams = diagramsByType[activeType] || [];
-  const sequencePool = diagramsByType.SEQUENCE || [];
-  const hasSequenceInternal = sequencePool.some((diagram) => !Boolean(diagram.metadata?.includeExternal));
-  const hasSequenceExternal = sequencePool.some((diagram) => Boolean(diagram.metadata?.includeExternal));
-  const showSequenceToggle = activeType === 'SEQUENCE' && hasSequenceInternal && hasSequenceExternal;
-  const currentDiagrams =
-    activeType === 'SEQUENCE'
-      ? rawDiagrams.filter((diagram) => Boolean(diagram.metadata?.includeExternal) === sequenceIncludeExternal)
-      : rawDiagrams;
-
-  const renderDiagramList = () => {
-    if (loading && currentDiagrams.length === 0) {
-      return <p className="overview-hint">Loading diagrams…</p>;
-    }
-    if (!loading && currentDiagrams.length === 0) {
-      return <p className="overview-hint">No diagrams available for this category.</p>;
-    }
-    return (
-      <ul className="diagram-list">
-        {currentDiagrams.map((diagram) => {
-          const isSelected = activeDiagram && diagram.diagramId === activeDiagram.diagramId;
-          return (
-            <li key={diagram.diagramId}>
-              <button
-                type="button"
-                className={`diagram-card ${isSelected ? 'selected' : ''}`}
-                onClick={() => onSelectDiagram(diagram.diagramId)}
-              >
-                <div className="diagram-card-title">
-                  <strong>{diagram.title || 'Diagram'}</strong>
-                  {diagram.metadata?.includeExternal ? (
-                    <span className="badge badge-info">codeviz2</span>
-                  ) : null}
-                </div>
-                <p className="diagram-card-hint">
-                  {diagram.metadata?.pathOrOperation
-                    ? `${diagram.metadata?.httpMethod ? `${diagram.metadata.httpMethod} ` : ''}${
-                        diagram.metadata.pathOrOperation
-                      } · ${diagram.svgAvailable ? 'SVG available' : 'SVG not stored'}`
-                    : diagram.svgAvailable
-                      ? 'SVG available'
-                      : 'SVG not stored'}
-                </p>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-    );
-  };
-
-  const renderDiagramViewer = () => {
-    if (!activeDiagram) {
-      return (
-        <div className="diagram-viewer">
-          <p className="overview-hint">
-            {loading ? 'Pick a diagram once loading completes.' : 'Select a diagram to view its details.'}
-          </p>
-        </div>
-      );
-    }
-
-    const activeSvg = svgContent[activeDiagram.diagramId];
-
-    return (
-      <div className="diagram-viewer">
-        <div className="diagram-viewer-header">
-          <div>
-            <h3>{activeDiagram.title || DIAGRAM_TYPE_LABELS[activeType] || 'Diagram'}</h3>
-            {activeDiagram.metadata?.pathOrOperation ? (
-              <span className="overview-hint">
-                {`${activeDiagram.metadata?.httpMethod ? `${activeDiagram.metadata.httpMethod} ` : ''}${
-                  activeDiagram.metadata.pathOrOperation
-                }`}
-              </span>
-            ) : null}
-            {activeDiagram.svgAvailable ? (
-              <span className="overview-hint">Rendered SVG available</span>
-            ) : (
-              <span className="overview-hint">SVG was not stored for this diagram</span>
-            )}
-          </div>
-          <div className="diagram-actions">
-            <button type="button" className="ghost-button" onClick={() => setSourceVisibility((prev) => ({
-                  ...prev,
-                  plantuml: !prev.plantuml
-                }))}>
-              {sourceVisibility.plantuml ? 'Hide PlantUML' : 'View PlantUML'}
-            </button>
-            <button type="button" className="ghost-button" onClick={() => setSourceVisibility((prev) => ({
-                  ...prev,
-                  mermaid: !prev.mermaid
-                }))}>
-              {sourceVisibility.mermaid ? 'Hide Mermaid' : 'View Mermaid'}
-            </button>
-            <button type="button" onClick={() => onDownloadSvg(activeDiagram)} disabled={!activeDiagram.svgAvailable}>
-              Download SVG
-            </button>
-          </div>
-        </div>
-        <div className="diagram-svg">
-          {activeDiagram.svgAvailable ? (
-            activeSvg ? (
-              <div dangerouslySetInnerHTML={{ __html: activeSvg }} />
-            ) : (
-              <p className="overview-hint">Rendering SVG…</p>
-            )
-          ) : (
-            <p className="overview-hint">SVG rendering is unavailable for this diagram.</p>
-          )}
-        </div>
-        {sourceVisibility.plantuml && (
-          <details open className="diagram-source-block">
-            <summary>PlantUML Source</summary>
-            <pre className="diagram-source">{activeDiagram.plantumlSource || 'Not available'}</pre>
-          </details>
-        )}
-        {sourceVisibility.mermaid && (
-          <details open className="diagram-source-block">
-            <summary>Mermaid Source</summary>
-            <pre className="diagram-source">{activeDiagram.mermaidSource || 'Not available'}</pre>
-          </details>
-        )}
-      </div>
-    );
-  };
-
-  return (
-    <div className="overview-content diagram-panel">
-      <div className="diagram-type-tabs">
-        {DIAGRAM_TYPE_ORDER.map((type) => {
-          const hasDiagrams = (diagramsByType[type] || []).length > 0;
-          return (
-            <button
-              key={type}
-              type="button"
-              className={`tab-button ${activeType === type ? 'active' : ''}`}
-              onClick={() => hasDiagrams && onTypeChange(type)}
-              disabled={!hasDiagrams && !loading}
-            >
-              {DIAGRAM_TYPE_LABELS[type] || type}
-            </button>
-          );
-        })}
-      </div>
-      {showSequenceToggle ? (
-        <div className="diagram-controls">
-          <label className="toggle-group">
-            <input
-              type="checkbox"
-              checked={sequenceIncludeExternal}
-              onChange={(event) => onSequenceToggle(event.target.checked)}
-            />
-            Show codeviz2 externals
-          </label>
-        </div>
-      ) : null}
-      <div className="diagram-layout">
-        <aside className="diagram-sidebar">{renderDiagramList()}</aside>
-        {renderDiagramViewer()}
-      </div>
-    </div>
-  );
-};
-
-const STEP_STATUS_COPY = {
-  pending: 'Queued',
-  active: 'In progress…',
-  complete: 'Done',
-  error: 'Skipped'
-};
-
-const LoadingTimeline = ({ steps }) => {
-  if (!steps || steps.length === 0) {
-    return null;
-  }
-
-  return (
-    <div className="loading-timeline" aria-live="polite">
-      <p className="timeline-title">Analysis progress</p>
-      <ul className="loading-steps">
-        {steps.map((step) => (
-          <li key={step.id} className="loading-step">
-            <span className={`step-indicator status-${step.status}`} aria-hidden="true">
-              {step.status === 'complete' ? '✓' : step.status === 'error' ? '!' : ''}
-            </span>
-            <div>
-              <p className="step-label">{step.label}</p>
-              <p className="step-status">{STEP_STATUS_COPY[step.status] || '—'}</p>
-            </div>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-};
+import {
+  OverviewPanel,
+  ApiSpecsPanel,
+  DatabasePanel,
+  LoggerInsightsPanel,
+  PiiPciPanel,
+  DiagramsPanel,
+  GherkinPanel,
+  MetadataPanel,
+  ExportPanel
+} from './components/panels';
+import GlobalSearchBar from './components/search/GlobalSearchBar';
+import SearchResultsPanel from './components/search/SearchResultsPanel';
+import LoadingTimeline from './components/progress/LoadingTimeline';
+import useMediaQuery from './hooks/useMediaQuery';
+import { deriveProjectName, textMatches } from './utils/formatters';
+import { buildFriendlyError, ERROR_SUGGESTIONS } from './utils/errors';
+import { ANALYSIS_STEPS, STATUS_ANALYZED } from './utils/constants';
 
 function App() {
   const [repoUrl, setRepoUrl] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [errorState, setErrorState] = useState(null);
   const [result, setResult] = useState(null);
   const [overview, setOverview] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
@@ -1212,6 +50,9 @@ function App() {
   const [exportPreviewHtml, setExportPreviewHtml] = useState('');
   const [exportPreviewProjectId, setExportPreviewProjectId] = useState(null);
   const [exportPreviewLoading, setExportPreviewLoading] = useState(false);
+  const [globalSearchQuery, setGlobalSearchQuery] = useState('');
+  const isCompactLayout = useMediaQuery('(max-width: 960px)');
+  const tabRefs = useRef({});
 
   const projectName = useMemo(() => deriveProjectName(repoUrl), [repoUrl]);
   const diagramsByType = useMemo(() => {
@@ -1232,6 +73,78 @@ function App() {
     }
     return diagrams.find((diagram) => diagram.diagramId === activeDiagramId) || null;
   }, [diagrams, activeDiagramId]);
+  const normalizedSearch = globalSearchQuery.trim().toLowerCase();
+  const globalSearchMatches = useMemo(() => {
+    if (!normalizedSearch) {
+      return [];
+    }
+    const matches = [];
+    (overview?.classes || []).forEach((cls) => {
+      if (
+        textMatches(
+          normalizedSearch,
+          cls.fullyQualifiedName,
+          cls.packageName,
+          cls.stereotype,
+          cls.relativePath
+        )
+      ) {
+        matches.push({
+          id: `class-${cls.fullyQualifiedName}`,
+          type: 'class',
+          title: cls.fullyQualifiedName,
+          subtitle: cls.stereotype || cls.packageName || 'Class',
+          description: cls.relativePath || '',
+          tabValue: 'overview'
+        });
+      }
+    });
+    (apiCatalog?.endpoints || []).forEach((endpoint, index) => {
+      if (
+        textMatches(
+          normalizedSearch,
+          endpoint.httpMethod,
+          endpoint.pathOrOperation,
+          endpoint.controllerClass,
+          endpoint.controllerMethod
+        )
+      ) {
+        matches.push({
+          id: `endpoint-${endpoint.controllerClass}-${endpoint.pathOrOperation}-${index}`,
+          type: 'endpoint',
+          title: `${endpoint.httpMethod || 'ANY'} ${endpoint.pathOrOperation}`,
+          subtitle: endpoint.controllerClass || 'Endpoint',
+          description: endpoint.controllerMethod || '',
+          tabValue: 'api'
+        });
+      }
+    });
+    (loggerInsights || []).forEach((entry, index) => {
+      if (textMatches(normalizedSearch, entry.className, entry.filePath, entry.messageTemplate)) {
+        matches.push({
+          id: `log-${entry.className}-${index}`,
+          type: 'log',
+          title: entry.className || entry.filePath || 'Logger entry',
+          subtitle: `${entry.logLevel || 'LOG'} · line ${entry.lineNumber ?? '—'}`,
+          description: entry.messageTemplate || '',
+          tabValue: 'logger'
+        });
+      }
+    });
+    (piiFindings || []).forEach((entry, index) => {
+      if (textMatches(normalizedSearch, entry.filePath, entry.snippet, entry.matchType, entry.severity)) {
+        matches.push({
+          id: `pii-${entry.filePath}-${index}`,
+          type: 'pii',
+          title: entry.filePath || entry.matchType || 'Sensitive finding',
+          subtitle: `${entry.matchType || 'PII'} · ${entry.severity || 'unknown'} severity`,
+          description: entry.snippet || '',
+          tabValue: 'pii'
+        });
+      }
+    });
+    return matches;
+  }, [normalizedSearch, overview, apiCatalog, loggerInsights, piiFindings]);
 
   const authHeaders = () => (apiKey ? { 'X-API-KEY': apiKey } : {});
 
@@ -1259,6 +172,17 @@ function App() {
       return prev.map((step) => (lookup[step.id] ? { ...step, status: lookup[step.id] } : step));
     });
   };
+
+  const handleSearchNavigate = useCallback(
+    (match) => {
+      if (!match || !match.tabValue) {
+        return;
+      }
+      setActiveTab(match.tabValue);
+    },
+    [setActiveTab]
+  );
+
 
   const loadExportPreview = useCallback(
     (force = false) => {
@@ -1379,10 +303,16 @@ function App() {
   }, [result]);
 
   useEffect(() => {
-    if (error) {
+    if (isCompactLayout) {
+      setSidebarCollapsed(true);
+    }
+  }, [isCompactLayout]);
+
+  useEffect(() => {
+    if (errorState) {
       setSidebarCollapsed(false);
     }
-  }, [error]);
+  }, [errorState]);
 
   useEffect(() => {
     if (activeTab !== 'metadata' || !projectId) {
@@ -1418,7 +348,7 @@ function App() {
   const handleSubmit = async (event) => {
     event.preventDefault();
     setLoading(true);
-    setError('');
+    setErrorState(null);
     setResult(null);
     setOverview(null);
     setActiveTab('overview');
@@ -1632,7 +562,7 @@ function App() {
             { id: 'pii', status: 'error' },
             { id: 'diagrams', status: 'error' }
           ]);
-          setError(fetchError.response?.data || 'Analysis completed, but the overview failed to load.');
+          setErrorState(buildFriendlyError(fetchError, repoUrl));
         }
       } else {
         updateStepStatuses([
@@ -1643,11 +573,17 @@ function App() {
           { id: 'pii', status: 'error' },
           { id: 'diagrams', status: 'error' }
         ]);
+        setErrorState({
+          message: 'Analysis completed, but the backend did not return a project ID.',
+          raw: '',
+          suggestions: ERROR_SUGGESTIONS.generic,
+          repoUrl
+        });
       }
     } catch (err) {
       console.error('Repository analysis failed', err);
       updateStepStatuses([{ id: 'analyze', status: 'error' }]);
-      setError(err.response?.data || 'Failed to analyze repository');
+      setErrorState(buildFriendlyError(err, repoUrl));
     } finally {
       console.debug('Analysis request finalized');
       setLoading(false);
@@ -1737,6 +673,28 @@ function App() {
       diagramLoading,
       metadataPayload
     ]
+  );
+  const handleTabKeyDown = useCallback(
+    (event, currentIndex) => {
+      if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') {
+        return;
+      }
+      event.preventDefault();
+      const direction = event.key === 'ArrowRight' ? 1 : -1;
+      let nextIndex = currentIndex;
+      for (let i = 0; i < tabItems.length; i += 1) {
+        nextIndex = (nextIndex + direction + tabItems.length) % tabItems.length;
+        if (!tabItems[nextIndex].disabled) {
+          const nextTab = tabItems[nextIndex];
+          setActiveTab(nextTab.value);
+          if (tabRefs.current[nextTab.value]) {
+            tabRefs.current[nextTab.value].focus();
+          }
+          break;
+        }
+      }
+    },
+    [tabItems]
   );
 
   return (
@@ -1836,7 +794,29 @@ function App() {
                 {loading ? 'Analyzing…' : 'Analyze'}
               </button>
 
-              {error && <p className="error">{error}</p>}
+              {errorState && (
+                <div className="error-banner" role="alert">
+                  <p className="error-message">{errorState.message}</p>
+                  {errorState.repoUrl ? (
+                    <p className="error-context">
+                      Repository: <code>{errorState.repoUrl}</code>
+                    </p>
+                  ) : null}
+                  {Array.isArray(errorState.suggestions) && errorState.suggestions.length > 0 ? (
+                    <ul className="error-suggestions">
+                      {errorState.suggestions.map((tip) => (
+                        <li key={tip}>{tip}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                  {errorState.raw ? (
+                    <details>
+                      <summary>View technical details</summary>
+                      <pre className="error-details">{errorState.raw}</pre>
+                    </details>
+                  ) : null}
+                </div>
+              )}
               {result && result.status === STATUS_ANALYZED && (
                 <div className="success">
                   <h2>Analysis complete!</h2>
@@ -1854,6 +834,17 @@ function App() {
         </form>
 
         <section className="card overview-card">
+          <GlobalSearchBar
+            value={globalSearchQuery}
+            onChange={setGlobalSearchQuery}
+            onClear={() => setGlobalSearchQuery('')}
+            resultCount={normalizedSearch ? globalSearchMatches.length : null}
+          />
+          <SearchResultsPanel
+            query={globalSearchQuery}
+            matches={globalSearchMatches}
+            onNavigate={handleSearchNavigate}
+          />
           <div className="tab-nav">
             <select
               className="tab-select"
@@ -1871,70 +862,96 @@ function App() {
                 </option>
               ))}
             </select>
-            <div className="tab-bar" role="tablist">
-              {tabItems.map((tab) => (
+            <div className="tab-bar" role="tablist" aria-label="Analysis panels">
+              {tabItems.map((tab, index) => (
                 <button
                   key={tab.value}
                   type="button"
                   className={`tab-button ${activeTab === tab.value ? 'active' : ''}`}
                   onClick={() => setActiveTab(tab.value)}
                   disabled={tab.disabled}
-                  aria-current={activeTab === tab.value ? 'page' : undefined}
+                  role="tab"
+                  aria-selected={activeTab === tab.value}
+                  aria-controls={`panel-${tab.value}`}
+                  id={`tab-${tab.value}`}
+                  aria-disabled={tab.disabled || undefined}
+                  ref={(element) => {
+                    if (element) {
+                      tabRefs.current[tab.value] = element;
+                    } else {
+                      delete tabRefs.current[tab.value];
+                    }
+                  }}
+                  onKeyDown={(event) => handleTabKeyDown(event, index)}
                 >
                   {tab.label}
                 </button>
               ))}
             </div>
           </div>
-          {activeTab === 'overview' ? (
-            <OverviewPanel overview={overview} loading={loading && !overview} />
-          ) : activeTab === 'api' ? (
-            <ApiSpecsPanel overview={overview} apiCatalog={apiCatalog} loading={apiLoading && !apiCatalog} />
-          ) : activeTab === 'db' ? (
-            <DatabasePanel analysis={dbAnalysis} loading={dbLoading && !dbAnalysis} />
-          ) : activeTab === 'logger' ? (
-            <LoggerInsightsPanel
-              insights={loggerInsights}
-              loading={loggerLoading && loggerInsights.length === 0}
-              onDownloadCsv={downloadLogsCsv}
-              onDownloadPdf={downloadLogsPdf}
-            />
-          ) : activeTab === 'pii' ? (
-            <PiiPciPanel
-              findings={piiFindings}
-              loading={piiLoading && piiFindings.length === 0}
-              onDownloadCsv={downloadPiiCsv}
-              onDownloadPdf={downloadPiiPdf}
-            />
-          ) : activeTab === 'diagrams' ? (
-            <DiagramsPanel
-              diagramsByType={diagramsByType}
-              loading={diagramLoading}
-              activeType={activeDiagramType}
-              onTypeChange={setActiveDiagramType}
-              activeDiagram={activeDiagram}
-              onSelectDiagram={setActiveDiagramId}
-              svgContent={diagramSvgContent}
-              onDownloadSvg={downloadDiagramSvg}
-              sequenceIncludeExternal={sequenceIncludeExternal}
-              onSequenceToggle={setSequenceIncludeExternal}
-            />
-          ) : activeTab === 'gherkin' ? (
-            <GherkinPanel features={overview?.gherkinFeatures || []} loading={loading && !overview} />
-          ) : activeTab === 'metadata' ? (
-            <MetadataPanel metadata={metadataPayload} loading={metadataLoading} />
-          ) : activeTab === 'export' ? (
-            <ExportPanel
-              projectId={projectId}
-              onDownloadHtml={downloadHtmlExport}
-              onDownloadSnapshot={downloadSnapshotJson}
-              htmlPreview={exportPreviewHtml}
-              loading={exportPreviewLoading}
-              onRefreshPreview={refreshExportPreview}
-            />
-          ) : (
-            <OverviewPanel overview={overview} loading={loading && !overview} />
-          )}
+          <div
+            role="tabpanel"
+            id={`panel-${activeTab}`}
+            aria-labelledby={`tab-${activeTab}`}
+            tabIndex={0}
+          >
+            {activeTab === 'overview' ? (
+              <OverviewPanel overview={overview} loading={loading && !overview} searchQuery={globalSearchQuery} />
+            ) : activeTab === 'api' ? (
+              <ApiSpecsPanel
+                overview={overview}
+                apiCatalog={apiCatalog}
+                loading={apiLoading && !apiCatalog}
+                searchQuery={globalSearchQuery}
+              />
+            ) : activeTab === 'db' ? (
+              <DatabasePanel analysis={dbAnalysis} loading={dbLoading && !dbAnalysis} />
+            ) : activeTab === 'logger' ? (
+              <LoggerInsightsPanel
+                insights={loggerInsights}
+                loading={loggerLoading && loggerInsights.length === 0}
+                onDownloadCsv={downloadLogsCsv}
+                onDownloadPdf={downloadLogsPdf}
+                searchQuery={globalSearchQuery}
+              />
+            ) : activeTab === 'pii' ? (
+              <PiiPciPanel
+                findings={piiFindings}
+                loading={piiLoading && piiFindings.length === 0}
+                onDownloadCsv={downloadPiiCsv}
+                onDownloadPdf={downloadPiiPdf}
+                searchQuery={globalSearchQuery}
+              />
+            ) : activeTab === 'diagrams' ? (
+              <DiagramsPanel
+                diagramsByType={diagramsByType}
+                loading={diagramLoading}
+                activeType={activeDiagramType}
+                onTypeChange={setActiveDiagramType}
+                activeDiagram={activeDiagram}
+                onSelectDiagram={setActiveDiagramId}
+                svgContent={diagramSvgContent}
+                onDownloadSvg={downloadDiagramSvg}
+                sequenceIncludeExternal={sequenceIncludeExternal}
+                onSequenceToggle={setSequenceIncludeExternal}
+              />
+            ) : activeTab === 'gherkin' ? (
+              <GherkinPanel features={overview?.gherkinFeatures || []} loading={loading && !overview} />
+            ) : activeTab === 'metadata' ? (
+              <MetadataPanel metadata={metadataPayload} loading={metadataLoading} />
+            ) : activeTab === 'export' ? (
+              <ExportPanel
+                projectId={projectId}
+                onDownloadHtml={downloadHtmlExport}
+                onDownloadSnapshot={downloadSnapshotJson}
+                htmlPreview={exportPreviewHtml}
+                loading={exportPreviewLoading}
+                onRefreshPreview={refreshExportPreview}
+              />
+            ) : (
+              <OverviewPanel overview={overview} loading={loading && !overview} searchQuery={globalSearchQuery} />
+            )}
+          </div>
         </section>
       </div>
     </div>
@@ -1942,17 +959,3 @@ function App() {
 }
 
 export default App;
-
-export {
-  deriveProjectName,
-  formatDate,
-  OverviewPanel,
-  ApiSpecsPanel,
-  DatabasePanel,
-  LoggerInsightsPanel,
-  PiiPciPanel,
-  DiagramsPanel,
-  GherkinPanel,
-  MetadataPanel,
-  ExportPanel
-};

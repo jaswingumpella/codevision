@@ -106,6 +106,7 @@ describe('App', () => {
     await userEvent.type(repoInput, 'https://example.com/org/repo.git');
     await userEvent.click(screen.getByRole('button', { name: /analyze/i }));
 
-    expect(await screen.findByText(/failed to analyze repository/i)).toBeInTheDocument();
+    expect(await screen.findByText(/analysis could not be completed/i)).toBeInTheDocument();
+    expect(screen.getByText(/Retry the analysis/i)).toBeInTheDocument();
   });
 });

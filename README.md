@@ -175,17 +175,23 @@ Every property in `application.yml` can be overridden the same way (for example 
 
 The frontend lives in [`frontend/`](frontend/). It provides a single-page workflow to submit repository URLs and, after analysis completes, renders the project overview (build metadata, class totals, OpenAPI summaries).
 
+### Structure
+
+- `src/components/panels` – feature-specific panels (Overview, API, Database, Logger, PCI/PII, Diagrams, Gherkin, Metadata, Export) that stay presentation-only.
+- `src/components/search` – the global search bar/results tray plus the virtualized class directory that reuse the same virtualization primitives.
+- `src/components/progress` – analyzer timeline + progress widgets shared across cards.
+- `src/hooks` – shared hooks like `useMediaQuery` so layout logic is reusable.
+- `src/utils` – formatting helpers, constants, and friendly error builders that keep `App.jsx` focused on orchestration.
+
 ### Overview experience
 
-- Analyzer card auto-collapses into a “Latest analysis” summary after a successful run, exposing project ID, repo URL, analyzed timestamp, and quick actions (Edit inputs, View dashboard, Hide/Show panel). Errors pop the form back open so inputs are immediately editable.
-- A deterministic analysis timeline streams each backend step (`Cloning`, `Overview`, `API`, `Database`, `Logger`, `PCI / PII`, `Diagrams`) with `Queued / In progress… / Done / Skipped` states, replacing the old blue-dot ambiguity.
-- The results tab rail is sticky on desktop/tablet and backed by a `<select>` dropdown on narrow screens so sections like **Diagrams** never drift off-screen; ARIA roles keep assistive tech informed of the active tab.
-- Build summary (group/artifact/version/java release) and class coverage (total vs. main vs. test source sets) headline the Overview panel.
-- API Specs tab with paginated tables for REST / SOAP / legacy endpoints, each annotated with spec artifacts and empty-state guidance on how to add missing OpenAPI/WSDL inputs.
-- Database tab with entity ↔ repository mapping and DAO operation breakdowns (inferred CRUD intent, targets, inline queries).
-- Embedded viewers for OpenAPI YAML, WSDL, and XSD definitions plus synthesized SOAP service summaries.
-- Media asset inventory (PNG/JPG/SVG/GIF) listing repository diagrams and screenshots with size + relative path.
-- Diagrams tab with type-level filtering, SVG previews, PlantUML/Mermaid source toggles, a sequence-external toggle, and one-click SVG downloads. Each REST/SOAP/legacy endpoint receives its own sequence diagram and call-flow summary (labelled with HTTP method + path); every arrow in that diagram comes from the method-level call graph so you see `Service.save()` instead of a generic “call”, self-invocations loop back onto the lifeline, and repository hops annotate the DAO methods executed before the shared “Database” participant. Class/component diagrams stay readable on large or small screens thanks to responsive layout tweaks.
+- Analyzer card auto-collapses into a "Latest analysis" summary after a successful run (and automatically hides on compact screens), exposing project ID, repo URL, analyzed timestamp, and quick actions (Edit inputs, View dashboard, Hide/Show panel). Errors pop the form back open so inputs stay editable.
+- A deterministic analysis timeline now includes a live progress bar that shows how far along the analyzer is across `Cloning`, `Overview`, `API`, `Database`, `Logger`, `PCI / PII`, and `Diagrams`, with `Queued / In progress… / Done / Skipped` states.
+- Global search sits above the tab rail; it streams virtualized results (via `react-window`) across classes, endpoints, log statements, and sensitive-data findings and pipes the term into the Overview/API/Logger/PII tabs so they filter in-place.
+- The tab rail stays sticky on desktop/tablet, exposes a `<select>` fallback on narrow screens, and now ships with ARIA roles + keyboard navigation so every panel is reachable without horizontal scrolling.
+- Overview panel now highlights build coordinates, Java version, and external service counts (OpenAPI, SOAP/WSDL, XSD) alongside the class coverage grid. A virtualized class directory stays responsive even with thousands of entries.
+- API specs, database, OpenAPI/WSDL viewers, media inventory, and diagrams behave as before, but tables reuse the global search filters so you can jump directly to the insights you care about.
+- Errors surface as actionable banners that explain the failure (invalid URL, clone/auth issues, timeouts, out-of-memory) and include remediation tips (verify credentials, limit repository size, retry during quieter hours).
 
 ### Prerequisites
 
@@ -227,6 +233,7 @@ Because the Spring Boot backend cannot run on Vercel, configure the frontend to 
 - Iteration 5 summary: [`docs/iteration-5-completion.md`](docs/iteration-5-completion.md)
 - Iteration 6 summary: [`docs/iteration-6-completion.md`](docs/iteration-6-completion.md)
 - Iteration 7 summary: [`docs/iteration-7-completion.md`](docs/iteration-7-completion.md)
+- Iteration 8 summary: [`docs/iteration-8-completion.md`](docs/iteration-8-completion.md)
 
 ## Database (PostgreSQL)
 

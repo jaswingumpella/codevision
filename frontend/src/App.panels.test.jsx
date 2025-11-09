@@ -1,9 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { deriveProjectName, formatDate } from './utils/formatters';
 import {
-  deriveProjectName,
-  formatDate,
   OverviewPanel,
   ApiSpecsPanel,
   DatabasePanel,
@@ -13,7 +12,7 @@ import {
   GherkinPanel,
   MetadataPanel,
   ExportPanel
-} from './App';
+} from './components/panels';
 
 describe('utility helpers', () => {
   it('derives project names from repo urls', () => {
@@ -57,12 +56,12 @@ const sampleOverview = {
 
 describe('OverviewPanel', () => {
   it('shows loading state', () => {
-    render(<OverviewPanel overview={null} loading />);
+    render(<OverviewPanel overview={null} loading searchQuery="" />);
     expect(screen.getByText(/Analyzing repository/i)).toBeInTheDocument();
   });
 
   it('renders overview details and stats', () => {
-    render(<OverviewPanel overview={sampleOverview} loading={false} />);
+    render(<OverviewPanel overview={sampleOverview} loading={false} searchQuery="" />);
     expect(screen.getByText('demo-project')).toBeInTheDocument();
     expect(screen.getByText(/openapi\.yaml/i)).toBeInTheDocument();
     expect(screen.getByText('Total Classes')).toBeInTheDocument();
@@ -103,6 +102,7 @@ describe('ApiSpecsPanel', () => {
         overview={sampleOverview}
         apiCatalog={{ endpoints: manyEndpoints }}
         loading={false}
+        searchQuery=""
       />
     );
     expect(screen.getByText(/REST Endpoints/i)).toBeInTheDocument();
@@ -110,7 +110,7 @@ describe('ApiSpecsPanel', () => {
   });
 
   it('shows helpful empty states', () => {
-    render(<ApiSpecsPanel overview={null} apiCatalog={{ endpoints: [] }} loading={false} />);
+    render(<ApiSpecsPanel overview={null} apiCatalog={{ endpoints: [] }} loading={false} searchQuery="" />);
     expect(screen.getByText(/Run an analysis/i)).toBeInTheDocument();
   });
 });
@@ -161,6 +161,7 @@ describe('LoggerInsightsPanel', () => {
         loading={false}
         onDownloadCsv={vi.fn()}
         onDownloadPdf={vi.fn()}
+        searchQuery=""
       />
     );
 
@@ -185,6 +186,7 @@ describe('PiiPciPanel', () => {
         loading={false}
         onDownloadCsv={vi.fn()}
         onDownloadPdf={vi.fn()}
+        searchQuery=""
       />
     );
 
