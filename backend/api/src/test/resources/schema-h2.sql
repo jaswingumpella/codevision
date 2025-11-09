@@ -1,3 +1,4 @@
+DROP TABLE IF EXISTS pii_pci_finding;
 DROP TABLE IF EXISTS class_metadata;
 DROP TABLE IF EXISTS project_snapshot;
 DROP TABLE IF EXISTS analysis_job;
@@ -6,21 +7,26 @@ DROP TABLE IF EXISTS project CASCADE;
 CREATE TABLE project (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     repo_url VARCHAR(255) NOT NULL,
+    branch_name VARCHAR(255) NOT NULL,
     project_name VARCHAR(255) NOT NULL,
     last_analyzed_at TIMESTAMP NOT NULL,
     build_group_id VARCHAR(255),
     build_artifact_id VARCHAR(255),
     build_version VARCHAR(255),
-    build_java_version VARCHAR(255)
+    build_java_version VARCHAR(255),
+    CONSTRAINT uq_project_repo_branch UNIQUE (repo_url, branch_name)
 );
 
 CREATE TABLE analysis_job (
     id UUID PRIMARY KEY,
     repo_url VARCHAR(2048) NOT NULL,
+    branch_name VARCHAR(255) NOT NULL,
     status VARCHAR(32) NOT NULL,
     status_message VARCHAR(512),
     project_id BIGINT,
     error_message VARCHAR(1024),
+    commit_hash VARCHAR(96),
+    snapshot_id BIGINT,
     created_at TIMESTAMP NOT NULL,
     updated_at TIMESTAMP NOT NULL,
     started_at TIMESTAMP,
@@ -30,9 +36,13 @@ CREATE TABLE analysis_job (
 );
 
 CREATE TABLE project_snapshot (
-    project_id BIGINT PRIMARY KEY,
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    project_id BIGINT NOT NULL,
     project_name VARCHAR(255) NOT NULL,
     repo_url VARCHAR(255) NOT NULL,
+    branch_name VARCHAR(255) NOT NULL,
+    commit_hash VARCHAR(96),
+    module_fingerprints_json CLOB,
     snapshot_json CLOB NOT NULL,
     created_at TIMESTAMP NOT NULL,
     CONSTRAINT fk_project_snapshot_project FOREIGN KEY (project_id)
@@ -52,5 +62,18 @@ CREATE TABLE class_metadata (
     annotations_json CLOB,
     interfaces_json CLOB,
     CONSTRAINT fk_class_metadata_project FOREIGN KEY (project_id)
+        REFERENCES project (id) ON DELETE CASCADE
+);
+
+CREATE TABLE pii_pci_finding (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    project_id BIGINT NOT NULL,
+    file_path VARCHAR(1024) NOT NULL,
+    line_number INT,
+    snippet CLOB,
+    match_type VARCHAR(32) NOT NULL,
+    severity VARCHAR(16) NOT NULL,
+    ignored BOOLEAN NOT NULL,
+    CONSTRAINT fk_pii_pci_project FOREIGN KEY (project_id)
         REFERENCES project (id) ON DELETE CASCADE
 );

@@ -117,6 +117,62 @@ paths:
                   $ref: ./examples/project-overview-response.json
         '404':
           description: No overview snapshot is available for the supplied identifier.
+  /project/{projectId}/snapshots:
+    get:
+      operationId: listProjectSnapshots
+      tags:
+        - Project
+      summary: List historical snapshots for a project
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Snapshot history retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: ./components/schemas.yaml#/ProjectSnapshotsResponse
+        '404':
+          description: No snapshots exist for the supplied project.
+  /project/{projectId}/snapshots/{snapshotId}/diff/{compareSnapshotId}:
+    get:
+      operationId: diffProjectSnapshots
+      tags:
+        - Project
+      summary: Diff two stored snapshots
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: snapshotId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: compareSnapshotId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Snapshot diff computed successfully.
+          content:
+            application/json:
+              schema:
+                $ref: ./components/schemas.yaml#/SnapshotDiff
+        '404':
+          description: One or both snapshots were not found for the project.
   /project/{projectId}/api-endpoints:
     get:
       operationId: getProjectApiEndpoints
@@ -268,6 +324,40 @@ paths:
                 $ref: ./components/schemas.yaml#/ProjectPiiPciResponse
         '404':
           description: No scan results were found for the supplied identifier.
+  /project/{projectId}/pii-pci/{findingId}:
+    patch:
+      operationId: updatePiiFindingIgnored
+      tags:
+        - Security
+      summary: Mark a PCI/PII finding as ignored or active
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: findingId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./components/schemas.yaml#/UpdatePiiFindingRequest
+      responses:
+        '200':
+          description: Updated finding state returned along with the latest scan results.
+          content:
+            application/json:
+              schema:
+                $ref: ./components/schemas.yaml#/ProjectPiiPciResponse
+        '404':
+          description: The specified finding or project could not be found.
   /project/{projectId}/export/logs.csv:
     get:
       operationId: exportProjectLogsCsv

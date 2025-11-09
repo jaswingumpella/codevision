@@ -25,7 +25,17 @@ import com.codevision.codevisionbackend.api.model.ProjectDiagramsResponse;
 import com.codevision.codevisionbackend.api.model.ProjectLoggerInsightsResponse;
 import com.codevision.codevisionbackend.api.model.ProjectMetadataResponse;
 import com.codevision.codevisionbackend.api.model.ProjectPiiPciResponse;
+import com.codevision.codevisionbackend.api.model.ProjectSnapshotSummary;
+import com.codevision.codevisionbackend.api.model.ProjectSnapshotsResponse;
+import com.codevision.codevisionbackend.api.model.SnapshotClassRef;
+import com.codevision.codevisionbackend.api.model.SnapshotDbEntityRef;
+import com.codevision.codevisionbackend.api.model.SnapshotDiff;
+import com.codevision.codevisionbackend.api.model.SnapshotEndpointRef;
+import com.codevision.codevisionbackend.project.SnapshotDiff.ClassRef;
+import com.codevision.codevisionbackend.project.SnapshotDiff.DbEntityRef;
+import com.codevision.codevisionbackend.project.SnapshotDiff.EndpointRef;
 import java.net.URI;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -51,6 +61,9 @@ public class ApiModelMapper {
                 .createdAt(job.getCreatedAt())
                 .startedAt(job.getStartedAt())
                 .completedAt(job.getCompletedAt());
+        response.setBranchName(job.getBranchName());
+        response.setCommitHash(job.getCommitHash());
+        response.setSnapshotId(job.getSnapshotId());
         if (job.getErrorMessage() != null && !job.getErrorMessage().isEmpty()) {
             response.setErrorMessage(job.getErrorMessage());
         }
@@ -291,6 +304,7 @@ public class ApiModelMapper {
 
     private PiiPciFinding toPiiPciFinding(PiiPciFindingSummary summary) {
         return new PiiPciFinding()
+                .findingId(summary.findingId())
                 .filePath(summary.filePath())
                 .lineNumber(summary.lineNumber())
                 .snippet(summary.snippet())
@@ -317,6 +331,72 @@ public class ApiModelMapper {
             descriptor.setSvgDownloadUrl(String.format("/project/%d/diagram/%d/svg", projectId, summary.diagramId()));
         }
         return descriptor;
+    }
+
+    public ProjectSnapshotsResponse toSnapshotList(
+            Long projectId, List<com.codevision.codevisionbackend.project.ProjectSnapshotService.ProjectSnapshotSummary> summaries) {
+        ProjectSnapshotsResponse response = new ProjectSnapshotsResponse().projectId(projectId);
+        if (summaries != null) {
+            response.setSnapshots(summaries.stream()
+                    .map(summary -> new ProjectSnapshotSummary()
+                            .snapshotId(summary.snapshotId())
+                            .branchName(summary.branchName())
+                            .commitHash(summary.commitHash())
+                            .createdAt(summary.createdAt()))
+                    .collect(Collectors.toList()));
+        } else {
+            response.setSnapshots(Collections.emptyList());
+        }
+        return response;
+    }
+
+    public SnapshotDiff toSnapshotDiff(com.codevision.codevisionbackend.project.SnapshotDiff diff) {
+        SnapshotDiff snapshotDiff = new SnapshotDiff()
+                .baseSnapshotId(diff.baseSnapshotId())
+                .compareSnapshotId(diff.compareSnapshotId())
+                .baseCommitHash(diff.baseCommitHash())
+                .compareCommitHash(diff.compareCommitHash());
+        snapshotDiff.setAddedClasses(mapClassRefs(diff.addedClasses()));
+        snapshotDiff.setRemovedClasses(mapClassRefs(diff.removedClasses()));
+        snapshotDiff.setAddedEndpoints(mapEndpointRefs(diff.addedEndpoints()));
+        snapshotDiff.setRemovedEndpoints(mapEndpointRefs(diff.removedEndpoints()));
+        snapshotDiff.setAddedEntities(mapEntityRefs(diff.addedEntities()));
+        snapshotDiff.setRemovedEntities(mapEntityRefs(diff.removedEntities()));
+        return snapshotDiff;
+    }
+
+    private List<SnapshotClassRef> mapClassRefs(List<ClassRef> refs) {
+        if (refs == null) {
+            return List.of();
+        }
+        return refs.stream()
+                .map(ref -> new SnapshotClassRef()
+                        .fullyQualifiedName(ref.fullyQualifiedName())
+                        .stereotype(ref.stereotype()))
+                .toList();
+    }
+
+    private List<SnapshotEndpointRef> mapEndpointRefs(List<EndpointRef> refs) {
+        if (refs == null) {
+            return List.of();
+        }
+        return refs.stream()
+                .map(ref -> new SnapshotEndpointRef()
+                        .protocol(ref.protocol())
+                        .httpMethod(ref.httpMethod())
+                        .pathOrOperation(ref.pathOrOperation()))
+                .toList();
+    }
+
+    private List<SnapshotDbEntityRef> mapEntityRefs(List<DbEntityRef> refs) {
+        if (refs == null) {
+            return List.of();
+        }
+        return refs.stream()
+                .map(ref -> new SnapshotDbEntityRef()
+                        .entityName(ref.entityName())
+                        .tableName(ref.tableName()))
+                .toList();
     }
 
     public ProjectMetadataResponse toProjectMetadataResponse(Long projectId, ParsedDataResponse snapshot) {

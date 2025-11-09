@@ -26,8 +26,12 @@ const ClassDirectory = ({ classes, searchQuery }) => {
         <span role="columnheader">Source Set</span>
       </div>
       <div className="class-directory-rows class-directory-rows--scrollable" role="rowgroup">
-        {filtered.map((cls) => (
-          <div className="class-directory-row" key={cls.fullyQualifiedName} role="row">
+        {filtered.map((cls, index) => (
+          <div
+            className="class-directory-row"
+            key={`${cls.fullyQualifiedName || 'class'}-${index}`}
+            role="row"
+          >
             <span role="cell">{cls.fullyQualifiedName}</span>
             <span role="cell">{cls.stereotype || '—'}</span>
             <span role="cell">{cls.sourceSet || '—'}</span>

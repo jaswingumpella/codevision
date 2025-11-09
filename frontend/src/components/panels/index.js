@@ -7,3 +7,4 @@ export { default as GherkinPanel } from './GherkinPanel';
 export { default as MetadataPanel } from './MetadataPanel';
 export { default as ExportPanel } from './ExportPanel';
 export { default as DiagramsPanel } from './DiagramsPanel';
+export { default as SnapshotsPanel } from './SnapshotsPanel';

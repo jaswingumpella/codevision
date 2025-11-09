@@ -1,6 +1,6 @@
 # CodeVision
 
-CodeVision ingests a Git repository, extracts structural metadata, and surfaces a project overview through a local Spring Boot + React stack. It supports single-module and multi-module Maven repos (even when the root is only an aggregator) and persistently snapshots the analysis for later viewing.
+CodeVision ingests a Git repository, extracts structural metadata, and surfaces a project overview through a local Spring Boot + React stack. It supports single-module and multi-module Maven repos (even when the root is only an aggregator), fingerprints Maven modules so re-runs only rescan changed directories, and persistently snapshots each run per repo + branch so you can review or diff the entire history.
 
 ## Backend (Spring Boot)
 
@@ -12,6 +12,9 @@ The backend lives in [`backend/`](backend/). It now exposes an asynchronous `/an
 - `GET /project/{id}/db-analysis` – entities, repositories, and CRUD intent summaries captured during analysis.
 - `GET /project/{id}/diagrams` – enumerates every stored diagram (class/component/use-case/ERD/DB/schema/sequence) with PlantUML, Mermaid, metadata, and SVG availability.
 - `GET /project/{id}/diagram/{diagramId}/svg` – streams the rendered SVG for a specific diagram when available.
+- `GET /project/{id}/snapshots` – branch-aware history (ID, branch, commit hash, captured timestamp, fingerprints).
+- `GET /project/{id}/snapshots/{snapshotId}/diff/{compareSnapshotId}` – diff payload describing added/removed classes, endpoints, and DB entities between any two snapshots.
+- `PATCH /project/{id}/pii-pci/{findingId}` – toggle the ignore flag on a PCI/PII finding (used by the Logger + PCI panels).
 
 ### Prerequisites
 
@@ -79,6 +82,8 @@ SPRING_PROFILES_ACTIVE=test mvn -f backend/pom.xml -pl api test
 
 Surefire will pick up `application-test.yml`, connect to the in-memory datasource, and execute `schema-h2.sql` ahead of each method so tables such as `project`, `project_snapshot`, and `class_metadata` exist before the repositories run. If you introduce a new table that participates in these tests, mirror the DDL in that script—H2 runs in PostgreSQL compatibility mode, so most DDL can be copied directly from your migration.
 
+> **Graphviz/PlantUML note:** `DiagramSvgRendererTest` shells out to PlantUML/Graphviz and can crash the forked JVM on macOS when the underlying native binaries are missing or unstable. If you hit `Abort trap: 6` while running the suite locally, re-run the command with `-Dtest=!DiagramSvgRendererTest` until Graphviz is installed, or point `PLANTUML_LIMIT_SIZE` to a smaller value so the renderer stays within local memory limits.
+
 ### Package the React frontend into the backend
 
 Running `mvn -f backend/pom.xml -pl api -am package` now:
@@ -127,9 +132,12 @@ Every property in `application.yml` can be overridden the same way (for example 
      - `X-API-KEY: <value>` (required only when `security.apiKey` is populated)
    - Request body:
 
+     Include `branchName` to analyze a non-default branch; if omitted, `main` is assumed.
+
      ```json
      {
-       "repoUrl": "https://github.com/org/repo.git"
+       "repoUrl": "https://github.com/org/repo.git",
+       "branchName": "release/1.1"
      }
      ```
 
@@ -152,6 +160,9 @@ Every property in `application.yml` can be overridden the same way (for example 
      {
        "jobId": "27981d4a-fadc-45dc-872d-f5fa6f9a531a",
        "repoUrl": "https://github.com/org/repo.git",
+       "branchName": "release/1.1",
+       "commitHash": "4d9cf4fd8a601d2a2ef7d7cb7e83c9a02c3a3d02",
+       "snapshotId": 42,
        "status": "SUCCEEDED",
        "statusMessage": "Snapshot saved",
        "projectId": 1,
@@ -201,7 +212,7 @@ The frontend lives in [`frontend/`](frontend/). It provides a single-page workfl
 ### Structure
 
 - `src/components/panels` – feature-specific panels (Overview, API, Database, Logger, PCI/PII, Diagrams, Gherkin, Metadata, Export) that stay presentation-only.
-- `src/components/search` – the global search bar/results tray plus the virtualized class directory that reuse the same virtualization primitives.
+- `src/components/search` – the global search bar/results tray and class directory implementations that share styling/interaction patterns.
 - `src/components/progress` – analyzer timeline + progress widgets shared across cards.
 - `src/hooks` – shared hooks like `useMediaQuery` so layout logic is reusable.
 - `src/utils` – formatting helpers, constants, and friendly error builders that keep `App.jsx` focused on orchestration.
@@ -209,12 +220,25 @@ The frontend lives in [`frontend/`](frontend/). It provides a single-page workfl
 ### Overview experience
 
 - Analyzer card auto-collapses into a "Latest analysis" summary after a successful run (and automatically hides on compact screens), exposing project ID, repo URL, analyzed timestamp, and quick actions (Edit inputs, View dashboard, Hide/Show panel). Errors pop the form back open so inputs stay editable.
+- The analyze form now includes a Branch input (default `main`); values are normalized and echoed back in the summary so it’s obvious whether you’re inspecting `main`, `release/1.1`, etc.
 - A deterministic analysis timeline now includes a live progress bar that shows how far along the analyzer is across `Cloning`, `Overview`, `API`, `Database`, `Logger`, `PCI / PII`, and `Diagrams`, with `Queued / In progress… / Done / Skipped` states.
-- Global search sits above the tab rail; it streams virtualized results (via `react-window`) across classes, endpoints, log statements, and sensitive-data findings and pipes the term into the Overview/API/Logger/PII tabs so they filter in-place.
+- Global search sits above the tab rail; it streams filtered results across classes, endpoints, log statements, and sensitive-data findings and pipes the term into the Overview/API/Logger/PII tabs so they filter in-place.
 - The tab rail stays sticky on desktop/tablet, exposes a `<select>` fallback on narrow screens, and now ships with ARIA roles + keyboard navigation so every panel is reachable without horizontal scrolling.
-- Overview panel now highlights build coordinates, Java version, and external service counts (OpenAPI, SOAP/WSDL, XSD) alongside the class coverage grid. A virtualized class directory stays responsive even with thousands of entries.
+- Overview panel now highlights build coordinates, Java version, and external service counts (OpenAPI, SOAP/WSDL, XSD) alongside the class coverage grid. The class directory is capped at a scrollable height so it stays usable even with large projects.
 - API specs, database, OpenAPI/WSDL viewers, media inventory, and diagrams behave as before, but tables reuse the global search filters so you can jump directly to the insights you care about.
 - Errors surface as actionable banners that explain the failure (invalid URL, clone/auth issues, timeouts, out-of-memory) and include remediation tips (verify credentials, limit repository size, retry during quieter hours).
+
+### Snapshots panel
+
+- A dedicated Snapshots tab lists every stored snapshot (ID, branch, commit hash, captured timestamp, module count) and paginates through long histories without hammering the API.
+- Baseline/Comparison selectors default to “Latest” vs. “Previous” but allow any two versions (even cross-branch). The panel renders an immediate diff summary (e.g., “Classes: +3 / −0”) and links to raw JSON.
+- Each row exposes export buttons for the snapshot JSON plus CSV/PDF downloads sized for auditors. Filters cover branch names, partial commit hashes, and captured date ranges for quick targeting.
+
+### Logger & PCI panels
+
+- Logger Insights adds message-level search, class filter presets, and “Expand All / Collapse All” toggles so large log sets remain scannable. The default class filter is empty now (no more stale `com.example.OrderService` placeholder).
+- PCI/PII Scan hides ignored rows by default, provides inline Ignore/Restore buttons (backed by `PATCH /project/{id}/pii-pci/{findingId}`), and keeps the tables/exports in sync after every toggle.
+- CSV/PDF exports for both panels stream directly from the backend so they still work on repositories with thousands of entries, and they mirror whatever filters are applied in the UI.
 
 ### Prerequisites
 
@@ -257,6 +281,8 @@ Because the Spring Boot backend cannot run on Vercel, configure the frontend to 
 - Iteration 6 summary: [`docs/iteration-6-completion.md`](docs/iteration-6-completion.md)
 - Iteration 7 summary: [`docs/iteration-7-completion.md`](docs/iteration-7-completion.md)
 - Iteration 8 summary: [`docs/iteration-8-completion.md`](docs/iteration-8-completion.md)
+- Iteration 10 summary: [`docs/iteration-10-completion.md`](docs/iteration-10-completion.md)
+- Iteration 11 summary: [`docs/iteration-11-completion.md`](docs/iteration-11-completion.md)
 
 ## Database (PostgreSQL)
 
@@ -288,15 +314,19 @@ After the schema has been created (either by running locally with `SPRING_JPA_HI
 
 ### Schema
 
-- `project` – canonical project record (`repo_url` unique)
-- `class_metadata` – flattened Java class inventory per project
-- `project_snapshot` – serialized `ParsedDataResponse` plus naming metadata
-- `api_endpoint` – persisted REST/SOAP/legacy endpoint catalog
-- `asset_image` – discovered documentation assets (path, size, hash)
-- `db_entity` – extracted JPA entity metadata (tables, PKs, relationships)
-- `dao_operation` – classified DAO/repository operations with inferred CRUD intent
-- `diagram` – stored diagram definitions (type, title, source text, SVG path, metadata JSON)
-Re-running `/analyze` with the same repository URL simply enqueues a new job; once that job reaches `SUCCEEDED`, the backend overwrites the existing project metadata and regenerates the snapshot/class records so the UI always reflects the latest scan.
+- `project` – canonical project record keyed by `(repo_url, branch_name)` plus derived build metadata and timestamps.
+- `analysis_job` – asynchronous `/analyze` queue with repo URL, branch, status/error fields, resolved commit hash, and the resulting `snapshot_id`.
+- `project_snapshot` – append-only history including branch, commit hash, module fingerprints, captured timestamp, and the serialized `ParsedDataResponse`.
+- `class_metadata` – flattened Java class inventory per project (FQN, stereotype, package, source set, annotations, interfaces, relative path, userCode flag).
+- `api_endpoint` – persisted REST/SOAP/legacy endpoint catalog.
+- `asset_image` – discovered documentation assets (path, size, hash).
+- `db_entity` – extracted JPA entity metadata (tables, PKs, relationships) with JSON blobs for fields/relationships.
+- `dao_operation` – classified DAO/repository operations with inferred CRUD intent.
+- `diagram` – stored diagram definitions (type, title, PlantUML/Mermaid sources, SVG path, metadata JSON).
+- `log_statement` – every logger call plus level, template, variables, and PCI/PII flags.
+- `pii_pci_finding` – sensitive-data hits with path/line/severity plus the `ignored` flag toggled via the REST API.
+
+Re-running `/analyze` with the same repo + branch simply enqueues a new job; once that job reaches `SUCCEEDED`, the backend overwrites the structured tables for that tuple and appends a new snapshot (unless the commit already exists, in which case it reuses the cached snapshot).
 
 ### Migrating legacy H2 data
 

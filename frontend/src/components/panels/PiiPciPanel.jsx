@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react';
 import { textMatches } from '../../utils/formatters';
 
-const PiiPciPanel = ({ findings, loading, onDownloadCsv, onDownloadPdf, searchQuery }) => {
+const PiiPciPanel = ({ findings, loading, onDownloadCsv, onDownloadPdf, onToggleIgnored, searchQuery }) => {
   const [typeFilter, setTypeFilter] = useState('ALL');
   const [severityFilter, setSeverityFilter] = useState('ALL');
-  const [hideIgnored, setHideIgnored] = useState(false);
+  const [hideIgnored, setHideIgnored] = useState(true);
 
   if (loading) {
     return (
@@ -83,6 +83,7 @@ const PiiPciPanel = ({ findings, loading, onDownloadCsv, onDownloadPdf, searchQu
               <th>Type</th>
               <th>Severity</th>
               <th>Ignored?</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -106,6 +107,20 @@ const PiiPciPanel = ({ findings, loading, onDownloadCsv, onDownloadPdf, searchQu
                   </span>
                 </td>
                 <td>{entry.ignored ? 'Yes' : 'No'}</td>
+                <td>
+                  {typeof onToggleIgnored === 'function' ? (
+                    <button
+                      type="button"
+                      className="ghost-button"
+                      disabled={!entry.findingId}
+                      onClick={() => entry.findingId && onToggleIgnored(entry.findingId, !entry.ignored)}
+                    >
+                      {entry.ignored ? 'Restore' : 'Ignore'}
+                    </button>
+                  ) : (
+                    <span className="overview-hint">—</span>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>

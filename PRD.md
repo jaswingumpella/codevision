@@ -101,36 +101,44 @@ The product runs locally. There is no AI integration in the runtime. All logic i
 
 ### 5.1 Project
 
-A "project" = one Git repo URL.
-The application treats `repoUrl` as a unique identifier.
+A "project" = one Git repo URL **and** a branch name. The tuple `(repoUrl, branchName)` is the natural key the analyzer uses everywhere so teams can keep parallel histories for `main`, release trains, and long‑lived feature branches.
 
 Behavior:
 
-* On each analysis run for a given repo URL:
+* `/analyze` accepts `repoUrl` plus an optional `branchName` (defaults to `main`). Branch inputs are normalized (trimmed, refs removed, lowercased) so `Main`, `refs/heads/main`, and `main` all map to one record.
+* Parsed results (class metadata, endpoints, diagrams, logger findings, PCI/PII findings, etc.) are replaced per `(repoUrl, branchName)` so the dashboard always reflects the latest run for that tuple without clobbering other branches.
+* The live `project` row keeps the newest build metadata and analyzed timestamp for that branch, while immutable snapshot rows preserve every commit. Branch + commit context is also stamped onto asynchronous `analysis_job` records so operators can audit exactly what was queued.
 
-  * Clone repo
-* Wipe and replace previously stored data for that project in PostgreSQL
-  * Recompute analysis
-* We do not retain analysis history or per-commit versioning.
-* We do not store commit hash.
+### 5.2 Snapshots & Historical Diff
 
-### 5.2 Snapshot
+Each successful run produces a `ParsedDataResponse` blob plus metadata:
 
-After analysis, the system builds `ParsedDataResponse` — a full JSON view of:
+* Auto-incremented `snapshot_id`
+* Branch name & repo URL
+* Resolved commit hash
+* Module fingerprint JSON (Git tree IDs for each Maven module)
+* Captured timestamp
 
-* APIs
-* Classes
-* Database analysis
-* Diagrams
-* Gherkin features
-* Logger Insights
-* PCI/PII findings
-* Tech stack info
-* Metadata dumps (OpenAPI YAML, WSDL, XSD, etc.)
+Snapshots are append-only. The latest snapshot feeds the UI, yet older versions stay downloadable (JSON, CSV, PDF) for audit flows. The backend exposes:
 
-This snapshot is persisted in PostgreSQL and is downloadable via API for pasting into external assistants like GitLab Duo.
+* `GET /project/{id}/snapshots` → history table with branch, commit, fingerprint summary, and created-at values.
+* `GET /project/{id}/snapshots/{snapshotId}/diff/{compareSnapshotId}` → structured diff describing the classes, endpoints, and database entities that were added or removed between any two snapshots (same branch or cross-branch).
 
-### 5.3 Cyclic safety
+The React dashboard surfaces this data through a Snapshots panel with a timeline table, commit/branch badges, diff selectors, and a summary widget (“+3 REST endpoints”, “−1 JPA entities”). CSV/PDF exports from this panel are designed to handle thousands of rows so auditors can take the findings offline.
+
+### 5.3 Incremental analysis cache
+
+To avoid full repo re-parses on every commit, the analyzer fingerprints each Maven module by hashing the Git tree objects for its source directories:
+
+1. Clone the requested branch/ref and resolve the commit.
+2. If a snapshot already exists for that `(repoUrl, branchName, commitHash)`, return it immediately (no extra work).
+3. When the commit differs, compare module fingerprints against the latest snapshot on that branch:
+   * Unchanged modules reuse their previously persisted metadata, logger insights, and PCI/PII findings.
+   * Only fingerprint deltas are re-scanned; diagrams and aggregated tables rehydrate from the blended dataset so outputs stay consistent.
+
+This incremental cache dramatically reduces rerun time on large mono-repos where a single module changed between commits.
+
+### 5.4 Cyclic safety
 
 Codebases commonly contain cycles:
 
@@ -162,6 +170,7 @@ This applies to:
 **Inputs**
 
 * Git repo URL (public or private)
+* Optional branch name (defaults to `main`)
 
 **Private repo support**
 
@@ -178,23 +187,27 @@ This applies to:
 
 **Behavior**
 
-* Repo is cloned into a temporary working directory
+* Repo is cloned into a temporary working directory and the requested branch/ref is checked out. If the caller omits `branchName`, we default to `main`.
+* Branch names are normalized before persistence so `refs/heads/main` and `main` become the same record.
 * Project name derived from repo URL
 * Multi-module Maven supported:
 
   * Parse root `pom.xml`
   * Collect modules and analyze all of them
   * If the root is an aggregator (no code), walk nested directories for additional `pom.xml` files and treat those as modules automatically
+* After cloning we resolve the commit hash. If the commit already exists in the snapshot history for that branch we short-circuit and reuse the stored snapshot; otherwise we compute module fingerprints so unchanged modules can be skipped downstream.
 
 **Outcome**
 
 * Project entry created/updated in PostgreSQL:
 
   * `project_name`
-  * `repo_url` (unique)
+  * `repo_url`
+  * `branch_name`
   * `last_analyzed_at`
   * Maven group/artifact/version
   * Java version (from pom / maven-compiler-plugin)
+* Append-only snapshot rows capture `snapshot_id`, `branch_name`, `commit_hash`, module fingerprints, and the serialized `ParsedDataResponse`.
 
 ---
 
@@ -407,10 +420,11 @@ Centralize all logging statements and highlight risk.
     * Line #
   * Filters:
 
-    * Class name text filter
+    * Class name text filter (defaults blank; no more placeholder OrderService value)
+    * Message search that matches substrings in either the message template or variables
     * Log level dropdown
     * Toggles for “show only PII risk” / “show only PCI risk”
-  * “Expand All” / “Collapse All” to show variable details
+  * “Expand All” / “Collapse All” to show variable details for large tables
   * Download buttons:
 
     * CSV
@@ -430,7 +444,7 @@ Detect potentially sensitive data exposure beyond just logging.
 
 **Scanner behavior**
 
-* Load configurable rules from `application.yml` via `@ConfigurationProperties("security.scan")`:
+* Load configurable rules from `application.yml` via `@ConfigurationProperties("security.scan")`. Teams can optionally point this config at additional YAML/JSON rule files so org-wide patterns (e.g., proprietary token formats) can be rolled out without redeploying. The default rule set already includes credit-card regexes, JWT token shapes, common credential keywords (`password`, `secret`, `apiKey`), and markers in `application.properties`.
 
   * Each rule:
 
@@ -441,7 +455,8 @@ Detect potentially sensitive data exposure beyond just logging.
 * Scan ALL text-based files in the repo:
 
   * `.java`, `.yml`, `.yaml`, `.properties`, `.xml`, `.sql`,
-  * `.log`, `.wsdl`, `.xsd`, `.feature`, etc.
+  * `.log`, `.wsdl`, `.xsd`, `.feature`, `.env`, etc.
+  * Custom module roots can be supplied so monorepos can restrict or expand what gets scanned.
 
 **Captured Fields**
 
@@ -468,7 +483,9 @@ Detect potentially sensitive data exposure beyond just logging.
     * Snippet
     * Type (PII/PCI)
     * Severity (LOW/MEDIUM/HIGH)
-  * Toggle: Hide ignored
+    * Ignored? (hidden by default so analysts can focus on new issues)
+    * Actions (Ignore / Restore) wired to `PATCH /project/{id}/pii-pci/{findingId}` for inline false-positive management
+  * Toggle: Hide or Show ignored matches (defaults to hiding)
   * Download buttons:
 
     * CSV
@@ -684,9 +701,12 @@ All secured with `X-API-KEY: <value from application.yml>` unless noted.
 * `GET /project/{projectId}/db-analysis`
 * `GET /project/{projectId}/logger-insights`
 * `GET /project/{projectId}/pii-pci`
+* `PATCH /project/{projectId}/pii-pci/{findingId}` (ignore / restore a finding)
 * `GET /project/{projectId}/diagrams`
 * `GET /project/{projectId}/gherkin`
 * `GET /project/{projectId}/metadata`
+* `GET /project/{projectId}/snapshots`
+* `GET /project/{projectId}/snapshots/{snapshotId}/diff/{compareSnapshotId}`
 
   * Returns metadata dumps:
 
@@ -722,24 +742,25 @@ All secured with `X-API-KEY: <value from application.yml>` unless noted.
 ### Navigation (sidebar)
 
 1. Overview
-2. API Specs
-3. Call Flow
-4. Diagrams
-5. Database
-6. Classes
-7. Gherkin
-8. Logger Insights
-9. PCI / PII Scan
-10. Metadata
-11. Export
+2. Snapshots
+3. API Specs
+4. Call Flow
+5. Diagrams
+6. Database
+7. Classes
+8. Gherkin
+9. Logger Insights
+10. PCI / PII Scan
+11. Metadata
+12. Export
 
 ### Global UI elements
 
 * API key injection in Axios
 * Dark/light theme toggle
-* Progress feedback while `/analyze` is running
+* Progress feedback while `/analyze` jobs are queued/running
 
-  * Even though backend is synchronous, frontend should still show “Analyzing…” until it gets the response
+  * The frontend posts to `/analyze`, polls `/analyze/{jobId}`, and keeps the analyzer timeline updated (Queued → Running → Done) until the worker reports `SUCCEEDED` or `FAILED`.
 
 ### Per-page behavior
 
@@ -757,6 +778,13 @@ All secured with `X-API-KEY: <value from application.yml>` unless noted.
   * #piiFindings
   * #logsFlagged
 * Timestamp of last analysis
+
+**Snapshots**
+
+* Timeline table lists every snapshot (ID, branch, commit hash, captured timestamp, module fingerprint summary) with pagination for large histories.
+* Baseline and comparison dropdowns (defaulting to “latest” vs. “previous”) drive the backend diff endpoint and surface summary chips such as “+3 classes / −1 endpoint”.
+* Search/filter inputs support branch names, commit hashes, or date ranges so users can zero in on specific releases.
+* Action buttons trigger JSON + CSV exports of the selected snapshot or diff.
 
 **API Specs**
 
@@ -883,6 +911,7 @@ All secured with `X-API-KEY: <value from application.yml>` unless noted.
 * Preview region:
 
   * Renders that HTML so user knows what’s going into Confluence
+  * Uses lazy loading + fixed-height scroll container so even 10k+ line HTML exports do not freeze the layout
 * Button: “Download ParsedDataResponse.json” (again, for convenience)
 
 ---
@@ -894,20 +923,38 @@ Render deployments attach to a managed PostgreSQL service (non-ephemeral disk) s
 **project**
 
 * `id` (PK)
-* `repo_url` (UNIQUE)
+* `repo_url`
+* `branch_name`
 * `project_name`
 * `last_analyzed_at` (timestamp)
-* `java_version_detected`
-* `maven_group_id`
-* `maven_artifact_id`
-* `maven_version`
+* `build_group_id`
+* `build_artifact_id`
+* `build_version`
+* `build_java_version`
+* Unique constraint on (`repo_url`, `branch_name`) so multiple branches from the same repo can coexist.
+
+**analysis_job**
+
+* `id` (UUID PK)
+* `repo_url`
+* `branch_name`
+* `status`, `status_message`, `error_message`
+* `project_id` (FK)
+* `commit_hash`
+* `snapshot_id` (FK → project_snapshot.id)
+* `created_at`, `updated_at`, `started_at`, `completed_at`
 
 **project_snapshot**
 
+* `id` (PK)
 * `project_id` (FK → project.id)
-* `snapshot_json` (CLOB)
-
-  * full `ParsedDataResponse`
+* `project_name`
+* `repo_url`
+* `branch_name`
+* `commit_hash`
+* `module_fingerprints_json` (CLOB)
+* `snapshot_json` (CLOB, full `ParsedDataResponse`)
+* `created_at` timestamp
 
 **class_metadata**
 
@@ -1255,7 +1302,7 @@ At the same time, the PII/PCI scanning results from the security scanner are col
 
 The UI now gets two new sections:
 
-Logger Insights: a page with a table of all logged messages. It shows columns like Class, Level, Message, Variables, “PII Risk?” and “PCI Risk?”, and the source line number. The UI provides filters to help drill down – e.g. filter by class name (text search), by log level, and toggles to show only entries with PII risk or PCI risk. This helps auditors quickly focus on potentially dangerous logging. The user can also expand any row to see the full log message template with the variables filled in or listed. Download buttons allow exporting the log table as CSV or PDF for reporting.
+Logger Insights: a page with a table of all logged messages. It shows columns like Class, Level, Message, Variables, “PII Risk?” and “PCI Risk?”, and the source line number. The UI provides richer filters so reviewers can combine class + log-level filters with free-text message searches and global “Expand All / Collapse All” controls. Combined with the row-level toggles (PII-only, PCI-only), this lets auditors focus on the few risky messages hidden inside very large projects. The user can expand snippets inline or use the global expand toggle to compare entire payloads. Download buttons still allow exporting the log table as CSV or PDF for reporting.
 
 PCI/PII Scan: a page listing the raw sensitive findings across the repo. It’s a table with columns: File, Line, Snippet (a preview of the text around the match), Type (PII vs PCI), Severity, and an indication if the finding was ignored (suppressed). A toggle lets the user hide ignored findings, and there are CSV/PDF export options as well for this data.
 

@@ -29,6 +29,9 @@ public class AnalysisJob {
     @Column(name = "repo_url", nullable = false, length = 2048)
     private String repoUrl;
 
+    @Column(name = "branch_name", nullable = false, length = 255)
+    private String branchName;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 32)
     private AnalysisJobStatus status;
@@ -41,6 +44,12 @@ public class AnalysisJob {
 
     @Column(name = "error_message", length = 1024)
     private String errorMessage;
+
+    @Column(name = "commit_hash", length = 96)
+    private String commitHash;
+
+    @Column(name = "snapshot_id")
+    private Long snapshotId;
 
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;

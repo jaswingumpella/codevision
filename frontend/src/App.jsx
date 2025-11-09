@@ -10,7 +10,8 @@ import {
   DiagramsPanel,
   GherkinPanel,
   MetadataPanel,
-  ExportPanel
+  ExportPanel,
+  SnapshotsPanel
 } from './components/panels';
 import GlobalSearchBar from './components/search/GlobalSearchBar';
 import SearchResultsPanel from './components/search/SearchResultsPanel';
@@ -36,6 +37,7 @@ const createAbortError = () => {
 
 function App() {
   const [repoUrl, setRepoUrl] = useState('');
+  const [branchName, setBranchName] = useState('main');
   const [apiKey, setApiKey] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorState, setErrorState] = useState(null);
@@ -66,6 +68,12 @@ function App() {
   const [exportPreviewProjectId, setExportPreviewProjectId] = useState(null);
   const [exportPreviewLoading, setExportPreviewLoading] = useState(false);
   const [globalSearchQuery, setGlobalSearchQuery] = useState('');
+  const [snapshots, setSnapshots] = useState([]);
+  const [snapshotLoading, setSnapshotLoading] = useState(false);
+  const [snapshotError, setSnapshotError] = useState(null);
+  const [selectedBaseSnapshot, setSelectedBaseSnapshot] = useState(null);
+  const [selectedCompareSnapshot, setSelectedCompareSnapshot] = useState(null);
+  const [snapshotDiff, setSnapshotDiff] = useState(null);
   const isCompactLayout = useMediaQuery('(max-width: 960px)');
   const tabRefs = useRef({});
   const jobPollRef = useRef({ cancelled: false });
@@ -197,6 +205,123 @@ function App() {
       setActiveTab(match.tabValue);
     },
     [setActiveTab]
+  );
+
+  const fetchSnapshotDiff = useCallback(
+    async (targetProjectId, baseId, compareId) => {
+      if (!targetProjectId || !baseId || !compareId || baseId === compareId) {
+        setSnapshotDiff(null);
+        return;
+      }
+      try {
+        setSnapshotError(null);
+        const response = await axios.get(
+          `/project/${targetProjectId}/snapshots/${baseId}/diff/${compareId}`,
+          {
+            headers: {
+              ...authHeaders()
+            }
+          }
+        );
+        setSnapshotDiff(response.data || null);
+      } catch (error) {
+        console.warn('Failed to diff snapshots', error);
+        setSnapshotError('Unable to compute snapshot differences.');
+      }
+    },
+    [authHeaders]
+  );
+
+  const fetchSnapshots = useCallback(
+    async (targetProjectId) => {
+      if (!targetProjectId) {
+        return;
+      }
+      try {
+        setSnapshotLoading(true);
+        setSnapshotError(null);
+        const response = await axios.get(`/project/${targetProjectId}/snapshots`, {
+          headers: {
+            ...authHeaders()
+          }
+        });
+        const snapshotList = response.data?.snapshots || [];
+        setSnapshots(snapshotList);
+        if (snapshotList.length > 0) {
+          const newest = snapshotList[0]?.snapshotId || null;
+          const previous = snapshotList[1]?.snapshotId || null;
+          setSelectedBaseSnapshot(newest);
+          setSelectedCompareSnapshot(previous);
+          if (newest && previous) {
+            await fetchSnapshotDiff(targetProjectId, newest, previous);
+          } else {
+            setSnapshotDiff(null);
+          }
+        } else {
+          setSelectedBaseSnapshot(null);
+          setSelectedCompareSnapshot(null);
+          setSnapshotDiff(null);
+        }
+      } catch (error) {
+        if (error?.response?.status === 404) {
+          setSnapshots([]);
+          setSnapshotDiff(null);
+        } else {
+          console.warn('Failed to load snapshots', error);
+          setSnapshotError('Unable to load snapshot history.');
+        }
+      } finally {
+        setSnapshotLoading(false);
+      }
+    },
+    [authHeaders, fetchSnapshotDiff]
+  );
+
+  const handleSnapshotDiffRequest = useCallback(
+    async (baseId, compareId) => {
+      setSelectedBaseSnapshot(baseId);
+      setSelectedCompareSnapshot(compareId);
+      if (!projectId) {
+        return;
+      }
+      await fetchSnapshotDiff(projectId, baseId, compareId);
+    },
+    [projectId, fetchSnapshotDiff]
+  );
+
+  const handleSnapshotRefresh = useCallback(() => {
+    if (!projectId) {
+      return;
+    }
+    fetchSnapshots(projectId);
+  }, [projectId, fetchSnapshots]);
+
+  const handleToggleFindingIgnored = useCallback(
+    async (findingId, ignored) => {
+      if (!projectId || !findingId) {
+        return;
+      }
+      try {
+        setPiiLoading(true);
+        const response = await axios.patch(
+          `/project/${projectId}/pii-pci/${findingId}`,
+          { ignored },
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              ...authHeaders()
+            }
+          }
+        );
+        setPiiFindings(response.data?.findings ?? []);
+      } catch (error) {
+        console.warn('Failed to update finding', error);
+        setErrorState(buildFriendlyError(error, repoUrl));
+      } finally {
+        setPiiLoading(false);
+      }
+    },
+    [authHeaders, projectId, repoUrl]
   );
 
   const pollAnalysisJob = useCallback(
@@ -433,6 +558,11 @@ function App() {
     setExportPreviewHtml('');
     setExportPreviewProjectId(null);
     setExportPreviewLoading(false);
+    setSnapshots([]);
+    setSnapshotDiff(null);
+    setSnapshotError(null);
+    setSelectedBaseSnapshot(null);
+    setSelectedCompareSnapshot(null);
     startProgress();
 
     console.info('Submitting analysis request', {
@@ -443,7 +573,7 @@ function App() {
     try {
       const response = await axios.post(
         '/analyze',
-        { repoUrl },
+        { repoUrl, branchName: branchName?.trim() || undefined },
         {
           headers: {
             'Content-Type': 'application/json',
@@ -634,6 +764,8 @@ function App() {
         } finally {
           setDiagramLoading(false);
         }
+
+        await fetchSnapshots(targetProjectId);
       } catch (fetchError) {
         console.warn('Failed to load project overview', fetchError);
         updateStepStatuses([
@@ -735,6 +867,11 @@ function App() {
         label: 'Gherkin',
         disabled: !overview || !overview.gherkinFeatures || overview.gherkinFeatures.length === 0
       },
+      {
+        value: 'snapshots',
+        label: 'Snapshots',
+        disabled: snapshots.length === 0 && !snapshotLoading
+      },
       { value: 'metadata', label: 'Metadata', disabled: !projectId && !metadataPayload },
       { value: 'export', label: 'Export', disabled: !projectId }
     ],
@@ -750,6 +887,8 @@ function App() {
       piiLoading,
       diagrams,
       diagramLoading,
+      snapshots,
+      snapshotLoading,
       metadataPayload
     ]
   );
@@ -858,6 +997,15 @@ function App() {
                 value={repoUrl}
                 onChange={(event) => setRepoUrl(event.target.value)}
                 required
+              />
+
+              <label htmlFor="branchName">Branch</label>
+              <input
+                id="branchName"
+                type="text"
+                placeholder="main"
+                value={branchName}
+                onChange={(event) => setBranchName(event.target.value)}
               />
 
               <label htmlFor="apiKey">API Key</label>
@@ -1013,6 +1161,7 @@ function App() {
                 loading={piiLoading && piiFindings.length === 0}
                 onDownloadCsv={downloadPiiCsv}
                 onDownloadPdf={downloadPiiPdf}
+                onToggleIgnored={handleToggleFindingIgnored}
                 searchQuery={globalSearchQuery}
               />
             ) : activeTab === 'diagrams' ? (
@@ -1030,6 +1179,19 @@ function App() {
               />
             ) : activeTab === 'gherkin' ? (
               <GherkinPanel features={overview?.gherkinFeatures || []} loading={loading && !overview} />
+            ) : activeTab === 'snapshots' ? (
+              <SnapshotsPanel
+                snapshots={snapshots}
+                loading={snapshotLoading}
+                error={snapshotError}
+                onRefresh={handleSnapshotRefresh}
+                selectedBase={selectedBaseSnapshot}
+                selectedCompare={selectedCompareSnapshot}
+                onSelectBase={setSelectedBaseSnapshot}
+                onSelectCompare={setSelectedCompareSnapshot}
+                onDiff={handleSnapshotDiffRequest}
+                diff={snapshotDiff}
+              />
             ) : activeTab === 'metadata' ? (
               <MetadataPanel metadata={metadataPayload} loading={metadataLoading} />
             ) : activeTab === 'export' ? (

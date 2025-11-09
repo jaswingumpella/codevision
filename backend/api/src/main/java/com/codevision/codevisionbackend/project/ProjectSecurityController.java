@@ -4,6 +4,9 @@ import com.codevision.codevisionbackend.api.ApiModelMapper;
 import com.codevision.codevisionbackend.api.generated.SecurityApi;
 import com.codevision.codevisionbackend.api.model.ProjectLoggerInsightsResponse;
 import com.codevision.codevisionbackend.api.model.ProjectPiiPciResponse;
+import com.codevision.codevisionbackend.api.model.UpdatePiiFindingRequest;
+import com.codevision.codevisionbackend.project.security.PiiPciFinding;
+import com.codevision.codevisionbackend.project.security.PiiPciFindingRepository;
 import com.codevision.codevisionbackend.project.security.SecurityExportService;
 import java.util.List;
 import java.util.Optional;
@@ -13,6 +16,7 @@ import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
@@ -26,14 +30,17 @@ public class ProjectSecurityController implements SecurityApi {
     private final ProjectSnapshotService projectSnapshotService;
     private final ApiModelMapper apiModelMapper;
     private final SecurityExportService securityExportService;
+    private final PiiPciFindingRepository piiPciFindingRepository;
 
     public ProjectSecurityController(
             ProjectSnapshotService projectSnapshotService,
             ApiModelMapper apiModelMapper,
-            SecurityExportService securityExportService) {
+            SecurityExportService securityExportService,
+            PiiPciFindingRepository piiPciFindingRepository) {
         this.projectSnapshotService = projectSnapshotService;
         this.apiModelMapper = apiModelMapper;
         this.securityExportService = securityExportService;
+        this.piiPciFindingRepository = piiPciFindingRepository;
     }
 
     @Override
@@ -56,6 +63,27 @@ public class ProjectSecurityController implements SecurityApi {
 
     @Override
     public ResponseEntity<ProjectPiiPciResponse> getProjectPiiPciFindings(@PathVariable("projectId") Long projectId) {
+        return buildPiiResponse(projectId);
+    }
+
+    @Override
+    public ResponseEntity<ProjectPiiPciResponse> updatePiiFindingIgnored(
+            Long projectId, Long findingId, UpdatePiiFindingRequest updateRequest) {
+        boolean ignored = updateRequest != null && Boolean.TRUE.equals(updateRequest.getIgnored());
+        return piiPciFindingRepository
+                .findByIdAndProjectId(findingId, projectId)
+                .map(finding -> {
+                    finding.setIgnored(ignored);
+                    piiPciFindingRepository.save(finding);
+                    return buildPiiResponse(projectId);
+                })
+                .orElseGet(() -> {
+                    log.warn("PII/PCI finding {} not found for project {}", findingId, projectId);
+                    return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+                });
+    }
+
+    private ResponseEntity<ProjectPiiPciResponse> buildPiiResponse(Long projectId) {
         log.info("Fetching PCI/PII findings for project id={}", projectId);
         return projectSnapshotService.fetchSnapshot(projectId)
                 .map(snapshot -> apiModelMapper.toPiiPciResponse(projectId, snapshot.piiPciScan()))

@@ -41,10 +41,11 @@ class AnalyzeControllerTest {
         job.setStatusMessage("Queued for analysis");
         job.setCreatedAt(OffsetDateTime.now());
         job.setUpdatedAt(job.getCreatedAt());
-        when(jobService.enqueue(anyString())).thenReturn(job);
+        when(jobService.enqueue(anyString(), anyString())).thenReturn(job);
 
         AnalyzeRequest request = new AnalyzeRequest();
         request.setRepoUrl(URI.create(job.getRepoUrl()));
+        request.setBranchName("main");
 
         ResponseEntity<AnalyzeResponse> response = controller.analyzeRepository(request);
 
@@ -93,7 +94,8 @@ class AnalyzeControllerTest {
     void analyzeReturnsBadRequestWhenEnqueueFailsValidation() {
         AnalyzeRequest request = new AnalyzeRequest();
         request.setRepoUrl(URI.create("https://example.com/repo.git"));
-        when(jobService.enqueue(anyString())).thenThrow(new IllegalArgumentException("bad"));
+        request.setBranchName("main");
+        when(jobService.enqueue(anyString(), anyString())).thenThrow(new IllegalArgumentException("bad"));
 
         ResponseEntity<AnalyzeResponse> response = controller.analyzeRepository(request);
 

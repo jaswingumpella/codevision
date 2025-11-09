@@ -7,6 +7,9 @@ AnalyzeRequest:
       type: string
       format: uri
       description: Git repository URL that should be analyzed.
+    branchName:
+      type: string
+      description: Optional branch reference to analyze; defaults to main when omitted.
 
 AnalyzeResponse:
   type: object
@@ -54,6 +57,16 @@ AnalyzeResponse:
     errorMessage:
       type: string
       description: Failure summary populated when the job ends in FAILED status.
+    branchName:
+      type: string
+      description: Branch that was analyzed.
+    commitHash:
+      type: string
+      description: Commit hash associated with the snapshot, when known.
+    snapshotId:
+      type: integer
+      format: int64
+      description: Identifier of the persisted snapshot once analysis succeeds.
 
 BuildInfo:
   type: object
@@ -578,6 +591,10 @@ PiiPciFinding:
     - matchType
     - severity
   properties:
+    findingId:
+      type: integer
+      format: int64
+      description: Identifier of the persisted finding.
     filePath:
       type: string
       description: File containing the match.
@@ -608,6 +625,108 @@ ProjectPiiPciResponse:
       type: array
       items:
         $ref: '#/PiiPciFinding'
+
+ProjectSnapshotsResponse:
+  type: object
+  properties:
+    projectId:
+      type: integer
+      format: int64
+    snapshots:
+      type: array
+      items:
+        $ref: '#/ProjectSnapshotSummary'
+
+ProjectSnapshotSummary:
+  type: object
+  required:
+    - snapshotId
+    - branchName
+    - createdAt
+  properties:
+    snapshotId:
+      type: integer
+      format: int64
+    branchName:
+      type: string
+    commitHash:
+      type: string
+    createdAt:
+      type: string
+      format: date-time
+
+SnapshotDiff:
+  type: object
+  properties:
+    baseSnapshotId:
+      type: integer
+      format: int64
+    compareSnapshotId:
+      type: integer
+      format: int64
+    baseCommitHash:
+      type: string
+    compareCommitHash:
+      type: string
+    addedClasses:
+      type: array
+      items:
+        $ref: '#/SnapshotClassRef'
+    removedClasses:
+      type: array
+      items:
+        $ref: '#/SnapshotClassRef'
+    addedEndpoints:
+      type: array
+      items:
+        $ref: '#/SnapshotEndpointRef'
+    removedEndpoints:
+      type: array
+      items:
+        $ref: '#/SnapshotEndpointRef'
+    addedEntities:
+      type: array
+      items:
+        $ref: '#/SnapshotDbEntityRef'
+    removedEntities:
+      type: array
+      items:
+        $ref: '#/SnapshotDbEntityRef'
+
+SnapshotClassRef:
+  type: object
+  properties:
+    fullyQualifiedName:
+      type: string
+    stereotype:
+      type: string
+
+SnapshotEndpointRef:
+  type: object
+  properties:
+    protocol:
+      type: string
+    httpMethod:
+      type: string
+    pathOrOperation:
+      type: string
+
+SnapshotDbEntityRef:
+  type: object
+  properties:
+    entityName:
+      type: string
+    tableName:
+      type: string
+
+UpdatePiiFindingRequest:
+  type: object
+  required:
+    - ignored
+  properties:
+    ignored:
+      type: boolean
+      description: Indicates whether the finding should be suppressed in future responses.
 
 DiagramDescriptor:
   type: object

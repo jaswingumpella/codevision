@@ -3,84 +3,54 @@ package com.codevision.codevisionbackend.project;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.OneToOne;
-import jakarta.persistence.PostLoad;
-import jakarta.persistence.PostPersist;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import jakarta.persistence.Transient;
 import java.time.OffsetDateTime;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.springframework.data.domain.Persistable;
 
 @Entity
 @Table(name = "project_snapshot")
 @Getter
+@Setter
 @NoArgsConstructor
-public class ProjectSnapshot implements Persistable<Long> {
+public class ProjectSnapshot {
 
     @Id
-    @Column(name = "project_id")
-    private Long projectId;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id")
+    private Long id;
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "project_id", insertable = false, updatable = false)
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "project_id", nullable = false)
     private Project project;
 
-    @Setter
+    @Column(name = "project_id", nullable = false, insertable = false, updatable = false)
+    private Long projectId;
+
     @Column(name = "project_name", nullable = false)
     private String projectName;
 
-    @Setter
     @Column(name = "repo_url", nullable = false)
     private String repoUrl;
 
-    @Setter
+    @Column(name = "branch_name", nullable = false)
+    private String branchName;
+
+    @Column(name = "commit_hash")
+    private String commitHash;
+
+    @Column(name = "module_fingerprints_json", columnDefinition = "text")
+    private String moduleFingerprintsJson;
+
     @Column(name = "snapshot_json", nullable = false, columnDefinition = "text")
     private String snapshotJson;
 
-    @Setter
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
-
-    @Transient
-    private boolean newSnapshot = true;
-
-    public ProjectSnapshot(Project project, String snapshotJson, OffsetDateTime createdAt) {
-        setProject(project);
-        this.snapshotJson = snapshotJson;
-        this.createdAt = createdAt;
-    }
-
-    public void setProject(Project project) {
-        if (project == null) {
-            this.project = null;
-            this.projectId = null;
-            return;
-        }
-        if (project.getId() == null) {
-            throw new IllegalArgumentException("Project must have an identifier before attaching to snapshot");
-        }
-        this.project = project;
-        this.projectId = project.getId();
-    }
-
-    @Override
-    public Long getId() {
-        return projectId;
-    }
-
-    @Override
-    public boolean isNew() {
-        return newSnapshot;
-    }
-
-    @PostLoad
-    @PostPersist
-    void markNotNew() {
-        this.newSnapshot = false;
-    }
 }

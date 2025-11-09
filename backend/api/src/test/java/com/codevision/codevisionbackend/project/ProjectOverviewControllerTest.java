@@ -11,6 +11,7 @@ import com.codevision.codevisionbackend.analyze.MetadataDump;
 import com.codevision.codevisionbackend.analyze.ParsedDataResponse;
 import com.codevision.codevisionbackend.api.ApiModelMapper;
 import com.codevision.codevisionbackend.analyze.BuildInfo;
+import com.codevision.codevisionbackend.project.ProjectSnapshot;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -139,7 +140,7 @@ class ProjectOverviewControllerTest {
         private Optional<ParsedDataResponse> snapshot = Optional.empty();
 
         StubProjectSnapshotService() {
-            super(null, null, null, null, new ObjectMapper());
+            super(null, null, null, null, null, new ObjectMapper());
         }
 
         void setSnapshot(Optional<ParsedDataResponse> snapshot) {
@@ -152,8 +153,9 @@ class ProjectOverviewControllerTest {
         }
 
         @Override
-        public void saveSnapshot(Project project, ParsedDataResponse parsedData) {
+        public ProjectSnapshot saveSnapshot(Project project, ParsedDataResponse parsedData, SnapshotMetadata metadata) {
             this.snapshot = Optional.of(parsedData);
+            return null;
         }
     }
 

@@ -36,7 +36,9 @@ import com.codevision.codevisionbackend.git.GitCloneService.CloneResult;
 import com.codevision.codevisionbackend.git.GitCloneService;
 import com.codevision.codevisionbackend.project.Project;
 import com.codevision.codevisionbackend.project.ProjectService;
+import com.codevision.codevisionbackend.project.ProjectSnapshot;
 import com.codevision.codevisionbackend.project.ProjectSnapshotService;
+import com.codevision.codevisionbackend.project.ProjectSnapshotService.SnapshotMetadata;
 import com.codevision.codevisionbackend.project.api.ApiEndpointRepository;
 import com.codevision.codevisionbackend.project.asset.AssetImageRepository;
 import com.codevision.codevisionbackend.project.db.DaoOperation;
@@ -135,7 +137,7 @@ class AnalysisServiceTest {
     void analyzePersistsMetadataAndCleansUp(@TempDir Path repoDir) throws Exception {
         Files.createDirectories(repoDir);
 
-        CloneResult cloneResult = new CloneResult("demo-app", repoDir);
+        CloneResult cloneResult = new CloneResult("demo-app", repoDir, "main", "commit-123");
         StubGitCloneService stubGitCloneService = new StubGitCloneService(cloneResult);
         analysisService = new AnalysisService(
                 stubGitCloneService,
@@ -165,11 +167,11 @@ class AnalysisServiceTest {
         BuildInfo buildInfo = new BuildInfo("com.barclays", "demo-app", "1.0.0", "21");
         BuildMetadata metadata = new BuildMetadata(buildInfo, List.of(repoDir));
 
-        Project project = new Project("https://example.com/repo.git", "demo-app", OffsetDateTime.now());
+        Project project = new Project("https://example.com/repo.git", "demo-app", "main", OffsetDateTime.now());
         project.setId(101L);
 
         when(buildMetadataExtractor.extract(repoDir)).thenReturn(metadata);
-        when(projectService.findByRepoUrl("https://example.com/repo.git")).thenReturn(Optional.empty());
+        when(projectSnapshotService.findLatestSnapshotEntity(101L)).thenReturn(Optional.empty());
 
         List<ClassMetadataRecord> classRecords = List.of(new ClassMetadataRecord(
                 "com.barclays.demo.Controller",
@@ -181,14 +183,15 @@ class AnalysisServiceTest {
                 SourceSet.MAIN,
                 "src/main/java/com/barclays/demo/Controller.java",
                 true));
-        when(javaSourceScanner.scan(repoDir, metadata.moduleRoots())).thenReturn(classRecords);
+        when(javaSourceScanner.scan(Mockito.eq(repoDir), Mockito.anyList())).thenReturn(classRecords);
 
         MetadataDump metadataDump = new MetadataDump(List.of(), List.of(), List.of(), List.of());
         when(yamlScanner.scan(repoDir)).thenReturn(metadataDump);
 
         List<ApiEndpointRecord> endpointRecords = List.of(new ApiEndpointRecord(
                 "REST", "GET", "/demo", "com.barclays.demo.Controller", "getDemo", List.of()));
-        when(apiScanner.scan(repoDir, metadata.moduleRoots(), metadataDump)).thenReturn(endpointRecords);
+        when(apiScanner.scan(Mockito.eq(repoDir), Mockito.anyList(), Mockito.eq(metadataDump)))
+                .thenReturn(endpointRecords);
 
         List<ImageAssetRecord> imageAssets =
                 List.of(new ImageAssetRecord("diagram.png", "docs/diagram.png", 512L, "abc123"));
@@ -201,7 +204,7 @@ class AnalysisServiceTest {
                 List.of("id"),
                 List.of(),
                 List.of()));
-        when(jpaEntityScanner.scan(repoDir, metadata.moduleRoots())).thenReturn(entityRecords);
+        when(jpaEntityScanner.scan(Mockito.eq(repoDir), Mockito.anyList())).thenReturn(entityRecords);
         when(gherkinScanner.scan(repoDir)).thenReturn(List.of());
 
         DbAnalysisResult daoAnalysisResult = new DbAnalysisResult(
@@ -215,11 +218,12 @@ class AnalysisServiceTest {
                                 "SELECT",
                                 "Customer",
                                 null))));
-        when(daoAnalysisService.analyze(repoDir, metadata.moduleRoots(), entityRecords)).thenReturn(daoAnalysisResult);
+        when(daoAnalysisService.analyze(Mockito.eq(repoDir), Mockito.anyList(), Mockito.eq(entityRecords)))
+                .thenReturn(daoAnalysisResult);
 
         List<PiiPciFindingRecord> piiRecords =
                 List.of(new PiiPciFindingRecord("application.yml", 12, "password: secret", "PII", "MEDIUM", false));
-        when(piiPciInspector.scan(repoDir)).thenReturn(piiRecords);
+        when(piiPciInspector.scan(Mockito.eq(repoDir), Mockito.anyList())).thenReturn(piiRecords);
 
         List<LogStatementRecord> logRecords = List.of(new LogStatementRecord(
                 "com.barclays.demo.Controller",
@@ -230,9 +234,10 @@ class AnalysisServiceTest {
                 List.of("requestId"),
                 false,
                 false));
-        when(loggerScanner.scan(repoDir, metadata.moduleRoots())).thenReturn(logRecords);
+        when(loggerScanner.scan(Mockito.eq(repoDir), Mockito.anyList())).thenReturn(logRecords);
 
-        when(projectService.overwriteProject("https://example.com/repo.git", "demo-app", buildInfo)).thenReturn(project);
+        when(projectService.overwriteProject("https://example.com/repo.git", "main", "demo-app", buildInfo))
+                .thenReturn(project);
 
         DiagramGenerationResult diagramResult = new DiagramGenerationResult(List.of(), Map.of());
         when(diagramBuilderService.generate(
@@ -240,7 +245,13 @@ class AnalysisServiceTest {
                 .thenReturn(diagramResult);
         when(diagramService.replaceProjectDiagrams(project, diagramResult.diagrams())).thenReturn(List.of());
 
-        AnalysisOutcome outcome = analysisService.analyze("https://example.com/repo.git");
+        ProjectSnapshot persistedSnapshot = new ProjectSnapshot();
+        persistedSnapshot.setId(555L);
+        when(projectSnapshotService.saveSnapshot(
+                        Mockito.eq(project), Mockito.any(ParsedDataResponse.class), Mockito.any(SnapshotMetadata.class)))
+                .thenReturn(persistedSnapshot);
+
+        AnalysisOutcome outcome = analysisService.analyze("https://example.com/repo.git", "main");
 
         assertEquals(project, outcome.project());
         ParsedDataResponse parsedData = outcome.parsedData();
@@ -272,10 +283,13 @@ class AnalysisServiceTest {
         verify(piiPciFindingRepository).saveAll(Mockito.anyList());
 
         ArgumentCaptor<ParsedDataResponse> snapshotCaptor = ArgumentCaptor.forClass(ParsedDataResponse.class);
-        verify(projectSnapshotService).saveSnapshot(eq(project), snapshotCaptor.capture());
+        verify(projectSnapshotService)
+                .saveSnapshot(eq(project), snapshotCaptor.capture(), Mockito.any(SnapshotMetadata.class));
         ParsedDataResponse savedSnapshot = snapshotCaptor.getValue();
         assertEquals(project.getRepoUrl(), savedSnapshot.repoUrl());
         assertNotNull(savedSnapshot.analyzedAt());
+        assertEquals(555L, outcome.snapshotId());
+        assertNotNull(outcome.commitHash());
 
         assertTrue(stubGitCloneService.wasCleanupCalled());
     }
@@ -291,7 +305,7 @@ class AnalysisServiceTest {
         }
 
         @Override
-        public CloneResult cloneRepository(String repoUrl) {
+        public CloneResult cloneRepository(String repoUrl, String branchName) {
             return cloneResult;
         }
 

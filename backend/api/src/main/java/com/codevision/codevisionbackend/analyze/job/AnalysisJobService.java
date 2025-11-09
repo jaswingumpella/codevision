@@ -1,5 +1,7 @@
 package com.codevision.codevisionbackend.analyze.job;
 
+import static com.codevision.codevisionbackend.git.BranchUtils.normalize;
+
 import com.codevision.codevisionbackend.analyze.AnalysisOutcome;
 import com.codevision.codevisionbackend.analyze.AnalysisService;
 import com.codevision.codevisionbackend.project.Project;
@@ -31,21 +33,23 @@ public class AnalysisJobService {
         this.analysisJobExecutor = analysisJobExecutor;
     }
 
-    public AnalysisJob enqueue(String repoUrl) {
+    public AnalysisJob enqueue(String repoUrl, String branchName) {
         if (repoUrl == null || repoUrl.isBlank()) {
             throw new IllegalArgumentException("Repository URL must be provided");
         }
         String normalizedRepoUrl = repoUrl.trim();
+        String normalizedBranch = normalize(branchName);
         OffsetDateTime now = OffsetDateTime.now();
         AnalysisJob job = new AnalysisJob();
         job.setRepoUrl(normalizedRepoUrl);
+        job.setBranchName(normalizedBranch);
         job.setStatus(AnalysisJobStatus.QUEUED);
         job.setStatusMessage("Queued for analysis");
         job.setCreatedAt(now);
         job.setUpdatedAt(now);
         AnalysisJob persisted = jobRepository.save(job);
         try {
-            analysisJobExecutor.execute(() -> processJob(persisted.getId(), normalizedRepoUrl));
+            analysisJobExecutor.execute(() -> processJob(persisted.getId(), normalizedRepoUrl, normalizedBranch));
         } catch (RejectedExecutionException rex) {
             log.error("Unable to enqueue analysis job {}", persisted.getId(), rex);
             markFailed(persisted.getId(), "Worker queue is full", rex);
@@ -58,8 +62,8 @@ public class AnalysisJobService {
         return jobRepository.findById(jobId);
     }
 
-    private void processJob(UUID jobId, String repoUrl) {
-        log.info("Starting analysis job {} for {}", jobId, repoUrl);
+    private void processJob(UUID jobId, String repoUrl, String branchName) {
+        log.info("Starting analysis job {} for {} ({})", jobId, repoUrl, branchName);
         updateJob(jobId, job -> {
             OffsetDateTime now = OffsetDateTime.now();
             job.setStatus(AnalysisJobStatus.RUNNING);
@@ -69,7 +73,7 @@ public class AnalysisJobService {
             job.setErrorMessage(null);
         });
         try {
-            AnalysisOutcome outcome = analysisService.analyze(repoUrl);
+            AnalysisOutcome outcome = analysisService.analyze(repoUrl, branchName);
             Project project = outcome.project();
             Long projectId = project != null ? project.getId() : null;
             updateJob(jobId, job -> {
@@ -78,10 +82,18 @@ public class AnalysisJobService {
                 job.setCompletedAt(finished);
                 job.setUpdatedAt(finished);
                 job.setProjectId(projectId);
+                job.setCommitHash(outcome.commitHash());
+                job.setSnapshotId(outcome.snapshotId());
                 job.setStatusMessage("Snapshot saved");
                 job.setErrorMessage(null);
             });
-            log.info("Analysis job {} succeeded for repo {} -> project {}", jobId, repoUrl, projectId);
+            log.info(
+                    "Analysis job {} succeeded for repo {} ({}) -> project {} snapshot {}",
+                    jobId,
+                    repoUrl,
+                    branchName,
+                    projectId,
+                    outcome.snapshotId());
         } catch (Exception ex) {
             log.error("Analysis job {} failed for repo {}", jobId, repoUrl, ex);
             markFailed(jobId, "Analysis failed", ex);

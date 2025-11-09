@@ -31,11 +31,12 @@ public class AnalyzeController implements AnalysisApi {
     @Override
     public ResponseEntity<AnalyzeResponse> analyzeRepository(@Valid @RequestBody AnalyzeRequest analyzeRequest) {
         String repoUrl = analyzeRequest.getRepoUrl() != null ? analyzeRequest.getRepoUrl().toString() : "n/a";
-        log.info("Received analyze request for {}", repoUrl);
+        String branchName = analyzeRequest.getBranchName();
+        log.info("Received analyze request for {} (branch={})", repoUrl, branchName);
         try {
-            AnalysisJob job = analysisJobService.enqueue(repoUrl);
+            AnalysisJob job = analysisJobService.enqueue(repoUrl, branchName);
             AnalyzeResponse response = apiModelMapper.toAnalyzeResponse(job);
-            log.info("Enqueued analysis job {} for {}", job.getId(), repoUrl);
+            log.info("Enqueued analysis job {} for {} ({})", job.getId(), repoUrl, branchName);
             return ResponseEntity.accepted().body(response);
         } catch (IllegalArgumentException ex) {
             log.warn("Rejecting analysis request for {}: {}", repoUrl, ex.getMessage());

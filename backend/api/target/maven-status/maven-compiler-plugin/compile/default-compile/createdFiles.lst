@@ -1,3 +1,4 @@
+com/codevision/codevisionbackend/project/ProjectSnapshotService$2.class
 com/codevision/codevisionbackend/project/security/SecurityExportService.class
 com/codevision/codevisionbackend/analyze/scanner/LogStatementRecord.class
 com/codevision/codevisionbackend/analyze/scanner/JavaSourceScanner.class
@@ -11,6 +12,7 @@ com/codevision/codevisionbackend/analyze/scanner/WsdlInspector$BindingDescriptor
 com/codevision/codevisionbackend/analyze/scanner/PiiPciInspector$RiskAssessment.class
 com/codevision/codevisionbackend/analyze/LoggerInsightSummary.class
 com/codevision/codevisionbackend/analyze/diagram/DiagramBuilderService$MethodPointer.class
+com/codevision/codevisionbackend/project/SnapshotDiff$EndpointRef.class
 com/codevision/codevisionbackend/analyze/diagram/DiagramDefinition.class
 com/codevision/codevisionbackend/analyze/GherkinScenarioSummary.class
 com/codevision/codevisionbackend/analyze/scanner/ApiScanner.class
@@ -31,8 +33,10 @@ com/codevision/codevisionbackend/analyze/scanner/ClassMetadataRecord$SourceSet.c
 com/codevision/codevisionbackend/analyze/GherkinFeatureSummary.class
 com/codevision/codevisionbackend/config/AnalysisJobExecutorProperties.class
 com/codevision/codevisionbackend/project/ProjectSnapshot.class
+com/codevision/codevisionbackend/project/SnapshotDiff.class
 com/codevision/codevisionbackend/analyze/scanner/ClassMetadataRecord.class
 com/codevision/codevisionbackend/analyze/scanner/DbEntityRecord.class
+com/codevision/codevisionbackend/analyze/AnalysisService$ReusedData.class
 com/codevision/codevisionbackend/analyze/job/AnalysisJobService.class
 com/codevision/codevisionbackend/analyze/scanner/JpaEntityScanner.class
 com/codevision/codevisionbackend/analyze/scanner/DbEntityRecord$EntityRelationship.class
@@ -51,6 +55,7 @@ com/codevision/codevisionbackend/project/ProjectOverviewController.class
 com/codevision/codevisionbackend/analyze/AnalysisOutcome.class
 com/codevision/codevisionbackend/project/api/ApiEndpointRepository.class
 com/codevision/codevisionbackend/analyze/scanner/DbAnalysisResult.class
+com/codevision/codevisionbackend/analyze/AnalysisService$ModuleIndex.class
 com/codevision/codevisionbackend/project/diagram/DiagramSvgRenderer.class
 com/codevision/codevisionbackend/analyze/DbAnalysisSummary$DbEntitySummary$FieldSummary.class
 com/codevision/codevisionbackend/project/ProjectSnapshotRepository.class
@@ -74,11 +79,14 @@ com/codevision/codevisionbackend/analyze/DbAnalysisSummary.class
 com/codevision/codevisionbackend/project/ProjectService.class
 com/codevision/codevisionbackend/analyze/scanner/ApiEndpointRecord.class
 com/codevision/codevisionbackend/project/ProjectSnapshotService.class
+com/codevision/codevisionbackend/project/SnapshotDiff$ClassRef.class
 com/codevision/codevisionbackend/project/logger/LogStatementRepository.class
 com/codevision/codevisionbackend/analyze/scanner/GherkinScanner$ScenarioBuilder.class
+com/codevision/codevisionbackend/git/BranchUtils.class
 com/codevision/codevisionbackend/analyze/scanner/PiiPciInspector.class
 com/codevision/codevisionbackend/analyze/diagram/DiagramBuilderService.class
 com/codevision/codevisionbackend/project/db/DaoOperationRepository.class
+com/codevision/codevisionbackend/project/SnapshotDiff$DbEntityRef.class
 com/codevision/codevisionbackend/project/diagram/DiagramRepository.class
 com/codevision/codevisionbackend/analyze/diagram/CallGraph.class
 com/codevision/codevisionbackend/project/ProjectRepository.class
@@ -88,6 +96,8 @@ com/codevision/codevisionbackend/config/SecurityScanProperties.class
 com/codevision/codevisionbackend/project/asset/AssetImageRepository.class
 com/codevision/codevisionbackend/project/diagram/Diagram.class
 com/codevision/codevisionbackend/analyze/AssetInventory.class
+com/codevision/codevisionbackend/project/ProjectSnapshotService$ProjectSnapshotSummary.class
+com/codevision/codevisionbackend/project/ProjectSnapshotService$SnapshotMetadata.class
 com/codevision/codevisionbackend/analyze/scanner/DbEntityRecord$EntityField.class
 com/codevision/codevisionbackend/git/GitCloneService$CloneResult.class
 com/codevision/codevisionbackend/project/ProjectMetadataController.class
@@ -101,6 +111,7 @@ com/codevision/codevisionbackend/analyze/DbAnalysisSummary$DaoOperationDetails.c
 com/codevision/codevisionbackend/analyze/DbAnalysisSummary$DbEntitySummary$RelationshipSummary.class
 com/codevision/codevisionbackend/analyze/MetadataDump$OpenApiSpec.class
 com/codevision/codevisionbackend/analyze/scanner/BuildMetadataExtractor$BuildMetadata.class
+com/codevision/codevisionbackend/analyze/AnalysisService$ModuleDescriptor.class
 com/codevision/codevisionbackend/analyze/PiiPciFindingSummary.class
 com/codevision/codevisionbackend/analyze/scanner/YamlScanner$1.class
 com/codevision/codevisionbackend/analyze/job/AnalysisJobRepository.class
@@ -109,6 +120,7 @@ com/codevision/codevisionbackend/analyze/diagram/CallGraphBuilder.class
 com/codevision/codevisionbackend/analyze/AnalyzeController.class
 com/codevision/codevisionbackend/analyze/diagram/DiagramBuilderService$SequenceDiagramSources.class
 com/codevision/codevisionbackend/project/diagram/DiagramType.class
+com/codevision/codevisionbackend/project/ProjectSnapshotController.class
 com/codevision/codevisionbackend/project/db/DbEntityRepository.class
 com/codevision/codevisionbackend/analyze/scanner/DaoAnalysisServiceImpl.class
 com/codevision/codevisionbackend/analyze/ClassMetadataSummary.class

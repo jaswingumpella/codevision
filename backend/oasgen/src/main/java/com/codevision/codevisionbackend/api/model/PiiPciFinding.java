@@ -18,8 +18,10 @@ import jakarta.annotation.Generated;
  * PiiPciFinding
  */
 
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2025-11-09T02:46:14.127269-05:00[America/New_York]", comments = "Generator version: 7.5.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2025-11-09T15:05:41.709386-05:00[America/New_York]", comments = "Generator version: 7.5.0")
 public class PiiPciFinding {
+
+  private Long findingId;
 
   private String filePath;
 
@@ -44,6 +46,26 @@ public class PiiPciFinding {
     this.filePath = filePath;
     this.matchType = matchType;
     this.severity = severity;
+  }
+
+  public PiiPciFinding findingId(Long findingId) {
+    this.findingId = findingId;
+    return this;
+  }
+
+  /**
+   * Identifier of the persisted finding.
+   * @return findingId
+  */
+  
+  @Schema(name = "findingId", description = "Identifier of the persisted finding.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @JsonProperty("findingId")
+  public Long getFindingId() {
+    return findingId;
+  }
+
+  public void setFindingId(Long findingId) {
+    this.findingId = findingId;
   }
 
   public PiiPciFinding filePath(String filePath) {
@@ -175,7 +197,8 @@ public class PiiPciFinding {
       return false;
     }
     PiiPciFinding piiPciFinding = (PiiPciFinding) o;
-    return Objects.equals(this.filePath, piiPciFinding.filePath) &&
+    return Objects.equals(this.findingId, piiPciFinding.findingId) &&
+        Objects.equals(this.filePath, piiPciFinding.filePath) &&
         Objects.equals(this.lineNumber, piiPciFinding.lineNumber) &&
         Objects.equals(this.snippet, piiPciFinding.snippet) &&
         Objects.equals(this.matchType, piiPciFinding.matchType) &&
@@ -185,13 +208,14 @@ public class PiiPciFinding {
 
   @Override
   public int hashCode() {
-    return Objects.hash(filePath, lineNumber, snippet, matchType, severity, ignored);
+    return Objects.hash(findingId, filePath, lineNumber, snippet, matchType, severity, ignored);
   }
 
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
     sb.append("class PiiPciFinding {\n");
+    sb.append("    findingId: ").append(toIndentedString(findingId)).append("\n");
     sb.append("    filePath: ").append(toIndentedString(filePath)).append("\n");
     sb.append("    lineNumber: ").append(toIndentedString(lineNumber)).append("\n");
     sb.append("    snippet: ").append(toIndentedString(snippet)).append("\n");

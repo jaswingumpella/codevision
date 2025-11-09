@@ -21,7 +21,7 @@ const ExportPanel = ({ projectId, onDownloadHtml, onDownloadSnapshot, htmlPrevie
       {loading ? (
         <p className="overview-hint">Loading export preview…</p>
       ) : htmlPreview ? (
-        <iframe title="Confluence Export Preview" srcDoc={htmlPreview} />
+        <iframe title="Confluence Export Preview" srcDoc={htmlPreview} loading="lazy" />
       ) : (
         <p className="overview-hint">Run an analysis and refresh to view the Confluence-ready HTML.</p>
       )}

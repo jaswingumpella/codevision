@@ -1,6 +1,8 @@
 package com.codevision.codevisionbackend.project;
 
 import com.codevision.codevisionbackend.analyze.BuildInfo;
+import static com.codevision.codevisionbackend.git.BranchUtils.normalize;
+
 import java.time.OffsetDateTime;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
@@ -16,9 +18,13 @@ public class ProjectService {
     }
 
     @Transactional
-    public Project overwriteProject(String repoUrl, String projectName, BuildInfo buildInfo) {
-        Project project = projectRepository.findByRepoUrl(repoUrl).orElseGet(Project::new);
+    public Project overwriteProject(String repoUrl, String branchName, String projectName, BuildInfo buildInfo) {
+        String normalizedBranch = normalize(branchName);
+        Project project = projectRepository
+                .findByRepoUrlAndBranchName(repoUrl, normalizedBranch)
+                .orElseGet(Project::new);
         project.setRepoUrl(repoUrl);
+        project.setBranchName(normalizedBranch);
         project.setProjectName(projectName);
         project.setLastAnalyzedAt(OffsetDateTime.now());
         applyBuildInfo(project, buildInfo);
@@ -26,8 +32,8 @@ public class ProjectService {
     }
 
     @Transactional(readOnly = true)
-    public Optional<Project> findByRepoUrl(String repoUrl) {
-        return projectRepository.findByRepoUrl(repoUrl);
+    public Optional<Project> findByRepoUrlAndBranch(String repoUrl, String branchName) {
+        return projectRepository.findByRepoUrlAndBranchName(repoUrl, normalize(branchName));
     }
 
     @Transactional(readOnly = true)
@@ -54,4 +60,5 @@ public class ProjectService {
         project.setBuildVersion(buildInfo.version());
         project.setBuildJavaVersion(buildInfo.javaVersion());
     }
+
 }

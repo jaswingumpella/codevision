@@ -1,14 +1,17 @@
 package com.codevision.codevisionbackend.analyze;
 
+import static com.codevision.codevisionbackend.git.BranchUtils.normalize;
+
+import com.codevision.codevisionbackend.analyze.GherkinFeatureSummary;
 import com.codevision.codevisionbackend.analyze.diagram.DiagramBuilderService;
 import com.codevision.codevisionbackend.analyze.diagram.DiagramGenerationResult;
-import com.codevision.codevisionbackend.analyze.GherkinFeatureSummary;
 import com.codevision.codevisionbackend.analyze.scanner.ApiEndpointRecord;
 import com.codevision.codevisionbackend.analyze.scanner.ApiScanner;
 import com.codevision.codevisionbackend.analyze.scanner.AssetScanner;
 import com.codevision.codevisionbackend.analyze.scanner.BuildMetadataExtractor;
 import com.codevision.codevisionbackend.analyze.scanner.BuildMetadataExtractor.BuildMetadata;
 import com.codevision.codevisionbackend.analyze.scanner.ClassMetadataRecord;
+import com.codevision.codevisionbackend.analyze.scanner.ClassMetadataRecord.SourceSet;
 import com.codevision.codevisionbackend.analyze.scanner.DaoAnalysisService;
 import com.codevision.codevisionbackend.analyze.scanner.DaoOperationRecord;
 import com.codevision.codevisionbackend.analyze.scanner.DbEntityRecord;
@@ -25,7 +28,9 @@ import com.codevision.codevisionbackend.analyze.scanner.DbAnalysisResult;
 import com.codevision.codevisionbackend.git.GitCloneService;
 import com.codevision.codevisionbackend.project.Project;
 import com.codevision.codevisionbackend.project.ProjectService;
+import com.codevision.codevisionbackend.project.ProjectSnapshot;
 import com.codevision.codevisionbackend.project.ProjectSnapshotService;
+import com.codevision.codevisionbackend.project.ProjectSnapshotService.SnapshotMetadata;
 import com.codevision.codevisionbackend.project.api.ApiEndpoint;
 import com.codevision.codevisionbackend.project.api.ApiEndpointRepository;
 import com.codevision.codevisionbackend.project.asset.AssetImage;
@@ -44,10 +49,26 @@ import com.codevision.codevisionbackend.project.diagram.Diagram;
 import com.codevision.codevisionbackend.project.diagram.DiagramService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
+import org.eclipse.jgit.api.Git;
+import org.eclipse.jgit.lib.Constants;
+import org.eclipse.jgit.lib.ObjectId;
+import org.eclipse.jgit.revwalk.RevCommit;
+import org.eclipse.jgit.revwalk.RevTree;
+import org.eclipse.jgit.revwalk.RevWalk;
+import org.eclipse.jgit.treewalk.TreeWalk;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -57,6 +78,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class AnalysisService {
 
     private static final Logger log = LoggerFactory.getLogger(AnalysisService.class);
+    private static final String ROOT_MODULE_KEY = "/";
 
     private final GitCloneService gitCloneService;
     private final BuildMetadataExtractor buildMetadataExtractor;
@@ -132,66 +154,94 @@ public class AnalysisService {
     }
 
     @Transactional
-    public AnalysisOutcome analyze(String repoUrl) {
-        log.info("Starting analysis for {}", repoUrl);
-        purgeExistingData(repoUrl);
-        GitCloneService.CloneResult cloneResult = gitCloneService.cloneRepository(repoUrl);
+    public AnalysisOutcome analyze(String repoUrl, String branchName) {
+        String normalizedBranch = normalize(branchName);
+        log.info("Starting analysis for {} (branch={})", repoUrl, normalizedBranch);
+        GitCloneService.CloneResult cloneResult = gitCloneService.cloneRepository(repoUrl, normalizedBranch);
         try {
             log.debug("Repository {} cloned to {}", repoUrl, cloneResult.directory());
             BuildMetadata buildMetadata = buildMetadataExtractor.extract(cloneResult.directory());
-            log.info(
-                    "Extracted build metadata for {} (groupId={}, artifactId={}, version={})",
-                    repoUrl,
-                    buildMetadata.buildInfo().groupId(),
-                    buildMetadata.buildInfo().artifactId(),
-                    buildMetadata.buildInfo().version());
-            Project persistedProject =
-                    projectService.overwriteProject(repoUrl, cloneResult.projectName(), buildMetadata.buildInfo());
-            if (persistedProject.getId() == null) {
-                persistedProject = projectService
-                        .findByRepoUrl(repoUrl)
-                        .orElseThrow(() -> new IllegalStateException("Project missing after save for repo: " + repoUrl));
+            List<ModuleDescriptor> moduleDescriptors = describeModules(cloneResult.directory(), buildMetadata.moduleRoots());
+            Map<String, String> moduleFingerprints =
+                    computeModuleFingerprints(cloneResult.directory(), moduleDescriptors, cloneResult.commitHash());
+            Project persistedProject = projectService.overwriteProject(
+                    repoUrl, cloneResult.branchName(), cloneResult.projectName(), buildMetadata.buildInfo());
+
+            ParsedDataResponse previousSnapshotData = null;
+            Map<String, String> previousFingerprints = Map.of();
+            Long previousSnapshotId = null;
+            Optional<ProjectSnapshot> previousSnapshot =
+                    persistedProject.getId() == null
+                            ? Optional.empty()
+                            : projectSnapshotService.findLatestSnapshotEntity(persistedProject.getId());
+            if (previousSnapshot.isPresent()) {
+                previousSnapshotData = projectSnapshotService.hydrateSnapshot(previousSnapshot.get());
+                previousFingerprints = projectSnapshotService.readModuleFingerprints(previousSnapshot.get());
+                previousSnapshotId = previousSnapshot.get().getId();
+                if (cloneResult.commitHash() != null
+                        && cloneResult.commitHash().equals(previousSnapshot.get().getCommitHash())
+                        && previousSnapshotData != null) {
+                    log.info(
+                            "Reusing snapshot {} for {} ({}) because commit {} is unchanged",
+                            previousSnapshotId,
+                            repoUrl,
+                            cloneResult.branchName(),
+                            cloneResult.commitHash());
+                    return new AnalysisOutcome(
+                            persistedProject,
+                            previousSnapshotData,
+                            cloneResult.branchName(),
+                            cloneResult.commitHash(),
+                            previousSnapshotId,
+                            true);
+                }
             }
-            List<ClassMetadataRecord> classRecords =
-                    javaSourceScanner.scan(cloneResult.directory(), buildMetadata.moduleRoots());
-            log.info("Discovered {} class metadata records for {}", classRecords.size(), repoUrl);
+
+            Set<String> changedModules = determineChangedModules(previousFingerprints, moduleFingerprints);
+            ModuleIndex moduleIndex = new ModuleIndex(moduleDescriptors);
+            List<Path> modulesToScan = selectModulesToScan(moduleDescriptors, changedModules);
+            boolean scanAllModules = modulesToScan.isEmpty();
+            boolean hasSubModules = moduleDescriptors.stream().anyMatch(descriptor -> descriptor.depth() > 0);
+            List<Path> effectiveModuleRoots = scanAllModules
+                    ? moduleDescriptors.stream()
+                            .filter(descriptor -> !hasSubModules || descriptor.depth() > 0)
+                            .map(ModuleDescriptor::absolutePath)
+                            .toList()
+                    : modulesToScan;
+            List<Path> piiScanRoots = scanAllModules ? List.of(cloneResult.directory()) : modulesToScan;
+            ReusedData reusedData =
+                    reusePreviousData(previousSnapshotData, moduleDescriptors, moduleIndex, changedModules);
+
+            List<ClassMetadataRecord> newClassRecords =
+                    javaSourceScanner.scan(cloneResult.directory(), effectiveModuleRoots);
+            List<ClassMetadataRecord> classRecords = mergeLists(reusedData.classMetadata(), newClassRecords);
             replaceClassMetadata(persistedProject, classRecords);
+
             List<DbEntityRecord> entityRecords =
-                    jpaEntityScanner.scan(cloneResult.directory(), buildMetadata.moduleRoots());
+                    jpaEntityScanner.scan(cloneResult.directory(), effectiveModuleRoots);
             DbAnalysisResult dbAnalysisResult =
-                    daoAnalysisService.analyze(cloneResult.directory(), buildMetadata.moduleRoots(), entityRecords);
-            log.info(
-                    "Discovered {} JPA entities and {} repository operations for {}",
-                    dbAnalysisResult.entities().size(),
-                    dbAnalysisResult.operationsByClass().values().stream()
-                            .mapToInt(list -> list == null ? 0 : list.size())
-                            .sum(),
-                    repoUrl);
+                    daoAnalysisService.analyze(cloneResult.directory(), effectiveModuleRoots, entityRecords);
             replaceDbEntities(persistedProject, dbAnalysisResult.entities());
             replaceDaoOperations(persistedProject, dbAnalysisResult.operationsByClass());
+
             MetadataDump metadataDump = yamlScanner.scan(cloneResult.directory());
-            log.debug(
-                    "Collected {} metadata artifacts for {}",
-                    (metadataDump.openApiSpecs() != null ? metadataDump.openApiSpecs().size() : 0)
-                            + (metadataDump.wsdlDocuments() != null ? metadataDump.wsdlDocuments().size() : 0)
-                            + (metadataDump.xsdDocuments() != null ? metadataDump.xsdDocuments().size() : 0),
-                    repoUrl);
             List<ApiEndpointRecord> apiEndpoints =
-                    apiScanner.scan(cloneResult.directory(), buildMetadata.moduleRoots(), metadataDump);
-            log.info("Discovered {} API endpoints for {}", apiEndpoints.size(), repoUrl);
+                    apiScanner.scan(cloneResult.directory(), effectiveModuleRoots, metadataDump);
             replaceApiEndpoints(persistedProject, apiEndpoints);
+
             List<ImageAssetRecord> imageAssets = assetScanner.scan(cloneResult.directory());
-            log.info("Discovered {} image assets for {}", imageAssets.size(), repoUrl);
             replaceAssetImages(persistedProject, imageAssets);
-            List<PiiPciFindingRecord> piiFindings = piiPciInspector.scan(cloneResult.directory());
-            log.info("Identified {} PII/PCI findings for {}", piiFindings.size(), repoUrl);
+
+            List<PiiPciFindingRecord> newFindings = piiPciInspector.scan(cloneResult.directory(), piiScanRoots);
+            List<PiiPciFindingRecord> piiFindings = mergeLists(reusedData.piiFindings(), newFindings);
             replacePiiPciFindings(persistedProject, piiFindings);
-            List<LogStatementRecord> logStatements =
-                    loggerScanner.scan(cloneResult.directory(), buildMetadata.moduleRoots());
-            log.info("Captured {} log statements for {}", logStatements.size(), repoUrl);
+
+            List<LogStatementRecord> newLogStatements =
+                    loggerScanner.scan(cloneResult.directory(), effectiveModuleRoots);
+            List<LogStatementRecord> logStatements = mergeLists(reusedData.logStatements(), newLogStatements);
             replaceLogStatements(persistedProject, logStatements);
+
             List<GherkinFeatureSummary> gherkinFeatures = gherkinScanner.scan(cloneResult.directory());
-            log.info("Discovered {} Gherkin feature files for {}", gherkinFeatures.size(), repoUrl);
             DbAnalysisSummary dbAnalysisSummary = toDbAnalysisSummary(dbAnalysisResult);
             DiagramGenerationResult diagramGeneration =
                     diagramBuilderService.generate(
@@ -202,6 +252,7 @@ public class AnalysisService {
                     .map(diagramService::toSummary)
                     .filter(Objects::nonNull)
                     .collect(Collectors.toList());
+
             ParsedDataResponse parsedData =
                     assembleParsedData(
                             persistedProject,
@@ -216,10 +267,23 @@ public class AnalysisService {
                             gherkinFeatures,
                             diagramGeneration.callFlows(),
                             diagramSummaries);
-            projectSnapshotService.saveSnapshot(persistedProject, parsedData);
+            ProjectSnapshot snapshot = projectSnapshotService.saveSnapshot(
+                    persistedProject,
+                    parsedData,
+                    new SnapshotMetadata(cloneResult.branchName(), cloneResult.commitHash(), moduleFingerprints));
             log.info(
-                    "Completed analysis for {} with projectId={}", repoUrl, persistedProject.getId());
-            return new AnalysisOutcome(persistedProject, parsedData);
+                    "Completed analysis for {} ({}) with projectId={} snapshotId={}",
+                    repoUrl,
+                    cloneResult.branchName(),
+                    persistedProject.getId(),
+                    snapshot.getId());
+            return new AnalysisOutcome(
+                    persistedProject,
+                    parsedData,
+                    cloneResult.branchName(),
+                    cloneResult.commitHash(),
+                    snapshot.getId(),
+                    false);
         } finally {
             cleanupClone(cloneResult);
         }
@@ -405,6 +469,7 @@ public class AnalysisService {
 
         List<PiiPciFindingSummary> piiSummaries = piiFindings.stream()
                 .map(record -> new PiiPciFindingSummary(
+                        null,
                         record.filePath(),
                         record.lineNumber(),
                         record.snippet(),
@@ -547,19 +612,238 @@ public class AnalysisService {
         }
     }
 
-    private void purgeExistingData(String repoUrl) {
-        projectService.findByRepoUrl(repoUrl).ifPresent(existing -> {
-            log.info("Purging existing project data for repo {} (projectId={})", repoUrl, existing.getId());
-            projectSnapshotService.deleteSnapshot(existing);
-            classMetadataRepository.deleteByProject(existing);
-            apiEndpointRepository.deleteByProject(existing);
-            assetImageRepository.deleteByProject(existing);
-            dbEntityRepository.deleteByProject(existing);
-            daoOperationRepository.deleteByProject(existing);
-            logStatementRepository.deleteByProject(existing);
-            piiPciFindingRepository.deleteByProject(existing);
-            diagramService.purgeProjectDiagrams(existing);
-            projectService.delete(existing);
-        });
+    private List<ModuleDescriptor> describeModules(Path repoRoot, List<Path> moduleRoots) {
+        Path normalizedRoot = repoRoot.toAbsolutePath().normalize();
+        Map<String, ModuleDescriptor> descriptors = new LinkedHashMap<>();
+        descriptors.put(ROOT_MODULE_KEY, new ModuleDescriptor(ROOT_MODULE_KEY, normalizedRoot, Path.of(""), 0));
+        for (Path moduleRoot : moduleRoots) {
+            if (moduleRoot == null) {
+                continue;
+            }
+            Path normalizedModule = moduleRoot.toAbsolutePath().normalize();
+            if (!Files.isDirectory(normalizedModule)) {
+                continue;
+            }
+            Path relative;
+            try {
+                relative = normalizedRoot.relativize(normalizedModule);
+            } catch (IllegalArgumentException ex) {
+                relative = Path.of("");
+            }
+            String key = relative.getNameCount() == 0 ? ROOT_MODULE_KEY : relative.toString().replace('\\', '/');
+            descriptors.put(key, new ModuleDescriptor(key, normalizedModule, relative, relative.getNameCount()));
+        }
+        return new ArrayList<>(descriptors.values());
     }
+
+    private Map<String, String> computeModuleFingerprints(
+            Path repoRoot, List<ModuleDescriptor> modules, String commitHash) {
+        Map<String, String> fingerprints = new LinkedHashMap<>();
+        if (modules.isEmpty()) {
+            return fingerprints;
+        }
+        try (Git git = Git.open(repoRoot.toFile()); RevWalk revWalk = new RevWalk(git.getRepository())) {
+            ObjectId headId = commitHash != null
+                    ? git.getRepository().resolve(commitHash)
+                    : git.getRepository().resolve(Constants.HEAD);
+            if (headId == null) {
+                modules.forEach(descriptor -> fingerprints.put(descriptor.key(), commitHash));
+                return fingerprints;
+            }
+            RevCommit commit = revWalk.parseCommit(headId);
+            RevTree tree = commit.getTree();
+            for (ModuleDescriptor descriptor : modules) {
+                if (descriptor.depth() == 0) {
+                    fingerprints.put(descriptor.key(), tree.getId().name());
+                    continue;
+                }
+                String modulePath = descriptor.relativePath().toString().replace('\\', '/');
+                try (TreeWalk treeWalk = TreeWalk.forPath(git.getRepository(), modulePath, tree)) {
+                    fingerprints.put(descriptor.key(), treeWalk != null ? treeWalk.getObjectId(0).name() : commitHash);
+                }
+            }
+            return fingerprints;
+        } catch (IOException e) {
+            log.warn("Failed to compute module fingerprints", e);
+            modules.forEach(descriptor -> fingerprints.put(descriptor.key(), commitHash));
+            return fingerprints;
+        }
+    }
+
+    private Set<String> determineChangedModules(Map<String, String> previous, Map<String, String> current) {
+        if (previous.isEmpty()) {
+            return new LinkedHashSet<>(current.keySet());
+        }
+        Set<String> changed = new LinkedHashSet<>();
+        boolean hasSubModules = current.keySet().stream().anyMatch(key -> !ROOT_MODULE_KEY.equals(key));
+        current.forEach((key, value) -> {
+            if (hasSubModules && ROOT_MODULE_KEY.equals(key)) {
+                return;
+            }
+            if (!Objects.equals(value, previous.get(key))) {
+                changed.add(key);
+            }
+        });
+        previous.keySet().stream()
+                .filter(key -> !current.containsKey(key))
+                .forEach(changed::add);
+        if (changed.isEmpty() && !current.isEmpty() && !hasSubModules) {
+            changed.add(ROOT_MODULE_KEY);
+        }
+        return changed;
+    }
+
+    private List<Path> selectModulesToScan(List<ModuleDescriptor> modules, Set<String> changedModules) {
+        if (changedModules.isEmpty() || changedModules.contains(ROOT_MODULE_KEY)) {
+            return List.of();
+        }
+        Map<String, Path> pathByKey = modules.stream()
+                .collect(Collectors.toMap(
+                        ModuleDescriptor::key,
+                        ModuleDescriptor::absolutePath,
+                        (left, right) -> left,
+                        LinkedHashMap::new));
+        if (!pathByKey.keySet().containsAll(changedModules)) {
+            return List.of();
+        }
+        return changedModules.stream()
+                .map(pathByKey::get)
+                .filter(Objects::nonNull)
+                .toList();
+    }
+
+    private ReusedData reusePreviousData(
+            ParsedDataResponse previous,
+            List<ModuleDescriptor> modules,
+            ModuleIndex moduleIndex,
+            Set<String> changedModules) {
+        if (previous == null) {
+            return ReusedData.empty();
+        }
+        Set<String> reusableModules = modules.stream()
+                .map(ModuleDescriptor::key)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        reusableModules.removeAll(changedModules);
+        if (reusableModules.isEmpty()) {
+            return ReusedData.empty();
+        }
+        List<ClassMetadataRecord> classRecords = previous.classes() == null
+                ? List.of()
+                : previous.classes().stream()
+                        .filter(summary -> reusableModules.contains(moduleIndex.detect(summary.relativePath())))
+                        .map(this::fromSummary)
+                        .toList();
+        List<LogStatementRecord> logRecords = previous.loggerInsights() == null
+                ? List.of()
+                : previous.loggerInsights().stream()
+                        .filter(entry -> reusableModules.contains(moduleIndex.detect(entry.filePath())))
+                        .map(this::fromInsight)
+                        .toList();
+        List<PiiPciFindingRecord> piiRecords = previous.piiPciScan() == null
+                ? List.of()
+                : previous.piiPciScan().stream()
+                        .filter(entry -> reusableModules.contains(moduleIndex.detect(entry.filePath())))
+                        .map(this::fromFinding)
+                        .toList();
+        return new ReusedData(classRecords, logRecords, piiRecords);
+    }
+
+    private <T> List<T> mergeLists(List<T> reused, List<T> fresh) {
+        if ((reused == null || reused.isEmpty()) && (fresh == null || fresh.isEmpty())) {
+            return List.of();
+        }
+        List<T> merged = new ArrayList<>();
+        if (reused != null && !reused.isEmpty()) {
+            merged.addAll(reused);
+        }
+        if (fresh != null && !fresh.isEmpty()) {
+            merged.addAll(fresh);
+        }
+        return merged;
+    }
+
+    private ClassMetadataRecord fromSummary(ClassMetadataSummary summary) {
+        SourceSet sourceSet;
+        try {
+            sourceSet = summary.sourceSet() != null ? SourceSet.valueOf(summary.sourceSet()) : SourceSet.MAIN;
+        } catch (IllegalArgumentException ex) {
+            sourceSet = SourceSet.MAIN;
+        }
+        return new ClassMetadataRecord(
+                summary.fullyQualifiedName(),
+                summary.packageName(),
+                summary.className(),
+                summary.annotations(),
+                summary.interfacesImplemented(),
+                summary.stereotype(),
+                sourceSet,
+                summary.relativePath(),
+                summary.userCode());
+    }
+
+    private LogStatementRecord fromInsight(LoggerInsightSummary summary) {
+        return new LogStatementRecord(
+                summary.className(),
+                summary.filePath(),
+                summary.logLevel(),
+                summary.lineNumber(),
+                summary.messageTemplate(),
+                summary.variables(),
+                summary.piiRisk(),
+                summary.pciRisk());
+    }
+
+    private PiiPciFindingRecord fromFinding(PiiPciFindingSummary summary) {
+        return new PiiPciFindingRecord(
+                summary.filePath(),
+                summary.lineNumber(),
+                summary.snippet(),
+                summary.matchType(),
+                summary.severity(),
+                summary.ignored());
+    }
+
+    private record ReusedData(
+            List<ClassMetadataRecord> classMetadata,
+            List<LogStatementRecord> logStatements,
+            List<PiiPciFindingRecord> piiFindings) {
+
+        private static ReusedData empty() {
+            return new ReusedData(List.of(), List.of(), List.of());
+        }
+    }
+
+    private record ModuleDescriptor(String key, Path absolutePath, Path relativePath, int depth) {}
+
+    private static final class ModuleIndex {
+
+        private final List<ModuleDescriptor> orderedModules;
+
+        private ModuleIndex(List<ModuleDescriptor> modules) {
+            this.orderedModules = modules.stream()
+                    .sorted(Comparator.comparingInt(ModuleDescriptor::depth).reversed())
+                    .toList();
+        }
+
+        private String detect(String relativePath) {
+            Path candidate = normalize(relativePath);
+            for (ModuleDescriptor descriptor : orderedModules) {
+                if (descriptor.depth() == 0) {
+                    return ROOT_MODULE_KEY;
+                }
+                if (candidate.startsWith(descriptor.relativePath())) {
+                    return descriptor.key();
+                }
+            }
+            return ROOT_MODULE_KEY;
+        }
+
+        private Path normalize(String value) {
+            if (value == null || value.isBlank()) {
+                return Path.of("");
+            }
+            return Path.of(value.replace('\\', '/')).normalize();
+        }
+    }
+
 }

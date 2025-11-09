@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { deriveProjectName, formatDate } from './utils/formatters';
 import {
@@ -11,7 +11,8 @@ import {
   DiagramsPanel,
   GherkinPanel,
   MetadataPanel,
-  ExportPanel
+  ExportPanel,
+  SnapshotsPanel
 } from './components/panels';
 
 describe('utility helpers', () => {
@@ -165,9 +166,11 @@ describe('LoggerInsightsPanel', () => {
       />
     );
 
-    await user.type(screen.getByLabelText(/Class Filter/i), 'Bar');
-    await user.selectOptions(screen.getByLabelText(/^Level$/i), 'ERROR');
-    await user.click(screen.getByLabelText(/Only PII risk/i));
+    await act(async () => {
+      await user.type(screen.getByLabelText(/Class Filter/i), 'Bar');
+      await user.selectOptions(screen.getByLabelText(/^Level$/i), 'ERROR');
+      await user.click(screen.getByLabelText(/Only PII risk/i));
+    });
     expect(screen.getByText('com.demo.Bar')).toBeInTheDocument();
     expect(screen.queryByText('com.demo.Foo')).not.toBeInTheDocument();
   });
@@ -177,8 +180,24 @@ describe('PiiPciPanel', () => {
   it('applies filters and hide ignored toggle', async () => {
     const user = userEvent.setup();
     const findings = [
-      { filePath: 'a.txt', lineNumber: 1, snippet: 'card', matchType: 'PCI', severity: 'HIGH', ignored: false },
-      { filePath: 'b.txt', lineNumber: 2, snippet: 'email', matchType: 'PII', severity: 'LOW', ignored: true }
+      {
+        findingId: 1,
+        filePath: 'a.txt',
+        lineNumber: 1,
+        snippet: 'card',
+        matchType: 'PCI',
+        severity: 'HIGH',
+        ignored: false
+      },
+      {
+        findingId: 2,
+        filePath: 'b.txt',
+        lineNumber: 2,
+        snippet: 'email',
+        matchType: 'PII',
+        severity: 'LOW',
+        ignored: true
+      }
     ];
     render(
       <PiiPciPanel
@@ -190,11 +209,46 @@ describe('PiiPciPanel', () => {
       />
     );
 
-    await user.selectOptions(screen.getByLabelText(/Match Type/i), 'PCI');
-    await user.selectOptions(screen.getByLabelText(/Severity/i), 'HIGH');
-    await user.click(screen.getByLabelText(/Hide ignored/i));
+    await act(async () => {
+      await user.selectOptions(screen.getByLabelText(/Match Type/i), 'PCI');
+      await user.selectOptions(screen.getByLabelText(/Severity/i), 'HIGH');
+      await user.click(screen.getByLabelText(/Hide ignored/i));
+    });
     expect(screen.getByText('a.txt')).toBeInTheDocument();
     expect(screen.queryByText('b.txt')).not.toBeInTheDocument();
+  });
+});
+
+describe('SnapshotsPanel', () => {
+  it('renders snapshot history and diff controls', () => {
+    render(
+      <SnapshotsPanel
+        snapshots={[
+          { snapshotId: 2, branchName: 'main', commitHash: 'abc', createdAt: '2024-05-01T00:00:00Z' },
+          { snapshotId: 1, branchName: 'main', commitHash: 'def', createdAt: '2024-04-30T00:00:00Z' }
+        ]}
+        loading={false}
+        error={null}
+        onRefresh={vi.fn()}
+        selectedBase={2}
+        selectedCompare={1}
+        onSelectBase={vi.fn()}
+        onSelectCompare={vi.fn()}
+        onDiff={vi.fn()}
+        diff={{
+          baseSnapshotId: 2,
+          compareSnapshotId: 1,
+          addedClasses: [{ fullyQualifiedName: 'com.demo.New', stereotype: 'SERVICE' }],
+          removedClasses: [],
+          addedEndpoints: [],
+          removedEndpoints: [],
+          addedEntities: [],
+          removedEntities: []
+        }}
+      />
+    );
+    expect(screen.getByText(/Snapshot History/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/abc/i).length).toBeGreaterThan(0);
   });
 });
 
@@ -239,9 +293,13 @@ describe('DiagramsPanel', () => {
     );
 
     expect(screen.getAllByText(/Flow Internal/)).not.toHaveLength(0);
-    await user.click(screen.getByRole('button', { name: /View PlantUML/i }));
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: /View PlantUML/i }));
+    });
     expect(screen.getByText(/@startuml/i)).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: /View Mermaid/i }));
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: /View Mermaid/i }));
+    });
     expect(screen.getByText(/sequenceDiagram/i)).toBeInTheDocument();
   });
 });

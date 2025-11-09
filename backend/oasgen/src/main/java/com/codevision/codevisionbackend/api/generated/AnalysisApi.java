@@ -34,7 +34,7 @@ import java.util.Map;
 import java.util.Optional;
 import jakarta.annotation.Generated;
 
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2025-11-09T02:46:14.127269-05:00[America/New_York]", comments = "Generator version: 7.5.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2025-11-09T15:05:41.709386-05:00[America/New_York]", comments = "Generator version: 7.5.0")
 @Validated
 @Tag(name = "Analysis", description = "Endpoints used to trigger repository analysis workflows.")
 public interface AnalysisApi {
@@ -83,7 +83,7 @@ public interface AnalysisApi {
         getRequest().ifPresent(request -> {
             for (MediaType mediaType: MediaType.parseMediaTypes(request.getHeader("Accept"))) {
                 if (mediaType.isCompatibleWith(MediaType.valueOf("application/json"))) {
-                    String exampleString = "{ \"repoUrl\" : \"https://openapi-generator.tech\", \"jobId\" : \"046b6c7f-0b8a-43b9-b35d-6489e6daee91\", \"createdAt\" : \"2000-01-23T04:56:07.000+00:00\", \"completedAt\" : \"2000-01-23T04:56:07.000+00:00\", \"errorMessage\" : \"errorMessage\", \"startedAt\" : \"2000-01-23T04:56:07.000+00:00\", \"projectId\" : 0, \"statusMessage\" : \"statusMessage\", \"status\" : \"QUEUED\" }";
+                    String exampleString = "{ \"repoUrl\" : \"https://openapi-generator.tech\", \"jobId\" : \"046b6c7f-0b8a-43b9-b35d-6489e6daee91\", \"createdAt\" : \"2000-01-23T04:56:07.000+00:00\", \"completedAt\" : \"2000-01-23T04:56:07.000+00:00\", \"snapshotId\" : 6, \"errorMessage\" : \"errorMessage\", \"startedAt\" : \"2000-01-23T04:56:07.000+00:00\", \"branchName\" : \"branchName\", \"projectId\" : 0, \"statusMessage\" : \"statusMessage\", \"commitHash\" : \"commitHash\", \"status\" : \"QUEUED\" }";
                     ApiUtil.setExampleResponse(request, "application/json", exampleString);
                     break;
                 }
@@ -131,7 +131,7 @@ public interface AnalysisApi {
         getRequest().ifPresent(request -> {
             for (MediaType mediaType: MediaType.parseMediaTypes(request.getHeader("Accept"))) {
                 if (mediaType.isCompatibleWith(MediaType.valueOf("application/json"))) {
-                    String exampleString = "{ \"repoUrl\" : \"https://openapi-generator.tech\", \"jobId\" : \"046b6c7f-0b8a-43b9-b35d-6489e6daee91\", \"createdAt\" : \"2000-01-23T04:56:07.000+00:00\", \"completedAt\" : \"2000-01-23T04:56:07.000+00:00\", \"errorMessage\" : \"errorMessage\", \"startedAt\" : \"2000-01-23T04:56:07.000+00:00\", \"projectId\" : 0, \"statusMessage\" : \"statusMessage\", \"status\" : \"QUEUED\" }";
+                    String exampleString = "{ \"repoUrl\" : \"https://openapi-generator.tech\", \"jobId\" : \"046b6c7f-0b8a-43b9-b35d-6489e6daee91\", \"createdAt\" : \"2000-01-23T04:56:07.000+00:00\", \"completedAt\" : \"2000-01-23T04:56:07.000+00:00\", \"snapshotId\" : 6, \"errorMessage\" : \"errorMessage\", \"startedAt\" : \"2000-01-23T04:56:07.000+00:00\", \"branchName\" : \"branchName\", \"projectId\" : 0, \"statusMessage\" : \"statusMessage\", \"commitHash\" : \"commitHash\", \"status\" : \"QUEUED\" }";
                     ApiUtil.setExampleResponse(request, "application/json", exampleString);
                     break;
                 }

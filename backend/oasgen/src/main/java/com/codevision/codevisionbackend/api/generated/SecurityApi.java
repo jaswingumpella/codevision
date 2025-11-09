@@ -7,6 +7,7 @@ package com.codevision.codevisionbackend.api.generated;
 
 import com.codevision.codevisionbackend.api.model.ProjectLoggerInsightsResponse;
 import com.codevision.codevisionbackend.api.model.ProjectPiiPciResponse;
+import com.codevision.codevisionbackend.api.model.UpdatePiiFindingRequest;
 import io.swagger.v3.oas.annotations.ExternalDocumentation;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -33,7 +34,7 @@ import java.util.Map;
 import java.util.Optional;
 import jakarta.annotation.Generated;
 
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2025-11-09T02:46:14.127269-05:00[America/New_York]", comments = "Generator version: 7.5.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2025-11-09T15:05:41.709386-05:00[America/New_York]", comments = "Generator version: 7.5.0")
 @Validated
 @Tag(name = "Security", description = "Security and compliance visibility endpoints.")
 public interface SecurityApi {
@@ -245,7 +246,53 @@ public interface SecurityApi {
         getRequest().ifPresent(request -> {
             for (MediaType mediaType: MediaType.parseMediaTypes(request.getHeader("Accept"))) {
                 if (mediaType.isCompatibleWith(MediaType.valueOf("application/json"))) {
-                    String exampleString = "{ \"findings\" : [ { \"snippet\" : \"snippet\", \"severity\" : \"severity\", \"ignored\" : true, \"matchType\" : \"matchType\", \"filePath\" : \"filePath\", \"lineNumber\" : 5 }, { \"snippet\" : \"snippet\", \"severity\" : \"severity\", \"ignored\" : true, \"matchType\" : \"matchType\", \"filePath\" : \"filePath\", \"lineNumber\" : 5 } ], \"projectId\" : 0 }";
+                    String exampleString = "{ \"findings\" : [ { \"snippet\" : \"snippet\", \"severity\" : \"severity\", \"ignored\" : true, \"matchType\" : \"matchType\", \"filePath\" : \"filePath\", \"findingId\" : 5, \"lineNumber\" : 5 }, { \"snippet\" : \"snippet\", \"severity\" : \"severity\", \"ignored\" : true, \"matchType\" : \"matchType\", \"filePath\" : \"filePath\", \"findingId\" : 5, \"lineNumber\" : 5 } ], \"projectId\" : 0 }";
+                    ApiUtil.setExampleResponse(request, "application/json", exampleString);
+                    break;
+                }
+            }
+        });
+        return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
+
+    }
+
+
+    /**
+     * PATCH /project/{projectId}/pii-pci/{findingId} : Mark a PCI/PII finding as ignored or active
+     *
+     * @param projectId  (required)
+     * @param findingId  (required)
+     * @param updatePiiFindingRequest  (required)
+     * @return Updated finding state returned along with the latest scan results. (status code 200)
+     *         or The specified finding or project could not be found. (status code 404)
+     */
+    @Operation(
+        operationId = "updatePiiFindingIgnored",
+        summary = "Mark a PCI/PII finding as ignored or active",
+        tags = { "Security" },
+        responses = {
+            @ApiResponse(responseCode = "200", description = "Updated finding state returned along with the latest scan results.", content = {
+                @Content(mediaType = "application/json", schema = @Schema(implementation = ProjectPiiPciResponse.class))
+            }),
+            @ApiResponse(responseCode = "404", description = "The specified finding or project could not be found.")
+        }
+    )
+    @RequestMapping(
+        method = RequestMethod.PATCH,
+        value = "/project/{projectId}/pii-pci/{findingId}",
+        produces = { "application/json" },
+        consumes = { "application/json" }
+    )
+    
+    default ResponseEntity<ProjectPiiPciResponse> updatePiiFindingIgnored(
+        @Parameter(name = "projectId", description = "", required = true, in = ParameterIn.PATH) @PathVariable("projectId") Long projectId,
+        @Parameter(name = "findingId", description = "", required = true, in = ParameterIn.PATH) @PathVariable("findingId") Long findingId,
+        @Parameter(name = "UpdatePiiFindingRequest", description = "", required = true) @Valid @RequestBody UpdatePiiFindingRequest updatePiiFindingRequest
+    ) {
+        getRequest().ifPresent(request -> {
+            for (MediaType mediaType: MediaType.parseMediaTypes(request.getHeader("Accept"))) {
+                if (mediaType.isCompatibleWith(MediaType.valueOf("application/json"))) {
+                    String exampleString = "{ \"findings\" : [ { \"snippet\" : \"snippet\", \"severity\" : \"severity\", \"ignored\" : true, \"matchType\" : \"matchType\", \"filePath\" : \"filePath\", \"findingId\" : 5, \"lineNumber\" : 5 }, { \"snippet\" : \"snippet\", \"severity\" : \"severity\", \"ignored\" : true, \"matchType\" : \"matchType\", \"filePath\" : \"filePath\", \"findingId\" : 5, \"lineNumber\" : 5 } ], \"projectId\" : 0 }";
                     ApiUtil.setExampleResponse(request, "application/json", exampleString);
                     break;
                 }

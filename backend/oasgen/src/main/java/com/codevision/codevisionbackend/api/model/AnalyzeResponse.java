@@ -23,7 +23,7 @@ import jakarta.annotation.Generated;
  * AnalyzeResponse
  */
 
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2025-11-09T02:46:14.127269-05:00[America/New_York]", comments = "Generator version: 7.5.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2025-11-09T15:05:41.709386-05:00[America/New_York]", comments = "Generator version: 7.5.0")
 public class AnalyzeResponse {
 
   private UUID jobId;
@@ -85,6 +85,12 @@ public class AnalyzeResponse {
   private OffsetDateTime completedAt;
 
   private String errorMessage;
+
+  private String branchName;
+
+  private String commitHash;
+
+  private Long snapshotId;
 
   public AnalyzeResponse() {
     super();
@@ -280,6 +286,66 @@ public class AnalyzeResponse {
     this.errorMessage = errorMessage;
   }
 
+  public AnalyzeResponse branchName(String branchName) {
+    this.branchName = branchName;
+    return this;
+  }
+
+  /**
+   * Branch that was analyzed.
+   * @return branchName
+  */
+  
+  @Schema(name = "branchName", description = "Branch that was analyzed.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @JsonProperty("branchName")
+  public String getBranchName() {
+    return branchName;
+  }
+
+  public void setBranchName(String branchName) {
+    this.branchName = branchName;
+  }
+
+  public AnalyzeResponse commitHash(String commitHash) {
+    this.commitHash = commitHash;
+    return this;
+  }
+
+  /**
+   * Commit hash associated with the snapshot, when known.
+   * @return commitHash
+  */
+  
+  @Schema(name = "commitHash", description = "Commit hash associated with the snapshot, when known.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @JsonProperty("commitHash")
+  public String getCommitHash() {
+    return commitHash;
+  }
+
+  public void setCommitHash(String commitHash) {
+    this.commitHash = commitHash;
+  }
+
+  public AnalyzeResponse snapshotId(Long snapshotId) {
+    this.snapshotId = snapshotId;
+    return this;
+  }
+
+  /**
+   * Identifier of the persisted snapshot once analysis succeeds.
+   * @return snapshotId
+  */
+  
+  @Schema(name = "snapshotId", description = "Identifier of the persisted snapshot once analysis succeeds.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @JsonProperty("snapshotId")
+  public Long getSnapshotId() {
+    return snapshotId;
+  }
+
+  public void setSnapshotId(Long snapshotId) {
+    this.snapshotId = snapshotId;
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) {
@@ -297,12 +363,15 @@ public class AnalyzeResponse {
         Objects.equals(this.createdAt, analyzeResponse.createdAt) &&
         Objects.equals(this.startedAt, analyzeResponse.startedAt) &&
         Objects.equals(this.completedAt, analyzeResponse.completedAt) &&
-        Objects.equals(this.errorMessage, analyzeResponse.errorMessage);
+        Objects.equals(this.errorMessage, analyzeResponse.errorMessage) &&
+        Objects.equals(this.branchName, analyzeResponse.branchName) &&
+        Objects.equals(this.commitHash, analyzeResponse.commitHash) &&
+        Objects.equals(this.snapshotId, analyzeResponse.snapshotId);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(jobId, projectId, repoUrl, status, statusMessage, createdAt, startedAt, completedAt, errorMessage);
+    return Objects.hash(jobId, projectId, repoUrl, status, statusMessage, createdAt, startedAt, completedAt, errorMessage, branchName, commitHash, snapshotId);
   }
 
   @Override
@@ -318,6 +387,9 @@ public class AnalyzeResponse {
     sb.append("    startedAt: ").append(toIndentedString(startedAt)).append("\n");
     sb.append("    completedAt: ").append(toIndentedString(completedAt)).append("\n");
     sb.append("    errorMessage: ").append(toIndentedString(errorMessage)).append("\n");
+    sb.append("    branchName: ").append(toIndentedString(branchName)).append("\n");
+    sb.append("    commitHash: ").append(toIndentedString(commitHash)).append("\n");
+    sb.append("    snapshotId: ").append(toIndentedString(snapshotId)).append("\n");
     sb.append("}");
     return sb.toString();
   }

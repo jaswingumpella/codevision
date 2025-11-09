@@ -1,4 +1,5 @@
 /Users/dhanujgumpella/jaswingumpella/repos/codevision/backend/api/src/main/java/com/codevision/codevisionbackend/project/logger/LogStatementRepository.java
+/Users/dhanujgumpella/jaswingumpella/repos/codevision/backend/api/src/main/java/com/codevision/codevisionbackend/project/ProjectSnapshotController.java
 /Users/dhanujgumpella/jaswingumpella/repos/codevision/backend/api/src/main/java/com/codevision/codevisionbackend/project/export/ExportService.java
 /Users/dhanujgumpella/jaswingumpella/repos/codevision/backend/api/src/main/java/com/codevision/codevisionbackend/project/ProjectOverviewController.java
 /Users/dhanujgumpella/jaswingumpella/repos/codevision/backend/api/src/main/java/com/codevision/codevisionbackend/project/asset/AssetImageRepository.java
@@ -8,6 +9,7 @@
 /Users/dhanujgumpella/jaswingumpella/repos/codevision/backend/api/src/main/java/com/codevision/codevisionbackend/analyze/scanner/AssetScanner.java
 /Users/dhanujgumpella/jaswingumpella/repos/codevision/backend/api/src/main/java/com/codevision/codevisionbackend/project/ProjectExportController.java
 /Users/dhanujgumpella/jaswingumpella/repos/codevision/backend/api/src/main/java/com/codevision/codevisionbackend/analyze/scanner/DaoAnalysisService.java
+/Users/dhanujgumpella/jaswingumpella/repos/codevision/backend/api/src/main/java/com/codevision/codevisionbackend/project/SnapshotDiff.java
 /Users/dhanujgumpella/jaswingumpella/repos/codevision/backend/api/src/main/java/com/codevision/codevisionbackend/project/ProjectService.java
 /Users/dhanujgumpella/jaswingumpella/repos/codevision/backend/api/src/main/java/com/codevision/codevisionbackend/project/db/DaoOperation.java
 /Users/dhanujgumpella/jaswingumpella/repos/codevision/backend/api/src/main/java/com/codevision/codevisionbackend/analyze/scanner/DbAnalysisResult.java
@@ -20,6 +22,7 @@
 /Users/dhanujgumpella/jaswingumpella/repos/codevision/backend/api/src/main/java/com/codevision/codevisionbackend/project/security/PiiPciFindingRepository.java
 /Users/dhanujgumpella/jaswingumpella/repos/codevision/backend/api/src/main/java/com/codevision/codevisionbackend/analyze/AnalyzeController.java
 /Users/dhanujgumpella/jaswingumpella/repos/codevision/backend/api/src/main/java/com/codevision/codevisionbackend/project/db/DbEntity.java
+/Users/dhanujgumpella/jaswingumpella/repos/codevision/backend/api/src/main/java/com/codevision/codevisionbackend/git/BranchUtils.java
 /Users/dhanujgumpella/jaswingumpella/repos/codevision/backend/api/src/main/java/com/codevision/codevisionbackend/analyze/MetadataDump.java
 /Users/dhanujgumpella/jaswingumpella/repos/codevision/backend/api/src/main/java/com/codevision/codevisionbackend/analyze/diagram/DiagramDefinition.java
 /Users/dhanujgumpella/jaswingumpella/repos/codevision/backend/api/src/main/java/com/codevision/codevisionbackend/config/SecurityProperties.java

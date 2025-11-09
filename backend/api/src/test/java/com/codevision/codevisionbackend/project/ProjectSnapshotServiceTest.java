@@ -2,14 +2,17 @@ package com.codevision.codevisionbackend.project;
 
 import com.codevision.codevisionbackend.analyze.AssetInventory;
 import com.codevision.codevisionbackend.analyze.BuildInfo;
+import com.codevision.codevisionbackend.analyze.ClassMetadataSummary;
 import com.codevision.codevisionbackend.analyze.DbAnalysisSummary;
-import com.codevision.codevisionbackend.analyze.LoggerInsightSummary;
 import com.codevision.codevisionbackend.analyze.MetadataDump;
 import com.codevision.codevisionbackend.analyze.ParsedDataResponse;
 import com.codevision.codevisionbackend.analyze.PiiPciFindingSummary;
+import com.codevision.codevisionbackend.project.ProjectSnapshotService.ProjectSnapshotSummary;
+import com.codevision.codevisionbackend.project.ProjectSnapshotService.SnapshotMetadata;
 import com.codevision.codevisionbackend.project.diagram.DiagramService;
 import com.codevision.codevisionbackend.project.metadata.ClassMetadata;
 import com.codevision.codevisionbackend.project.metadata.ClassMetadataRepository;
+import com.codevision.codevisionbackend.project.security.PiiPciFindingRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -40,6 +43,9 @@ class ProjectSnapshotServiceTest {
     @Autowired
     private ClassMetadataRepository classMetadataRepository;
 
+    @Autowired
+    private PiiPciFindingRepository piiPciFindingRepository;
+
     private ProjectSnapshotService projectSnapshotService;
     private DiagramService diagramService;
 
@@ -47,85 +53,28 @@ class ProjectSnapshotServiceTest {
     void setUp() {
         ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
         diagramService = Mockito.mock(DiagramService.class);
-        Mockito.when(diagramService.listProjectDiagrams(Mockito.any())).thenReturn(List.of());
+        Mockito.when(diagramService.listProjectDiagrams(Mockito.anyLong())).thenReturn(List.of());
         projectSnapshotService = new ProjectSnapshotService(
-                projectSnapshotRepository, projectRepository, classMetadataRepository, diagramService, objectMapper);
+                projectSnapshotRepository,
+                projectRepository,
+                classMetadataRepository,
+                diagramService,
+                piiPciFindingRepository,
+                objectMapper);
     }
 
     @Test
-    void saveSnapshotPersistsSnapshotForManagedProject() {
+    void saveSnapshotPersistsNewVersionEachRun() {
         Project project = persistProject("https://example.com/repo.git", "demo-project");
-        assertThat(project.getId()).isNotNull();
-        ParsedDataResponse parsed = sampleParsedData(project);
+        ParsedDataResponse parsed = sampleParsedData(project, List.of());
 
-        projectSnapshotService.saveSnapshot(project, parsed);
-        projectSnapshotService.saveSnapshot(project, parsed);
+        projectSnapshotService.saveSnapshot(project, parsed, new SnapshotMetadata("main", "abc123", Map.of()));
+        projectSnapshotService.saveSnapshot(project, parsed, new SnapshotMetadata("main", "def456", Map.of("/", "tree")));
 
-        assertThat(projectSnapshotRepository.count()).isEqualTo(1);
-        ProjectSnapshot snapshot = projectSnapshotRepository.findById(project.getId()).orElseThrow();
-        assertThat(snapshot.getProjectId()).isEqualTo(project.getId());
-        assertThat(snapshot.getProjectName()).isEqualTo(project.getProjectName());
-        assertThat(snapshot.getRepoUrl()).isEqualTo(project.getRepoUrl());
-        assertThat(snapshot.getSnapshotJson()).isNotBlank();
-        assertThat(snapshot.getCreatedAt()).isNotNull();
-    }
-
-    @Test
-    void saveSnapshotResolvesDetachedProjectByRepoUrl() {
-        Project persisted = persistProject("https://example.com/repo.git", "demo-project");
-        Project detached = new Project();
-        detached.setRepoUrl(persisted.getRepoUrl());
-        detached.setProjectName("detached-name");
-
-        ParsedDataResponse parsed = new ParsedDataResponse(
-                null,
-                "detached-name",
-                persisted.getRepoUrl(),
-                OffsetDateTime.now(),
-                BuildInfo.empty(),
-                List.of(),
-                MetadataDump.empty(),
-                emptyDbAnalysis(),
-                List.of(),
-                AssetInventory.empty(),
-                List.of(),
-                List.of(),
-                List.of(),
-                Map.of(),
-                List.of());
-
-        projectSnapshotService.saveSnapshot(detached, parsed);
-
-        ProjectSnapshot snapshot = projectSnapshotRepository.findById(persisted.getId()).orElseThrow();
-        assertThat(snapshot.getProjectId()).isEqualTo(persisted.getId());
-        assertThat(snapshot.getProjectName()).isEqualTo(persisted.getProjectName());
-        assertThat(snapshot.getRepoUrl()).isEqualTo(persisted.getRepoUrl());
-    }
-
-    @Test
-    void deleteSnapshotRemovesExistingEntry() {
-        Project project = persistProject("https://example.com/repo.git", "demo-project");
-        projectSnapshotService.saveSnapshot(project, sampleParsedData(project));
-        assertThat(projectSnapshotRepository.count()).isEqualTo(1);
-
-        projectSnapshotService.deleteSnapshot(project);
-
-        assertThat(projectSnapshotRepository.count()).isZero();
-    }
-
-    @Test
-    void directRepositoryInsertAssignsProjectId() {
-        Project project = persistProject("https://example.com/repo.git", "manual-project");
-        ProjectSnapshot snapshot = new ProjectSnapshot(project, "{}", OffsetDateTime.now());
-        snapshot.setProjectName(project.getProjectName());
-        snapshot.setRepoUrl(project.getRepoUrl());
-
-        projectSnapshotRepository.saveAndFlush(snapshot);
-
-        ProjectSnapshot persisted = projectSnapshotRepository.findById(project.getId()).orElseThrow();
-        assertThat(persisted.getProjectId()).isEqualTo(project.getId());
-        assertThat(persisted.getProjectName()).isEqualTo(project.getProjectName());
-        assertThat(persisted.getRepoUrl()).isEqualTo(project.getRepoUrl());
+        List<ProjectSnapshot> snapshots = projectSnapshotRepository.findByProjectIdOrderByCreatedAtDesc(project.getId());
+        assertThat(snapshots).hasSize(2);
+        assertThat(snapshots.get(0).getCommitHash()).isEqualTo("def456");
+        assertThat(snapshots.get(1).getCommitHash()).isEqualTo("abc123");
     }
 
     @Test
@@ -145,35 +94,82 @@ class ProjectSnapshotServiceTest {
         metadata.setInterfacesJson("[]");
         classMetadataRepository.saveAndFlush(metadata);
 
-        projectSnapshotService.saveSnapshot(project, sampleParsedData(project));
+        ParsedDataResponse parsed = sampleParsedData(project, List.of());
+        projectSnapshotService.saveSnapshot(project, parsed, new SnapshotMetadata("main", "abc", Map.of()));
 
-        ParsedDataResponse fetched =
-                projectSnapshotService.fetchSnapshot(project.getId()).orElseThrow();
+        ParsedDataResponse fetched = projectSnapshotService
+                .fetchSnapshot(project.getId())
+                .orElseThrow();
         assertThat(fetched.classes()).hasSize(1);
         assertThat(fetched.classes().get(0).fullyQualifiedName()).isEqualTo("com.example.Controller");
     }
 
-    private Project persistProject(String repoUrl, String projectName) {
-        Project project = new Project(repoUrl, projectName, OffsetDateTime.now());
-        Project saved = projectRepository.saveAndFlush(project);
-        assertThat(saved.getId()).isNotNull();
-        return saved;
+    @Test
+    void listSnapshotsReturnsDescendingTimeline() {
+        Project project = persistProject("https://example.com/repo.git", "timeline-project");
+        ParsedDataResponse parsed = sampleParsedData(project, List.of());
+        projectSnapshotService.saveSnapshot(project, parsed, new SnapshotMetadata("main", "one", Map.of()));
+        projectSnapshotService.saveSnapshot(project, parsed, new SnapshotMetadata("main", "two", Map.of()));
+
+        List<ProjectSnapshotSummary> summaries = projectSnapshotService.listSnapshots(project.getId());
+        assertThat(summaries).hasSize(2);
+        assertThat(summaries.get(0).commitHash()).isEqualTo("two");
+        assertThat(summaries.get(1).commitHash()).isEqualTo("one");
     }
 
-    private ParsedDataResponse sampleParsedData(Project project) {
+    @Test
+    void diffHighlightsNewClasses() {
+        Project project = persistProject("https://example.com/repo.git", "diff-project");
+        ParsedDataResponse base = sampleParsedData(project, List.of(new ClassMetadataSummary(
+                "com.example.Base",
+                "com.example",
+                "Base",
+                "CONTROLLER",
+                true,
+                "MAIN",
+                "src/Base.java",
+                List.of(),
+                List.of())));
+        ProjectSnapshot baseSnapshot = projectSnapshotService.saveSnapshot(
+                project, base, new SnapshotMetadata("main", "commit-1", Map.of()));
+
+        ParsedDataResponse compare = sampleParsedData(project, List.of(new ClassMetadataSummary(
+                "com.example.New",
+                "com.example",
+                "New",
+                "SERVICE",
+                true,
+                "MAIN",
+                "src/New.java",
+                List.of(),
+                List.of())));
+        ProjectSnapshot compareSnapshot = projectSnapshotService.saveSnapshot(
+                project, compare, new SnapshotMetadata("main", "commit-2", Map.of()));
+
+        SnapshotDiff diff = projectSnapshotService.diff(project.getId(), baseSnapshot.getId(), compareSnapshot.getId());
+        assertThat(diff.addedClasses()).extracting(SnapshotDiff.ClassRef::fullyQualifiedName).containsExactly("com.example.New");
+        assertThat(diff.removedClasses()).extracting(SnapshotDiff.ClassRef::fullyQualifiedName).containsExactly("com.example.Base");
+    }
+
+    private Project persistProject(String repoUrl, String projectName) {
+        Project project = new Project(repoUrl, projectName, "main", OffsetDateTime.now());
+        return projectRepository.saveAndFlush(project);
+    }
+
+    private ParsedDataResponse sampleParsedData(Project project, List<ClassMetadataSummary> classes) {
         return new ParsedDataResponse(
                 project.getId(),
                 project.getProjectName(),
                 project.getRepoUrl(),
                 project.getLastAnalyzedAt(),
                 BuildInfo.empty(),
-                List.of(),
+                classes,
                 MetadataDump.empty(),
                 emptyDbAnalysis(),
                 List.of(),
                 AssetInventory.empty(),
                 List.of(),
-                List.of(),
+                List.of(new PiiPciFindingSummary(1L, "src/data.txt", 9, "card=4111", "PCI", "HIGH", false)),
                 List.of(),
                 Map.of(),
                 List.of());

@@ -19,10 +19,12 @@ import jakarta.annotation.Generated;
  * AnalyzeRequest
  */
 
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2025-11-09T02:46:14.127269-05:00[America/New_York]", comments = "Generator version: 7.5.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2025-11-09T15:05:41.709386-05:00[America/New_York]", comments = "Generator version: 7.5.0")
 public class AnalyzeRequest {
 
   private URI repoUrl;
+
+  private String branchName;
 
   public AnalyzeRequest() {
     super();
@@ -55,6 +57,26 @@ public class AnalyzeRequest {
     this.repoUrl = repoUrl;
   }
 
+  public AnalyzeRequest branchName(String branchName) {
+    this.branchName = branchName;
+    return this;
+  }
+
+  /**
+   * Optional branch reference to analyze; defaults to main when omitted.
+   * @return branchName
+  */
+  
+  @Schema(name = "branchName", description = "Optional branch reference to analyze; defaults to main when omitted.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @JsonProperty("branchName")
+  public String getBranchName() {
+    return branchName;
+  }
+
+  public void setBranchName(String branchName) {
+    this.branchName = branchName;
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) {
@@ -64,12 +86,13 @@ public class AnalyzeRequest {
       return false;
     }
     AnalyzeRequest analyzeRequest = (AnalyzeRequest) o;
-    return Objects.equals(this.repoUrl, analyzeRequest.repoUrl);
+    return Objects.equals(this.repoUrl, analyzeRequest.repoUrl) &&
+        Objects.equals(this.branchName, analyzeRequest.branchName);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(repoUrl);
+    return Objects.hash(repoUrl, branchName);
   }
 
   @Override
@@ -77,6 +100,7 @@ public class AnalyzeRequest {
     StringBuilder sb = new StringBuilder();
     sb.append("class AnalyzeRequest {\n");
     sb.append("    repoUrl: ").append(toIndentedString(repoUrl)).append("\n");
+    sb.append("    branchName: ").append(toIndentedString(branchName)).append("\n");
     sb.append("}");
     return sb.toString();
   }

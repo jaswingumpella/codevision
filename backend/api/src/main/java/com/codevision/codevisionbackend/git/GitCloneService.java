@@ -1,11 +1,16 @@
 package com.codevision.codevisionbackend.git;
 
+import static com.codevision.codevisionbackend.git.BranchUtils.normalize;
+
 import com.codevision.codevisionbackend.config.GitAuthProperties;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import org.eclipse.jgit.api.CheckoutCommand;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
+import org.eclipse.jgit.lib.Constants;
+import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.transport.CredentialsProvider;
 import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider;
 import org.slf4j.Logger;
@@ -22,23 +27,35 @@ public class GitCloneService {
         this.gitAuthProperties = gitAuthProperties;
     }
 
-    public CloneResult cloneRepository(String repoUrl) {
+    public CloneResult cloneRepository(String repoUrl, String branchName) {
         String projectName = deriveProjectName(repoUrl);
         Path workingDir = createWorkingDirectory(projectName);
+        String normalizedBranch = normalize(branchName);
 
         try {
             var cloneCommand = Git.cloneRepository()
                     .setURI(repoUrl)
-                    .setDirectory(workingDir.toFile());
+                    .setDirectory(workingDir.toFile())
+                    .setCloneAllBranches(true)
+                    .setBranch("refs/heads/" + normalizedBranch);
 
             CredentialsProvider credentialsProvider = resolveCredentialsProvider();
             if (credentialsProvider != null) {
                 cloneCommand.setCredentialsProvider(credentialsProvider);
             }
 
-            cloneCommand.call().close();
-            log.info("Cloned repository {} into {}", repoUrl, workingDir);
-            return new CloneResult(projectName, workingDir);
+            try (Git git = cloneCommand.call()) {
+                ensureBranchCheckedOut(git, normalizedBranch);
+                String resolvedBranch = safeBranch(git);
+                String commitHash = resolveHeadCommit(git);
+                log.info(
+                        "Cloned repository {} into {} (branch={} commit={})",
+                        repoUrl,
+                        workingDir,
+                        resolvedBranch,
+                        commitHash);
+                return new CloneResult(projectName, workingDir, resolvedBranch, commitHash);
+            }
         } catch (GitAPIException e) {
             deleteDirectoryQuietly(workingDir);
             throw new IllegalStateException("Failed to clone repository", e);
@@ -103,6 +120,34 @@ public class GitCloneService {
         }
     }
 
-    public record CloneResult(String projectName, Path directory) {
+    private void ensureBranchCheckedOut(Git git, String branchName) throws GitAPIException {
+        CheckoutCommand checkout = git.checkout().setName(branchName);
+        try {
+            checkout.call();
+        } catch (GitAPIException ex) {
+            log.warn("Unable to checkout branch {} directly, attempting refs/heads/{}", branchName, branchName);
+            git.checkout().setName("refs/heads/" + branchName).call();
+        }
+    }
+
+    private String safeBranch(Git git) {
+        try {
+            return git.getRepository().getBranch();
+        } catch (IOException e) {
+            return "main";
+        }
+    }
+
+    private String resolveHeadCommit(Git git) {
+        try {
+            ObjectId head = git.getRepository().resolve(Constants.HEAD);
+            return head != null ? head.name() : null;
+        } catch (IOException e) {
+            log.warn("Failed to resolve HEAD commit", e);
+            return null;
+        }
+    }
+
+    public record CloneResult(String projectName, Path directory, String branchName, String commitHash) {
     }
 }

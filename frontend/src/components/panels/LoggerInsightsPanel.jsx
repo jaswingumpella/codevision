@@ -6,7 +6,8 @@ const LoggerInsightsPanel = ({ insights, loading, onDownloadCsv, onDownloadPdf, 
   const [levelFilter, setLevelFilter] = useState('ALL');
   const [piiOnly, setPiiOnly] = useState(false);
   const [pciOnly, setPciOnly] = useState(false);
-  const [expanded, setExpanded] = useState(false);
+  const [expandAll, setExpandAll] = useState(false);
+  const [messageFilter, setMessageFilter] = useState('');
 
   if (loading) {
     return (
@@ -19,6 +20,7 @@ const LoggerInsightsPanel = ({ insights, loading, onDownloadCsv, onDownloadPdf, 
 
   const normalizedFilter = classFilter.trim().toLowerCase();
   const normalizedSearch = (searchQuery || '').trim().toLowerCase();
+  const normalizedMessage = messageFilter.trim().toLowerCase();
   const filtered = useMemo(
     () =>
       (insights || []).filter((entry) => {
@@ -26,26 +28,25 @@ const LoggerInsightsPanel = ({ insights, loading, onDownloadCsv, onDownloadPdf, 
         const classMatches = !normalizedFilter || (entry.className || '').toLowerCase().includes(normalizedFilter);
         const piiMatches = !piiOnly || entry.piiRisk;
         const pciMatches = !pciOnly || entry.pciRisk;
-        const globalMatches =
+        const textMatchesFilter =
           !normalizedSearch ||
           textMatches(normalizedSearch, entry.className, entry.filePath, entry.messageTemplate, (entry.variables || []).join(', '));
-        return levelMatches && classMatches && piiMatches && pciMatches && globalMatches;
+        const messageMatches =
+          !normalizedMessage ||
+          textMatches(normalizedMessage, entry.messageTemplate, entry.variables?.join(', '));
+        return levelMatches && classMatches && piiMatches && pciMatches && textMatchesFilter && messageMatches;
       }),
-    [insights, levelFilter, normalizedFilter, piiOnly, pciOnly, normalizedSearch]
+    [insights, levelFilter, normalizedFilter, piiOnly, pciOnly, normalizedSearch, normalizedMessage]
   );
 
   const renderMessage = (message) => {
     if (!message) {
       return <span className="overview-hint">—</span>;
     }
-    if (expanded) {
+    if (expandAll) {
       return <code className="query-snippet">{message}</code>;
     }
-    return (
-      <button type="button" className="ghost-button" onClick={() => setExpanded(true)}>
-        View snippet
-      </button>
-    );
+    return <button type="button" className="ghost-button" onClick={() => setExpandAll(true)}>View snippet</button>;
   };
 
   const exportDisabled = typeof onDownloadCsv !== 'function' || typeof onDownloadPdf !== 'function';
@@ -61,6 +62,7 @@ const LoggerInsightsPanel = ({ insights, loading, onDownloadCsv, onDownloadPdf, 
             id="classFilter"
             type="text"
             value={classFilter}
+            placeholder="e.g. com.acme.OrderService"
             onChange={(event) => setClassFilter(event.target.value)}
           />
         </label>
@@ -83,6 +85,27 @@ const LoggerInsightsPanel = ({ insights, loading, onDownloadCsv, onDownloadPdf, 
             <input type="checkbox" checked={pciOnly} onChange={(event) => setPciOnly(event.target.checked)} />
             Only PCI risk
           </label>
+        </div>
+
+        <label htmlFor="messageFilter">
+          Message Search
+          <input
+            id="messageFilter"
+            type="text"
+            value={messageFilter}
+            placeholder="Search message text"
+            onChange={(event) => setMessageFilter(event.target.value)}
+          />
+        </label>
+
+        <div className="toggle-group">
+          <button
+            type="button"
+            className="ghost-button"
+            onClick={() => setExpandAll((prev) => !prev)}
+          >
+            {expandAll ? 'Collapse All' : 'Expand All'}
+          </button>
         </div>
       </div>
 

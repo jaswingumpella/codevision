@@ -32,7 +32,7 @@ import java.util.Map;
 import java.util.Optional;
 import jakarta.annotation.Generated;
 
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2025-11-09T02:46:14.127269-05:00[America/New_York]", comments = "Generator version: 7.5.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2025-11-09T15:05:41.709386-05:00[America/New_York]", comments = "Generator version: 7.5.0")
 @Validated
 @Tag(name = "Diagram", description = "Architectural diagram retrieval endpoints.")
 public interface DiagramApi {
@@ -109,7 +109,7 @@ public interface DiagramApi {
         getRequest().ifPresent(request -> {
             for (MediaType mediaType: MediaType.parseMediaTypes(request.getHeader("Accept"))) {
                 if (mediaType.isCompatibleWith(MediaType.valueOf("application/json"))) {
-                    String exampleString = "{ \"diagrams\" : [ { \"svgAvailable\" : true, \"metadata\" : { \"key\" : \"\" }, \"plantumlSource\" : \"plantumlSource\", \"diagramId\" : 5, \"svgDownloadUrl\" : \"svgDownloadUrl\", \"title\" : \"title\", \"diagramType\" : \"diagramType\", \"mermaidSource\" : \"mermaidSource\" }, { \"svgAvailable\" : true, \"metadata\" : { \"key\" : \"\" }, \"plantumlSource\" : \"plantumlSource\", \"diagramId\" : 5, \"svgDownloadUrl\" : \"svgDownloadUrl\", \"title\" : \"title\", \"diagramType\" : \"diagramType\", \"mermaidSource\" : \"mermaidSource\" } ], \"projectId\" : 0 }";
+                    String exampleString = "{ \"diagrams\" : [ { \"svgAvailable\" : true, \"metadata\" : { \"key\" : \"\" }, \"plantumlSource\" : \"plantumlSource\", \"diagramId\" : 2, \"svgDownloadUrl\" : \"svgDownloadUrl\", \"title\" : \"title\", \"diagramType\" : \"diagramType\", \"mermaidSource\" : \"mermaidSource\" }, { \"svgAvailable\" : true, \"metadata\" : { \"key\" : \"\" }, \"plantumlSource\" : \"plantumlSource\", \"diagramId\" : 2, \"svgDownloadUrl\" : \"svgDownloadUrl\", \"title\" : \"title\", \"diagramType\" : \"diagramType\", \"mermaidSource\" : \"mermaidSource\" } ], \"projectId\" : 0 }";
                     ApiUtil.setExampleResponse(request, "application/json", exampleString);
                     break;
                 }

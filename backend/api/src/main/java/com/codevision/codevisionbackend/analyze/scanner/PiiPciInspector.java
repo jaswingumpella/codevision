@@ -50,28 +50,45 @@ public class PiiPciInspector {
     }
 
     public List<PiiPciFindingRecord> scan(Path repoRoot) {
+        return scan(repoRoot, List.of(repoRoot));
+    }
+
+    public List<PiiPciFindingRecord> scan(Path repoRoot, List<Path> includeRoots) {
         if (rules.isEmpty() || repoRoot == null) {
             return List.of();
         }
         Path normalizedRoot = repoRoot.toAbsolutePath().normalize();
+        List<Path> targets = includeRoots == null || includeRoots.isEmpty() ? List.of(normalizedRoot) : includeRoots;
         List<PiiPciFindingRecord> findings = new ArrayList<>();
+        Set<Path> visited = new HashSet<>();
+        for (Path target : targets) {
+            if (target == null) {
+                continue;
+            }
+            Path normalizedTarget = target.toAbsolutePath().normalize();
+            if (!Files.exists(normalizedTarget) || !visited.add(normalizedTarget)) {
+                continue;
+            }
+            walkTarget(normalizedRoot, normalizedTarget, findings);
+        }
+        return List.copyOf(findings);
+    }
 
+    private void walkTarget(Path repoRoot, Path targetRoot, List<PiiPciFindingRecord> findings) {
         try {
-            Files.walkFileTree(normalizedRoot, new SimpleFileVisitor<>() {
+            Files.walkFileTree(targetRoot, new SimpleFileVisitor<>() {
                 @Override
                 public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
                     if (!attrs.isRegularFile() || !isTextCandidate(file)) {
                         return FileVisitResult.CONTINUE;
                     }
-                    scanFile(normalizedRoot, file, findings);
+                    scanFile(repoRoot, file, findings);
                     return FileVisitResult.CONTINUE;
                 }
             });
         } catch (IOException e) {
-            log.warn("Failed to traverse repository for PII/PCI scanning: {}", e.getMessage());
+            log.warn("Failed to traverse {} for PII/PCI scanning: {}", targetRoot, e.getMessage());
         }
-
-        return List.copyOf(findings);
     }
 
     public RiskAssessment assessText(String text) {

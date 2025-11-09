@@ -8,6 +8,8 @@ package com.codevision.codevisionbackend.api.generated;
 import com.codevision.codevisionbackend.api.model.ParsedDataResponse;
 import com.codevision.codevisionbackend.api.model.ProjectApiEndpointsResponse;
 import com.codevision.codevisionbackend.api.model.ProjectDbAnalysisResponse;
+import com.codevision.codevisionbackend.api.model.ProjectSnapshotsResponse;
+import com.codevision.codevisionbackend.api.model.SnapshotDiff;
 import io.swagger.v3.oas.annotations.ExternalDocumentation;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -34,7 +36,7 @@ import java.util.Map;
 import java.util.Optional;
 import jakarta.annotation.Generated;
 
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2025-11-09T02:46:14.127269-05:00[America/New_York]", comments = "Generator version: 7.5.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2025-11-09T15:05:41.709386-05:00[America/New_York]", comments = "Generator version: 7.5.0")
 @Validated
 @Tag(name = "Project", description = "Endpoints that expose stored project overview information.")
 public interface ProjectApi {
@@ -42,6 +44,51 @@ public interface ProjectApi {
     default Optional<NativeWebRequest> getRequest() {
         return Optional.empty();
     }
+
+    /**
+     * GET /project/{projectId}/snapshots/{snapshotId}/diff/{compareSnapshotId} : Diff two stored snapshots
+     *
+     * @param projectId  (required)
+     * @param snapshotId  (required)
+     * @param compareSnapshotId  (required)
+     * @return Snapshot diff computed successfully. (status code 200)
+     *         or One or both snapshots were not found for the project. (status code 404)
+     */
+    @Operation(
+        operationId = "diffProjectSnapshots",
+        summary = "Diff two stored snapshots",
+        tags = { "Project" },
+        responses = {
+            @ApiResponse(responseCode = "200", description = "Snapshot diff computed successfully.", content = {
+                @Content(mediaType = "application/json", schema = @Schema(implementation = SnapshotDiff.class))
+            }),
+            @ApiResponse(responseCode = "404", description = "One or both snapshots were not found for the project.")
+        }
+    )
+    @RequestMapping(
+        method = RequestMethod.GET,
+        value = "/project/{projectId}/snapshots/{snapshotId}/diff/{compareSnapshotId}",
+        produces = { "application/json" }
+    )
+    
+    default ResponseEntity<SnapshotDiff> diffProjectSnapshots(
+        @Parameter(name = "projectId", description = "", required = true, in = ParameterIn.PATH) @PathVariable("projectId") Long projectId,
+        @Parameter(name = "snapshotId", description = "", required = true, in = ParameterIn.PATH) @PathVariable("snapshotId") Long snapshotId,
+        @Parameter(name = "compareSnapshotId", description = "", required = true, in = ParameterIn.PATH) @PathVariable("compareSnapshotId") Long compareSnapshotId
+    ) {
+        getRequest().ifPresent(request -> {
+            for (MediaType mediaType: MediaType.parseMediaTypes(request.getHeader("Accept"))) {
+                if (mediaType.isCompatibleWith(MediaType.valueOf("application/json"))) {
+                    String exampleString = "{ \"baseSnapshotId\" : 0, \"addedClasses\" : [ { \"stereotype\" : \"stereotype\", \"fullyQualifiedName\" : \"fullyQualifiedName\" }, { \"stereotype\" : \"stereotype\", \"fullyQualifiedName\" : \"fullyQualifiedName\" } ], \"addedEntities\" : [ { \"entityName\" : \"entityName\", \"tableName\" : \"tableName\" }, { \"entityName\" : \"entityName\", \"tableName\" : \"tableName\" } ], \"baseCommitHash\" : \"baseCommitHash\", \"removedEntities\" : [ { \"entityName\" : \"entityName\", \"tableName\" : \"tableName\" }, { \"entityName\" : \"entityName\", \"tableName\" : \"tableName\" } ], \"compareCommitHash\" : \"compareCommitHash\", \"compareSnapshotId\" : 6, \"addedEndpoints\" : [ { \"protocol\" : \"protocol\", \"pathOrOperation\" : \"pathOrOperation\", \"httpMethod\" : \"httpMethod\" }, { \"protocol\" : \"protocol\", \"pathOrOperation\" : \"pathOrOperation\", \"httpMethod\" : \"httpMethod\" } ], \"removedClasses\" : [ { \"stereotype\" : \"stereotype\", \"fullyQualifiedName\" : \"fullyQualifiedName\" }, { \"stereotype\" : \"stereotype\", \"fullyQualifiedName\" : \"fullyQualifiedName\" } ], \"removedEndpoints\" : [ { \"protocol\" : \"protocol\", \"pathOrOperation\" : \"pathOrOperation\", \"httpMethod\" : \"httpMethod\" }, { \"protocol\" : \"protocol\", \"pathOrOperation\" : \"pathOrOperation\", \"httpMethod\" : \"httpMethod\" } ] }";
+                    ApiUtil.setExampleResponse(request, "application/json", exampleString);
+                    break;
+                }
+            }
+        });
+        return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
+
+    }
+
 
     /**
      * GET /project/{projectId}/api-endpoints : Retrieve API endpoint catalog
@@ -161,7 +208,48 @@ public interface ProjectApi {
         getRequest().ifPresent(request -> {
             for (MediaType mediaType: MediaType.parseMediaTypes(request.getHeader("Accept"))) {
                 if (mediaType.isCompatibleWith(MediaType.valueOf("application/json"))) {
-                    String exampleString = "{ \"repoUrl\" : \"https://openapi-generator.tech\", \"loggerInsights\" : [ { \"variables\" : [ \"variables\", \"variables\" ], \"logLevel\" : \"logLevel\", \"filePath\" : \"filePath\", \"className\" : \"className\", \"piiRisk\" : true, \"lineNumber\" : 1, \"pciRisk\" : true, \"messageTemplate\" : \"messageTemplate\" }, { \"variables\" : [ \"variables\", \"variables\" ], \"logLevel\" : \"logLevel\", \"filePath\" : \"filePath\", \"className\" : \"className\", \"piiRisk\" : true, \"lineNumber\" : 1, \"pciRisk\" : true, \"messageTemplate\" : \"messageTemplate\" } ], \"analyzedAt\" : \"2000-01-23T04:56:07.000+00:00\", \"buildInfo\" : { \"javaVersion\" : \"javaVersion\", \"groupId\" : \"groupId\", \"artifactId\" : \"artifactId\", \"version\" : \"version\" }, \"callFlows\" : { \"key\" : [ \"callFlows\", \"callFlows\" ] }, \"classes\" : [ { \"sourceSet\" : \"sourceSet\", \"relativePath\" : \"relativePath\", \"annotations\" : [ \"annotations\", \"annotations\" ], \"className\" : \"className\", \"packageName\" : \"packageName\", \"stereotype\" : \"stereotype\", \"fullyQualifiedName\" : \"fullyQualifiedName\", \"userCode\" : true, \"interfacesImplemented\" : [ \"interfacesImplemented\", \"interfacesImplemented\" ] }, { \"sourceSet\" : \"sourceSet\", \"relativePath\" : \"relativePath\", \"annotations\" : [ \"annotations\", \"annotations\" ], \"className\" : \"className\", \"packageName\" : \"packageName\", \"stereotype\" : \"stereotype\", \"fullyQualifiedName\" : \"fullyQualifiedName\", \"userCode\" : true, \"interfacesImplemented\" : [ \"interfacesImplemented\", \"interfacesImplemented\" ] } ], \"diagrams\" : [ { \"svgAvailable\" : true, \"metadata\" : { \"key\" : \"\" }, \"plantumlSource\" : \"plantumlSource\", \"diagramId\" : 5, \"svgDownloadUrl\" : \"svgDownloadUrl\", \"title\" : \"title\", \"diagramType\" : \"diagramType\", \"mermaidSource\" : \"mermaidSource\" }, { \"svgAvailable\" : true, \"metadata\" : { \"key\" : \"\" }, \"plantumlSource\" : \"plantumlSource\", \"diagramId\" : 5, \"svgDownloadUrl\" : \"svgDownloadUrl\", \"title\" : \"title\", \"diagramType\" : \"diagramType\", \"mermaidSource\" : \"mermaidSource\" } ], \"gherkinFeatures\" : [ { \"featureTitle\" : \"featureTitle\", \"featureFile\" : \"featureFile\", \"scenarios\" : [ { \"scenarioType\" : \"scenarioType\", \"name\" : \"name\", \"steps\" : [ \"steps\", \"steps\" ] }, { \"scenarioType\" : \"scenarioType\", \"name\" : \"name\", \"steps\" : [ \"steps\", \"steps\" ] } ] }, { \"featureTitle\" : \"featureTitle\", \"featureFile\" : \"featureFile\", \"scenarios\" : [ { \"scenarioType\" : \"scenarioType\", \"name\" : \"name\", \"steps\" : [ \"steps\", \"steps\" ] }, { \"scenarioType\" : \"scenarioType\", \"name\" : \"name\", \"steps\" : [ \"steps\", \"steps\" ] } ] } ], \"metadataDump\" : { \"wsdlDocuments\" : [ { \"fileName\" : \"fileName\", \"content\" : \"content\" }, { \"fileName\" : \"fileName\", \"content\" : \"content\" } ], \"soapServices\" : [ { \"fileName\" : \"fileName\", \"serviceName\" : \"serviceName\", \"ports\" : [ { \"operations\" : [ \"operations\", \"operations\" ], \"portName\" : \"portName\" }, { \"operations\" : [ \"operations\", \"operations\" ], \"portName\" : \"portName\" } ] }, { \"fileName\" : \"fileName\", \"serviceName\" : \"serviceName\", \"ports\" : [ { \"operations\" : [ \"operations\", \"operations\" ], \"portName\" : \"portName\" }, { \"operations\" : [ \"operations\", \"operations\" ], \"portName\" : \"portName\" } ] } ], \"openApiSpecs\" : [ { \"fileName\" : \"fileName\", \"content\" : \"content\" }, { \"fileName\" : \"fileName\", \"content\" : \"content\" } ], \"xsdDocuments\" : [ { \"fileName\" : \"fileName\", \"content\" : \"content\" }, { \"fileName\" : \"fileName\", \"content\" : \"content\" } ] }, \"apiEndpoints\" : [ { \"specArtifacts\" : [ { \"reference\" : \"reference\", \"name\" : \"name\", \"type\" : \"type\" }, { \"reference\" : \"reference\", \"name\" : \"name\", \"type\" : \"type\" } ], \"protocol\" : \"protocol\", \"controllerClass\" : \"controllerClass\", \"controllerMethod\" : \"controllerMethod\", \"pathOrOperation\" : \"pathOrOperation\", \"httpMethod\" : \"httpMethod\" }, { \"specArtifacts\" : [ { \"reference\" : \"reference\", \"name\" : \"name\", \"type\" : \"type\" }, { \"reference\" : \"reference\", \"name\" : \"name\", \"type\" : \"type\" } ], \"protocol\" : \"protocol\", \"controllerClass\" : \"controllerClass\", \"controllerMethod\" : \"controllerMethod\", \"pathOrOperation\" : \"pathOrOperation\", \"httpMethod\" : \"httpMethod\" } ], \"assets\" : { \"images\" : [ { \"fileName\" : \"fileName\", \"sha256\" : \"sha256\", \"relativePath\" : \"relativePath\", \"sizeBytes\" : 6 }, { \"fileName\" : \"fileName\", \"sha256\" : \"sha256\", \"relativePath\" : \"relativePath\", \"sizeBytes\" : 6 } ] }, \"dbAnalysis\" : { \"classesByEntity\" : { \"key\" : [ \"classesByEntity\", \"classesByEntity\" ] }, \"entities\" : [ { \"relationships\" : [ { \"fieldName\" : \"fieldName\", \"relationshipType\" : \"relationshipType\", \"targetType\" : \"targetType\" }, { \"fieldName\" : \"fieldName\", \"relationshipType\" : \"relationshipType\", \"targetType\" : \"targetType\" } ], \"primaryKeys\" : [ \"primaryKeys\", \"primaryKeys\" ], \"entityName\" : \"entityName\", \"fullyQualifiedName\" : \"fullyQualifiedName\", \"fields\" : [ { \"name\" : \"name\", \"type\" : \"type\", \"columnName\" : \"columnName\" }, { \"name\" : \"name\", \"type\" : \"type\", \"columnName\" : \"columnName\" } ], \"tableName\" : \"tableName\" }, { \"relationships\" : [ { \"fieldName\" : \"fieldName\", \"relationshipType\" : \"relationshipType\", \"targetType\" : \"targetType\" }, { \"fieldName\" : \"fieldName\", \"relationshipType\" : \"relationshipType\", \"targetType\" : \"targetType\" } ], \"primaryKeys\" : [ \"primaryKeys\", \"primaryKeys\" ], \"entityName\" : \"entityName\", \"fullyQualifiedName\" : \"fullyQualifiedName\", \"fields\" : [ { \"name\" : \"name\", \"type\" : \"type\", \"columnName\" : \"columnName\" }, { \"name\" : \"name\", \"type\" : \"type\", \"columnName\" : \"columnName\" } ], \"tableName\" : \"tableName\" } ], \"operationsByClass\" : { \"key\" : [ { \"querySnippet\" : \"querySnippet\", \"methodName\" : \"methodName\", \"operationType\" : \"operationType\", \"target\" : \"target\" }, { \"querySnippet\" : \"querySnippet\", \"methodName\" : \"methodName\", \"operationType\" : \"operationType\", \"target\" : \"target\" } ] } }, \"projectName\" : \"projectName\", \"piiPciScan\" : [ { \"snippet\" : \"snippet\", \"severity\" : \"severity\", \"ignored\" : true, \"matchType\" : \"matchType\", \"filePath\" : \"filePath\", \"lineNumber\" : 5 }, { \"snippet\" : \"snippet\", \"severity\" : \"severity\", \"ignored\" : true, \"matchType\" : \"matchType\", \"filePath\" : \"filePath\", \"lineNumber\" : 5 } ], \"projectId\" : 0 }";
+                    String exampleString = "{ \"repoUrl\" : \"https://openapi-generator.tech\", \"loggerInsights\" : [ { \"variables\" : [ \"variables\", \"variables\" ], \"logLevel\" : \"logLevel\", \"filePath\" : \"filePath\", \"className\" : \"className\", \"piiRisk\" : true, \"lineNumber\" : 1, \"pciRisk\" : true, \"messageTemplate\" : \"messageTemplate\" }, { \"variables\" : [ \"variables\", \"variables\" ], \"logLevel\" : \"logLevel\", \"filePath\" : \"filePath\", \"className\" : \"className\", \"piiRisk\" : true, \"lineNumber\" : 1, \"pciRisk\" : true, \"messageTemplate\" : \"messageTemplate\" } ], \"analyzedAt\" : \"2000-01-23T04:56:07.000+00:00\", \"buildInfo\" : { \"javaVersion\" : \"javaVersion\", \"groupId\" : \"groupId\", \"artifactId\" : \"artifactId\", \"version\" : \"version\" }, \"callFlows\" : { \"key\" : [ \"callFlows\", \"callFlows\" ] }, \"classes\" : [ { \"sourceSet\" : \"sourceSet\", \"relativePath\" : \"relativePath\", \"annotations\" : [ \"annotations\", \"annotations\" ], \"className\" : \"className\", \"packageName\" : \"packageName\", \"stereotype\" : \"stereotype\", \"fullyQualifiedName\" : \"fullyQualifiedName\", \"userCode\" : true, \"interfacesImplemented\" : [ \"interfacesImplemented\", \"interfacesImplemented\" ] }, { \"sourceSet\" : \"sourceSet\", \"relativePath\" : \"relativePath\", \"annotations\" : [ \"annotations\", \"annotations\" ], \"className\" : \"className\", \"packageName\" : \"packageName\", \"stereotype\" : \"stereotype\", \"fullyQualifiedName\" : \"fullyQualifiedName\", \"userCode\" : true, \"interfacesImplemented\" : [ \"interfacesImplemented\", \"interfacesImplemented\" ] } ], \"diagrams\" : [ { \"svgAvailable\" : true, \"metadata\" : { \"key\" : \"\" }, \"plantumlSource\" : \"plantumlSource\", \"diagramId\" : 2, \"svgDownloadUrl\" : \"svgDownloadUrl\", \"title\" : \"title\", \"diagramType\" : \"diagramType\", \"mermaidSource\" : \"mermaidSource\" }, { \"svgAvailable\" : true, \"metadata\" : { \"key\" : \"\" }, \"plantumlSource\" : \"plantumlSource\", \"diagramId\" : 2, \"svgDownloadUrl\" : \"svgDownloadUrl\", \"title\" : \"title\", \"diagramType\" : \"diagramType\", \"mermaidSource\" : \"mermaidSource\" } ], \"gherkinFeatures\" : [ { \"featureTitle\" : \"featureTitle\", \"featureFile\" : \"featureFile\", \"scenarios\" : [ { \"scenarioType\" : \"scenarioType\", \"name\" : \"name\", \"steps\" : [ \"steps\", \"steps\" ] }, { \"scenarioType\" : \"scenarioType\", \"name\" : \"name\", \"steps\" : [ \"steps\", \"steps\" ] } ] }, { \"featureTitle\" : \"featureTitle\", \"featureFile\" : \"featureFile\", \"scenarios\" : [ { \"scenarioType\" : \"scenarioType\", \"name\" : \"name\", \"steps\" : [ \"steps\", \"steps\" ] }, { \"scenarioType\" : \"scenarioType\", \"name\" : \"name\", \"steps\" : [ \"steps\", \"steps\" ] } ] } ], \"metadataDump\" : { \"wsdlDocuments\" : [ { \"fileName\" : \"fileName\", \"content\" : \"content\" }, { \"fileName\" : \"fileName\", \"content\" : \"content\" } ], \"soapServices\" : [ { \"fileName\" : \"fileName\", \"serviceName\" : \"serviceName\", \"ports\" : [ { \"operations\" : [ \"operations\", \"operations\" ], \"portName\" : \"portName\" }, { \"operations\" : [ \"operations\", \"operations\" ], \"portName\" : \"portName\" } ] }, { \"fileName\" : \"fileName\", \"serviceName\" : \"serviceName\", \"ports\" : [ { \"operations\" : [ \"operations\", \"operations\" ], \"portName\" : \"portName\" }, { \"operations\" : [ \"operations\", \"operations\" ], \"portName\" : \"portName\" } ] } ], \"openApiSpecs\" : [ { \"fileName\" : \"fileName\", \"content\" : \"content\" }, { \"fileName\" : \"fileName\", \"content\" : \"content\" } ], \"xsdDocuments\" : [ { \"fileName\" : \"fileName\", \"content\" : \"content\" }, { \"fileName\" : \"fileName\", \"content\" : \"content\" } ] }, \"apiEndpoints\" : [ { \"specArtifacts\" : [ { \"reference\" : \"reference\", \"name\" : \"name\", \"type\" : \"type\" }, { \"reference\" : \"reference\", \"name\" : \"name\", \"type\" : \"type\" } ], \"protocol\" : \"protocol\", \"controllerClass\" : \"controllerClass\", \"controllerMethod\" : \"controllerMethod\", \"pathOrOperation\" : \"pathOrOperation\", \"httpMethod\" : \"httpMethod\" }, { \"specArtifacts\" : [ { \"reference\" : \"reference\", \"name\" : \"name\", \"type\" : \"type\" }, { \"reference\" : \"reference\", \"name\" : \"name\", \"type\" : \"type\" } ], \"protocol\" : \"protocol\", \"controllerClass\" : \"controllerClass\", \"controllerMethod\" : \"controllerMethod\", \"pathOrOperation\" : \"pathOrOperation\", \"httpMethod\" : \"httpMethod\" } ], \"assets\" : { \"images\" : [ { \"fileName\" : \"fileName\", \"sha256\" : \"sha256\", \"relativePath\" : \"relativePath\", \"sizeBytes\" : 6 }, { \"fileName\" : \"fileName\", \"sha256\" : \"sha256\", \"relativePath\" : \"relativePath\", \"sizeBytes\" : 6 } ] }, \"dbAnalysis\" : { \"classesByEntity\" : { \"key\" : [ \"classesByEntity\", \"classesByEntity\" ] }, \"entities\" : [ { \"relationships\" : [ { \"fieldName\" : \"fieldName\", \"relationshipType\" : \"relationshipType\", \"targetType\" : \"targetType\" }, { \"fieldName\" : \"fieldName\", \"relationshipType\" : \"relationshipType\", \"targetType\" : \"targetType\" } ], \"primaryKeys\" : [ \"primaryKeys\", \"primaryKeys\" ], \"entityName\" : \"entityName\", \"fullyQualifiedName\" : \"fullyQualifiedName\", \"fields\" : [ { \"name\" : \"name\", \"type\" : \"type\", \"columnName\" : \"columnName\" }, { \"name\" : \"name\", \"type\" : \"type\", \"columnName\" : \"columnName\" } ], \"tableName\" : \"tableName\" }, { \"relationships\" : [ { \"fieldName\" : \"fieldName\", \"relationshipType\" : \"relationshipType\", \"targetType\" : \"targetType\" }, { \"fieldName\" : \"fieldName\", \"relationshipType\" : \"relationshipType\", \"targetType\" : \"targetType\" } ], \"primaryKeys\" : [ \"primaryKeys\", \"primaryKeys\" ], \"entityName\" : \"entityName\", \"fullyQualifiedName\" : \"fullyQualifiedName\", \"fields\" : [ { \"name\" : \"name\", \"type\" : \"type\", \"columnName\" : \"columnName\" }, { \"name\" : \"name\", \"type\" : \"type\", \"columnName\" : \"columnName\" } ], \"tableName\" : \"tableName\" } ], \"operationsByClass\" : { \"key\" : [ { \"querySnippet\" : \"querySnippet\", \"methodName\" : \"methodName\", \"operationType\" : \"operationType\", \"target\" : \"target\" }, { \"querySnippet\" : \"querySnippet\", \"methodName\" : \"methodName\", \"operationType\" : \"operationType\", \"target\" : \"target\" } ] } }, \"projectName\" : \"projectName\", \"piiPciScan\" : [ { \"snippet\" : \"snippet\", \"severity\" : \"severity\", \"ignored\" : true, \"matchType\" : \"matchType\", \"filePath\" : \"filePath\", \"findingId\" : 5, \"lineNumber\" : 5 }, { \"snippet\" : \"snippet\", \"severity\" : \"severity\", \"ignored\" : true, \"matchType\" : \"matchType\", \"filePath\" : \"filePath\", \"findingId\" : 5, \"lineNumber\" : 5 } ], \"projectId\" : 0 }";
+                    ApiUtil.setExampleResponse(request, "application/json", exampleString);
+                    break;
+                }
+            }
+        });
+        return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
+
+    }
+
+
+    /**
+     * GET /project/{projectId}/snapshots : List historical snapshots for a project
+     *
+     * @param projectId  (required)
+     * @return Snapshot history retrieved successfully. (status code 200)
+     *         or No snapshots exist for the supplied project. (status code 404)
+     */
+    @Operation(
+        operationId = "listProjectSnapshots",
+        summary = "List historical snapshots for a project",
+        tags = { "Project" },
+        responses = {
+            @ApiResponse(responseCode = "200", description = "Snapshot history retrieved successfully.", content = {
+                @Content(mediaType = "application/json", schema = @Schema(implementation = ProjectSnapshotsResponse.class))
+            }),
+            @ApiResponse(responseCode = "404", description = "No snapshots exist for the supplied project.")
+        }
+    )
+    @RequestMapping(
+        method = RequestMethod.GET,
+        value = "/project/{projectId}/snapshots",
+        produces = { "application/json" }
+    )
+    
+    default ResponseEntity<ProjectSnapshotsResponse> listProjectSnapshots(
+        @Parameter(name = "projectId", description = "", required = true, in = ParameterIn.PATH) @PathVariable("projectId") Long projectId
+    ) {
+        getRequest().ifPresent(request -> {
+            for (MediaType mediaType: MediaType.parseMediaTypes(request.getHeader("Accept"))) {
+                if (mediaType.isCompatibleWith(MediaType.valueOf("application/json"))) {
+                    String exampleString = "{ \"snapshots\" : [ { \"createdAt\" : \"2000-01-23T04:56:07.000+00:00\", \"snapshotId\" : 6, \"branchName\" : \"branchName\", \"commitHash\" : \"commitHash\" }, { \"createdAt\" : \"2000-01-23T04:56:07.000+00:00\", \"snapshotId\" : 6, \"branchName\" : \"branchName\", \"commitHash\" : \"commitHash\" } ], \"projectId\" : 0 }";
                     ApiUtil.setExampleResponse(request, "application/json", exampleString);
                     break;
                 }

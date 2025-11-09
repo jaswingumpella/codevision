@@ -31,15 +31,16 @@ class ProjectServiceTest {
     @Test
     void overwriteProjectDeletesExistingAndSavesNew() {
         BuildInfo buildInfo = new BuildInfo("com.barclays", "codevision", "1.0.0", "21");
-        Project savedProject = new Project("https://example.com/repo.git", "codevision", OffsetDateTime.now());
+        Project savedProject = new Project("https://example.com/repo.git", "codevision", "main", OffsetDateTime.now());
         savedProject.setId(7L);
-        when(projectRepository.findByRepoUrl("https://example.com/repo.git")).thenReturn(Optional.empty());
+        when(projectRepository.findByRepoUrlAndBranchName("https://example.com/repo.git", "main"))
+                .thenReturn(Optional.empty());
         when(projectRepository.saveAndFlush(argThat(project -> project.getRepoUrl().equals("https://example.com/repo.git"))))
                 .thenReturn(savedProject);
 
-        Project result = projectService.overwriteProject("https://example.com/repo.git", "codevision", buildInfo);
+        Project result = projectService.overwriteProject("https://example.com/repo.git", "main", "codevision", buildInfo);
 
-        verify(projectRepository).findByRepoUrl("https://example.com/repo.git");
+        verify(projectRepository).findByRepoUrlAndBranchName("https://example.com/repo.git", "main");
         verify(projectRepository).saveAndFlush(argThat(project -> {
             assertEquals("com.barclays", project.getBuildGroupId());
             assertEquals("codevision", project.getProjectName());
@@ -56,13 +57,14 @@ class ProjectServiceTest {
     @Test
     void overwriteProjectUpdatesExistingRecord() {
         BuildInfo buildInfo = new BuildInfo("com.barclays", "codevision", "1.0.1", "21");
-        Project existing = new Project("https://example.com/repo.git", "old-name", OffsetDateTime.now().minusDays(1));
+        Project existing = new Project("https://example.com/repo.git", "old-name", "main", OffsetDateTime.now().minusDays(1));
         existing.setId(9L);
 
-        when(projectRepository.findByRepoUrl("https://example.com/repo.git")).thenReturn(Optional.of(existing));
+        when(projectRepository.findByRepoUrlAndBranchName("https://example.com/repo.git", "main"))
+                .thenReturn(Optional.of(existing));
         when(projectRepository.saveAndFlush(existing)).thenReturn(existing);
 
-        Project result = projectService.overwriteProject("https://example.com/repo.git", "codevision", buildInfo);
+        Project result = projectService.overwriteProject("https://example.com/repo.git", "main", "codevision", buildInfo);
 
         assertEquals(existing, result);
         assertEquals("codevision", existing.getProjectName());

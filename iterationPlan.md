@@ -840,3 +840,27 @@ Scale `/analyze` beyond single minute HTTP windows by turning the synchronous wo
 * `POST /analyze` returns immediately with job metadata, `GET /analyze/{jobId}` streams status transitions, and long-running repos (ServiceMix/WebGoat) no longer time out.
 * Analyzer UI shows queued/running states, polls until success, and gracefully reports failures without freezing the dashboard.
 * Backend + frontend tests cover the new flow, docs / README describe the job-based API, and the iteration entry is marked complete once merged.
+
+## Iteration 11 – Snapshot history, incremental analysis, and security polish *(Status: ✅ Completed – see [`docs/iteration-11-completion.md`](docs/iteration-11-completion.md))* 
+
+### Goal
+Add durable snapshot history + diffing, reuse results across commits, and tighten the Security pages so auditors can triage faster.
+
+### Backend
+
+* Accept an optional `branchName` on `/analyze`, clone the matching ref, and persist the branch + commit hash on projects, jobs, and snapshots.
+* Replace the single `project_snapshot` row with append-only snapshot versions (auto ID, branch, commit hash, module fingerprint JSON). Expose `GET /project/{id}/snapshots` and `GET /project/{id}/snapshots/{snapshotId}/diff/{compareSnapshotId}`.
+* Teach `AnalysisService` to fingerprint Maven modules and only re-parse changed directories; identical commits reuse the prior snapshot immediately.
+* Expand the PCI/PII inspector so rules can be supplied via config or external files. Add `PATCH /project/{id}/pii-pci/{findingId}` so analysts can ignore/restore findings without editing YAML.
+
+### UI / DX
+
+* Add a Snapshots panel showing the historical timeline, dropdowns for baseline vs comparison, and a diff summary (classes/endpoints/entities). The Analyze form gains a Branch input.
+* Logger Insights gets message-level search, risk toggles, “Expand All / Collapse All”, and no longer defaults to the sample OrderService filter.
+* PCI/PII Scan hides ignored rows by default, surfaces Ignore/Restore buttons, and refreshes after each toggle. CSV/PDF/HTML exports continue to work for large data sets.
+
+### Done Criteria
+
+* Snapshot list/diff endpoints wired to the React panel and documented in the PRD.
+* Running analysis twice on the same commit reuses the prior snapshot; touching a single module only re-parses that module’s sources/logs/PII files.
+* Logger/PII exports + HTML preview remain responsive on thousands of rows; iframe preview no longer causes scroll jank.

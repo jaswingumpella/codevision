@@ -40,7 +40,7 @@ class SecurityExportServiceTest {
     @Test
     void buildsCsvForPiiFindings() {
         List<PiiPciFindingSummary> findings =
-                List.of(new PiiPciFindingSummary("src/data.txt", 9, "card=4111", "PCI", "HIGH", false));
+                List.of(new PiiPciFindingSummary(1L, "src/data.txt", 9, "card=4111", "PCI", "HIGH", false));
 
         String csv = new String(exportService.buildPiiCsv(findings), StandardCharsets.UTF_8);
 

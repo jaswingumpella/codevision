@@ -1,3 +1,5 @@
+/Users/dhanujgumpella/jaswingumpella/repos/codevision/backend/oasgen/src/main/java/com/codevision/codevisionbackend/api/model/UpdatePiiFindingRequest.java
+/Users/dhanujgumpella/jaswingumpella/repos/codevision/backend/oasgen/src/main/java/com/codevision/codevisionbackend/api/model/SnapshotDbEntityRef.java
 /Users/dhanujgumpella/jaswingumpella/repos/codevision/backend/oasgen/src/main/java/com/codevision/codevisionbackend/api/model/ProjectDiagramsResponse.java
 /Users/dhanujgumpella/jaswingumpella/repos/codevision/backend/oasgen/src/main/java/com/codevision/codevisionbackend/api/model/ApiEndpoint.java
 /Users/dhanujgumpella/jaswingumpella/repos/codevision/backend/oasgen/src/main/java/com/codevision/codevisionbackend/api/model/AnalyzeRequest.java
@@ -13,14 +15,18 @@
 /Users/dhanujgumpella/jaswingumpella/repos/codevision/backend/oasgen/src/main/java/com/codevision/codevisionbackend/api/model/AnalyzeResponse.java
 /Users/dhanujgumpella/jaswingumpella/repos/codevision/backend/oasgen/src/main/java/com/codevision/codevisionbackend/api/model/ClassMetadataSummary.java
 /Users/dhanujgumpella/jaswingumpella/repos/codevision/backend/oasgen/src/main/java/com/codevision/codevisionbackend/api/generated/AnalysisApi.java
+/Users/dhanujgumpella/jaswingumpella/repos/codevision/backend/oasgen/src/main/java/com/codevision/codevisionbackend/api/model/SnapshotClassRef.java
+/Users/dhanujgumpella/jaswingumpella/repos/codevision/backend/oasgen/src/main/java/com/codevision/codevisionbackend/api/model/ProjectSnapshotsResponse.java
 /Users/dhanujgumpella/jaswingumpella/repos/codevision/backend/oasgen/src/main/java/com/codevision/codevisionbackend/api/model/ProjectLoggerInsightsResponse.java
 /Users/dhanujgumpella/jaswingumpella/repos/codevision/backend/oasgen/src/main/java/com/codevision/codevisionbackend/api/model/ProjectPiiPciResponse.java
 /Users/dhanujgumpella/jaswingumpella/repos/codevision/backend/oasgen/src/main/java/com/codevision/codevisionbackend/api/model/DiagramDescriptor.java
 /Users/dhanujgumpella/jaswingumpella/repos/codevision/backend/oasgen/src/main/java/com/codevision/codevisionbackend/api/generated/ProjectApi.java
 /Users/dhanujgumpella/jaswingumpella/repos/codevision/backend/oasgen/src/main/java/com/codevision/codevisionbackend/api/model/DaoOperationDetails.java
+/Users/dhanujgumpella/jaswingumpella/repos/codevision/backend/oasgen/src/main/java/com/codevision/codevisionbackend/api/model/SnapshotDiff.java
 /Users/dhanujgumpella/jaswingumpella/repos/codevision/backend/oasgen/src/main/java/com/codevision/codevisionbackend/api/model/MetadataDump.java
 /Users/dhanujgumpella/jaswingumpella/repos/codevision/backend/oasgen/src/main/java/com/codevision/codevisionbackend/api/model/DbRelationshipSummary.java
 /Users/dhanujgumpella/jaswingumpella/repos/codevision/backend/oasgen/src/main/java/com/codevision/codevisionbackend/api/model/GherkinScenario.java
+/Users/dhanujgumpella/jaswingumpella/repos/codevision/backend/oasgen/src/main/java/com/codevision/codevisionbackend/api/model/SnapshotEndpointRef.java
 /Users/dhanujgumpella/jaswingumpella/repos/codevision/backend/oasgen/src/main/java/com/codevision/codevisionbackend/api/generated/ApiUtil.java
 /Users/dhanujgumpella/jaswingumpella/repos/codevision/backend/oasgen/src/main/java/com/codevision/codevisionbackend/api/model/SoapPortSummary.java
 /Users/dhanujgumpella/jaswingumpella/repos/codevision/backend/oasgen/src/main/java/com/codevision/codevisionbackend/api/generated/SecurityApi.java
@@ -28,6 +34,7 @@
 /Users/dhanujgumpella/jaswingumpella/repos/codevision/backend/oasgen/src/main/java/com/codevision/codevisionbackend/api/model/ImageAsset.java
 /Users/dhanujgumpella/jaswingumpella/repos/codevision/backend/oasgen/src/main/java/com/codevision/codevisionbackend/api/model/DbAnalysis.java
 /Users/dhanujgumpella/jaswingumpella/repos/codevision/backend/oasgen/src/main/java/com/codevision/codevisionbackend/api/model/ProjectDbAnalysisResponse.java
+/Users/dhanujgumpella/jaswingumpella/repos/codevision/backend/oasgen/src/main/java/com/codevision/codevisionbackend/api/model/ProjectSnapshotSummary.java
 /Users/dhanujgumpella/jaswingumpella/repos/codevision/backend/oasgen/src/main/java/com/codevision/codevisionbackend/api/model/AssetInventory.java
 /Users/dhanujgumpella/jaswingumpella/repos/codevision/backend/oasgen/src/main/java/com/codevision/codevisionbackend/api/generated/MetadataApi.java
 /Users/dhanujgumpella/jaswingumpella/repos/codevision/backend/oasgen/src/main/java/com/codevision/codevisionbackend/api/model/SoapServiceSummary.java

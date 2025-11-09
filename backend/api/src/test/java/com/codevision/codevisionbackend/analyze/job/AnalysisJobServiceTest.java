@@ -37,25 +37,28 @@ class AnalysisJobServiceTest {
     @Test
     void enqueueRunsAnalysisAndMarksSuccess() {
         String repoUrl = "https://github.com/example/repo.git";
-        Project project = new Project(repoUrl, "demo", OffsetDateTime.now());
+        Project project = new Project(repoUrl, "demo", "main", OffsetDateTime.now());
         project.setId(42L);
-        when(analysisService.analyze(repoUrl)).thenReturn(new AnalysisOutcome(project, null));
+        AnalysisOutcome outcome = new AnalysisOutcome(project, null, "main", "abc123", 111L, false);
+        when(analysisService.analyze(repoUrl, "main")).thenReturn(outcome);
 
-        AnalysisJob job = jobService.enqueue(repoUrl);
+        AnalysisJob job = jobService.enqueue(repoUrl, "main");
 
-        verify(analysisService).analyze(repoUrl);
+        verify(analysisService).analyze(repoUrl, "main");
         AnalysisJob persisted = jobRepository.findById(job.getId()).orElseThrow();
         assertEquals(AnalysisJobStatus.SUCCEEDED, persisted.getStatus());
         assertEquals(project.getId(), persisted.getProjectId());
+        assertEquals("abc123", persisted.getCommitHash());
+        assertEquals(111L, persisted.getSnapshotId());
         assertNotNull(persisted.getCompletedAt());
     }
 
     @Test
     void enqueueCapturesFailureDetails() {
         String repoUrl = "https://github.com/example/broken.git";
-        when(analysisService.analyze(repoUrl)).thenThrow(new IllegalStateException("boom"));
+        when(analysisService.analyze(repoUrl, "main")).thenThrow(new IllegalStateException("boom"));
 
-        AnalysisJob job = jobService.enqueue(repoUrl);
+        AnalysisJob job = jobService.enqueue(repoUrl, "main");
 
         AnalysisJob persisted = jobRepository.findById(job.getId()).orElseThrow();
         assertEquals(AnalysisJobStatus.FAILED, persisted.getStatus());

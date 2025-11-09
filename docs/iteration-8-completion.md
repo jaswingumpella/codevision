@@ -1,10 +1,10 @@
 # Iteration 8 Completion Summary
 
 ## Scope
-- Provide a global search workflow that filters classes, endpoints, logger insights, and PCI/PII findings, while remaining fast for thousands of rows via virtualization.
+- Provide a global search workflow that filters classes, endpoints, logger insights, and PCI/PII findings, while remaining fast for thousands of rows via virtualization.*
 - Improve the responsive layout so the analyzer card collapses automatically on smaller screens and every analysis tab stays reachable without horizontal scrolling, complete with ARIA/keyboard support.
 - Surface clearer progress feedback (linear progress bar + timeline) and actionable error handling for clone/auth/timeout/OOM failures.
-- Summarize build metadata and external service specs (OpenAPI, SOAP/WSDL, XSD) directly in the dashboard, along with a virtualized class directory.
+- Summarize build metadata and external service specs (OpenAPI, SOAP/WSDL, XSD) directly in the dashboard, along with a virtualized class directory.*
 - Update documentation to describe the new UX iteration and testing status.
 
 ## Frontend Deliverables
@@ -14,6 +14,8 @@
 - **Metadata highlights:** Overview shows build coordinates, Java version, and external service counts (OpenAPI, SOAP/WSDL, XSD) in a dedicated stat grid so users can quickly capture repository metadata without digging into sub-tabs.
 - **Modularized codebase:** Broke `App.jsx` apart into feature-specific panels (`src/components/panels`), shared search/progress components, reusable hooks, and utilities, making the tree easier to reason about and keeping the root component focused on orchestration.
 - **Dependency + styling:** Installed `react-window`, added supporting CSS for the search drawer, class directory, progress bar, and error banner, and threaded the new props through the existing panel exports/tests.
+
+> *Note (Nov 2025): We later removed the `react-window` dependency and reverted the search/class directory lists to capped, scrollable containers to avoid a production crash in certain browsers. The behavior described here matches the original Iteration 8 delivery but the current implementation no longer uses virtualization.
 
 ## Documentation
 - Updated `README.md`'s "Overview experience" section to call out the new global search, progress feedback, metadata highlights, accessibility work, and error guidance.

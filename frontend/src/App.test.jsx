@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import App from './App';
 import axios from './lib/apiClient';
@@ -75,22 +75,28 @@ describe('App', () => {
       .mockResolvedValueOnce({ data: { dbAnalysis: null } })
       .mockResolvedValueOnce({ data: { loggerInsights: [] } })
       .mockResolvedValueOnce({ data: { findings: [] } })
-      .mockResolvedValueOnce({ data: { diagrams: [] } });
+      .mockResolvedValueOnce({ data: { diagrams: [] } })
+      .mockRejectedValueOnce({ response: { status: 404 } });
 
     render(<App />);
 
     const repoInput = screen.getByLabelText(/repository url/i);
+    const branchInput = screen.getByLabelText(/branch/i);
     const apiKeyInput = screen.getByLabelText(/api key/i);
     const submitButton = screen.getByRole('button', { name: /analyze/i });
 
-    await userEvent.type(repoInput, 'https://example.com/org/repo.git');
-    await userEvent.type(apiKeyInput, 'super-secret');
-    await userEvent.click(submitButton);
+    await act(async () => {
+      await userEvent.type(repoInput, 'https://example.com/org/repo.git');
+      await userEvent.clear(branchInput);
+      await userEvent.type(branchInput, 'feature/login');
+      await userEvent.type(apiKeyInput, 'super-secret');
+      await userEvent.click(submitButton);
+    });
 
     await waitFor(() =>
       expect(axios.post).toHaveBeenCalledWith(
         '/analyze',
-        { repoUrl: 'https://example.com/org/repo.git' },
+        { repoUrl: 'https://example.com/org/repo.git', branchName: 'feature/login' },
         {
           headers: {
             'Content-Type': 'application/json',
@@ -115,6 +121,13 @@ describe('App', () => {
         }
       })
     );
+    await waitFor(() =>
+      expect(axios.get).toHaveBeenCalledWith('/project/101/snapshots', {
+        headers: {
+          'X-API-KEY': 'super-secret'
+        }
+      })
+    );
 
     expect(await screen.findByText(/latest analysis/i)).toBeInTheDocument();
     expect(screen.getByText(/demo-project/)).toBeInTheDocument();
@@ -128,8 +141,10 @@ describe('App', () => {
     render(<App />);
 
     const repoInput = screen.getByLabelText(/repository url/i);
-    await userEvent.type(repoInput, 'https://example.com/org/repo.git');
-    await userEvent.click(screen.getByRole('button', { name: /analyze/i }));
+    await act(async () => {
+      await userEvent.type(repoInput, 'https://example.com/org/repo.git');
+      await userEvent.click(screen.getByRole('button', { name: /analyze/i }));
+    });
 
     expect(await screen.findByText(/analysis could not be completed/i)).toBeInTheDocument();
     expect(screen.getByText(/Retry the analysis/i)).toBeInTheDocument();
@@ -156,8 +171,10 @@ describe('App', () => {
     render(<App />);
 
     const repoInput = screen.getByLabelText(/repository url/i);
-    await userEvent.type(repoInput, 'https://example.com/org/repo.git');
-    await userEvent.click(screen.getByRole('button', { name: /analyze/i }));
+    await act(async () => {
+      await userEvent.type(repoInput, 'https://example.com/org/repo.git');
+      await userEvent.click(screen.getByRole('button', { name: /analyze/i }));
+    });
 
     const failureNotices = await screen.findAllByText(/Repository clone timed out/i);
     expect(failureNotices.length).toBeGreaterThan(0);
