@@ -25,12 +25,12 @@ import org.springframework.http.ResponseEntity;
 class ProjectOverviewControllerTest {
 
     private StubProjectSnapshotService snapshotService;
-    private ProjectOverviewController controller;
+    private ProjectSnapshotController controller;
 
     @BeforeEach
     void setUp() {
         snapshotService = new StubProjectSnapshotService();
-        controller = new ProjectOverviewController(snapshotService, new ApiModelMapper());
+        controller = new ProjectSnapshotController(snapshotService, new ApiModelMapper());
     }
 
     @Test

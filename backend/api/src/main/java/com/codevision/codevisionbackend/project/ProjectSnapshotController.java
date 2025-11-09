@@ -2,6 +2,9 @@ package com.codevision.codevisionbackend.project;
 
 import com.codevision.codevisionbackend.api.ApiModelMapper;
 import com.codevision.codevisionbackend.api.generated.ProjectApi;
+import com.codevision.codevisionbackend.api.model.ParsedDataResponse;
+import com.codevision.codevisionbackend.api.model.ProjectApiEndpointsResponse;
+import com.codevision.codevisionbackend.api.model.ProjectDbAnalysisResponse;
 import com.codevision.codevisionbackend.api.model.ProjectSnapshotsResponse;
 import com.codevision.codevisionbackend.api.model.SnapshotDiff;
 import com.codevision.codevisionbackend.project.ProjectSnapshotService.ProjectSnapshotSummary;
@@ -48,5 +51,51 @@ public class ProjectSnapshotController implements ProjectApi {
                     snapshotId, compareSnapshotId, projectId, ex.getMessage());
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }
+    }
+
+    @Override
+    public ResponseEntity<ParsedDataResponse> getProjectOverview(@PathVariable("projectId") Long projectId) {
+        log.info("Fetching project overview for id={}", projectId);
+        return projectSnapshotService.fetchSnapshot(projectId)
+                .map(apiModelMapper::toParsedDataResponse)
+                .map(response -> {
+                    log.info("Found snapshot for project id={}", projectId);
+                    return ResponseEntity.ok(response);
+                })
+                .orElseGet(() -> {
+                    log.warn("No snapshot found for project id={}", projectId);
+                    return ResponseEntity.notFound().build();
+                });
+    }
+
+    @Override
+    public ResponseEntity<ProjectApiEndpointsResponse> getProjectApiEndpoints(Long projectId) {
+        log.info("Fetching API endpoints for project id={}", projectId);
+        return projectSnapshotService.fetchSnapshot(projectId)
+                .map(snapshot -> apiModelMapper.toApiEndpointsResponse(projectId, snapshot.apiEndpoints()))
+                .map(response -> {
+                    int count = response.getEndpoints() != null ? response.getEndpoints().size() : 0;
+                    log.info("Found {} endpoints for project id={}", count, projectId);
+                    return ResponseEntity.ok(response);
+                })
+                .orElseGet(() -> {
+                    log.warn("No endpoint catalog found for project id={}", projectId);
+                    return ResponseEntity.notFound().build();
+                });
+    }
+
+    @Override
+    public ResponseEntity<ProjectDbAnalysisResponse> getProjectDbAnalysis(Long projectId) {
+        log.info("Fetching database analysis for project id={}", projectId);
+        return projectSnapshotService.fetchSnapshot(projectId)
+                .map(snapshot -> apiModelMapper.toDbAnalysisResponse(projectId, snapshot.dbAnalysis()))
+                .map(response -> {
+                    log.info("Found database analysis for project id={}", projectId);
+                    return ResponseEntity.ok(response);
+                })
+                .orElseGet(() -> {
+                    log.warn("No database analysis found for project id={}", projectId);
+                    return ResponseEntity.notFound().build();
+                });
     }
 }

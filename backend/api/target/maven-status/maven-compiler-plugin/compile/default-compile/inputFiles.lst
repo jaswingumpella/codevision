@@ -1,7 +1,6 @@
 /Users/dhanujgumpella/jaswingumpella/repos/codevision/backend/api/src/main/java/com/codevision/codevisionbackend/project/logger/LogStatementRepository.java
 /Users/dhanujgumpella/jaswingumpella/repos/codevision/backend/api/src/main/java/com/codevision/codevisionbackend/project/ProjectSnapshotController.java
 /Users/dhanujgumpella/jaswingumpella/repos/codevision/backend/api/src/main/java/com/codevision/codevisionbackend/project/export/ExportService.java
-/Users/dhanujgumpella/jaswingumpella/repos/codevision/backend/api/src/main/java/com/codevision/codevisionbackend/project/ProjectOverviewController.java
 /Users/dhanujgumpella/jaswingumpella/repos/codevision/backend/api/src/main/java/com/codevision/codevisionbackend/project/asset/AssetImageRepository.java
 /Users/dhanujgumpella/jaswingumpella/repos/codevision/backend/api/src/main/java/com/codevision/codevisionbackend/analyze/scanner/ApiEndpointRecord.java
 /Users/dhanujgumpella/jaswingumpella/repos/codevision/backend/api/src/main/java/com/codevision/codevisionbackend/config/AnalysisJobExecutorProperties.java

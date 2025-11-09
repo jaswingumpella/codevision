@@ -12,7 +12,7 @@
 - **Persistence + storage:** Introduced the `diagram` table, `DiagramService`, and filesystem-backed SVG storage (`diagram.storage.root`, default `./data/diagrams`). Diagrams are regenerated each analysis run, saved alongside metadata JSON, and hydrated into snapshots when missing.
 - **API + schema:** Extended `ParsedDataResponse` with `callFlows` and `diagrams`, updated the OpenAPI contract (new `DiagramDescriptor` schema, `/project/{id}/diagrams`, `/project/{id}/diagram/{diagramId}/svg`), regenerated the OAS module, and wired a new `ProjectDiagramController`.
 - **Security + cleanup:** `ProjectSnapshotService` now pulls diagrams via the new repository/service when snapshots lack them, and purge flows delete both DB rows and SVG files.
-- **Tests:** Updated `AnalysisServiceTest`, `AnalyzeControllerTest`, `ProjectSnapshotServiceTest`, and `ProjectOverviewControllerTest` to account for the expanded constructors + payloads. Added coverage for diagram generation plumbing via mocks.
+- **Tests:** Updated `AnalysisServiceTest`, `AnalyzeControllerTest`, `ProjectSnapshotServiceTest`, and the snapshot controller tests (now consolidated under `ProjectSnapshotControllerTest`) to account for the expanded constructors + payloads. Added coverage for diagram generation plumbing via mocks.
 
 ## Frontend Deliverables
 - **Diagrams tab:** New tab with type selectors (Class/Component/Use Case/ERD/DB Schema/Sequence), diagram list sidebar, SVG preview panel, PlantUML/Mermaid source toggles, and download button.

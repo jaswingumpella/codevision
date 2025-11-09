@@ -11,6 +11,7 @@
 - **Snapshot history:** Replaced the single-row `project_snapshot` with an append-only table (`snapshot_id`, branch, commit hash, module fingerprints). Added `GET /project/{id}/snapshots` and `GET /project/{id}/snapshots/{snapshotId}/diff/{compareSnapshotId}` to surface the history and per-field diffs (classes, endpoints, DB entities).
 - **Incremental analysis:** After cloning a repo we fingerprint each Maven module (via the JGit tree IDs). If the commit matches the latest snapshot we reuse it immediately. Otherwise we only re-run expensive scanners (Java, logger, PCI/PII) for the modules whose fingerprints changed.
 - **Security workflows:** The PCI/PII inspector now merges inline rules and optional rule files and exposes `PATCH /project/{id}/pii-pci/{findingId}` so false positives can be marked ignored/restored without redeploying.
+- **API surface cleanup:** Legacy `ProjectOverviewController` was removed—`ProjectSnapshotController` now implements all `ProjectApi` operations (overview, endpoints, DB analysis, snapshot history) so there are no duplicate Spring mappings during startup.
 
 ## Frontend Deliverables
 - **Snapshot panel:** New tab with a timeline table, baseline/compare selectors, refresh button, and a diff summary that mirrors the new backend API. The analyze form gained a Branch input to keep branch context visible.

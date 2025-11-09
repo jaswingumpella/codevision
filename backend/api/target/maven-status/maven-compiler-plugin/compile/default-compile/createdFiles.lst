@@ -51,7 +51,6 @@ com/codevision/codevisionbackend/project/metadata/ClassMetadataRepository.class
 com/codevision/codevisionbackend/analyze/scanner/ApiScanner$SpringMapping.class
 com/codevision/codevisionbackend/project/security/PiiPciFinding.class
 com/codevision/codevisionbackend/analyze/diagram/CallGraph$GraphNode.class
-com/codevision/codevisionbackend/project/ProjectOverviewController.class
 com/codevision/codevisionbackend/analyze/AnalysisOutcome.class
 com/codevision/codevisionbackend/project/api/ApiEndpointRepository.class
 com/codevision/codevisionbackend/analyze/scanner/DbAnalysisResult.class

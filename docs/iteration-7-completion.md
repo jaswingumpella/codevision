@@ -10,7 +10,7 @@
 - **Contracts + OpenAPI:** Expanded the schema with `gherkinFeatures`, `GherkinFeature/GherkinScenario`, `ProjectMetadataResponse`, and new endpoints for metadata & exports; regenerated the `oasgen` module.
 - **Export pipeline:** Introduced `ExportService` that composes the Confluence-ready HTML (overview, API tables, diagrams, DB summaries, logger/PII summaries, Gherkin lists, footer). Added `ProjectExportController` for HTML/JSON downloads.
 - **Metadata API:** Added `ProjectMetadataController` to return captured specs, build info, and a snapshot download link.
-- **Tests updated:** Adjusted backend tests (`AnalysisServiceTest`, `ProjectSnapshotServiceTest`, `AnalyzeControllerTest`, `ProjectOverviewControllerTest`) for the new constructor signature and snapshot field.
+- **Tests updated:** Adjusted backend tests (`AnalysisServiceTest`, `ProjectSnapshotServiceTest`, `AnalyzeControllerTest`, and the merged `ProjectSnapshotControllerTest`) for the new constructor signature and snapshot field.
 
 ## Frontend Deliverables
 - **New tabs:** Added Gherkin, Metadata, and Export panels with responsive layouts, copy guidance, and empty/loading states.
