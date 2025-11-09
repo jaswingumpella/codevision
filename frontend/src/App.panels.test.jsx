@@ -14,15 +14,6 @@ import {
   ExportPanel
 } from './components/panels';
 
-vi.mock('react-window', () => {
-  const MockList = ({ itemCount, itemData, children }) => (
-    <div data-testid="mock-react-window">
-      {Array.from({ length: itemCount }).map((_, index) => children({ index, style: {}, data: itemData }))}
-    </div>
-  );
-  return { List: MockList };
-});
-
 describe('utility helpers', () => {
   it('derives project names from repo urls', () => {
     expect(deriveProjectName('https://github.com/org/repo.git')).toBe('repo');

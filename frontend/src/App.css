@@ -834,6 +834,11 @@ button:not([disabled]):hover {
   background: #fff;
 }
 
+.search-results-list--scrollable {
+  max-height: 360px;
+  overflow-y: auto;
+}
+
 .search-result-row {
   display: flex;
   justify-content: space-between;
@@ -909,6 +914,7 @@ button:not([disabled]):hover {
 .class-directory-rows {
   position: relative;
   max-height: 360px;
+  overflow-y: auto;
 }
 
 .class-directory-row {

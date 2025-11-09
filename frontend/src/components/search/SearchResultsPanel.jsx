@@ -1,5 +1,4 @@
-import { List } from 'react-window';
-import { MAX_VIRTUALIZED_HEIGHT, RESULT_TYPE_COPY, SEARCH_RESULT_ROW_HEIGHT } from '../../utils/constants';
+import { RESULT_TYPE_COPY } from '../../utils/constants';
 
 const SearchResultRow = ({ index, style, data }) => {
   const match = data.matches[index];
@@ -60,16 +59,10 @@ const SearchResultsPanel = ({ query, matches, onNavigate }) => {
       {matches.length === 0 ? (
         <p className="overview-hint">No classes, endpoints, logs, or PII findings match "{query}".</p>
       ) : (
-        <div className="search-results-list" role="list">
-          <List
-            height={Math.min(MAX_VIRTUALIZED_HEIGHT, SEARCH_RESULT_ROW_HEIGHT * matches.length)}
-            itemCount={matches.length}
-            itemSize={SEARCH_RESULT_ROW_HEIGHT}
-            width="100%"
-            itemData={{ matches, onNavigate }}
-          >
-            {SearchResultRow}
-          </List>
+        <div className="search-results-list search-results-list--scrollable" role="list">
+          {matches.map((match, index) => (
+            <SearchResultRow key={`${match.id}-${index}`} index={index} style={{}} data={{ matches, onNavigate }} />
+          ))}
         </div>
       )}
     </section>

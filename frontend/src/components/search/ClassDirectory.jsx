@@ -1,5 +1,3 @@
-import { List } from 'react-window';
-import { CLASS_ROW_HEIGHT, MAX_VIRTUALIZED_HEIGHT } from '../../utils/constants';
 import { textMatches } from '../../utils/formatters';
 
 const ClassDirectory = ({ classes, searchQuery }) => {
@@ -20,8 +18,6 @@ const ClassDirectory = ({ classes, searchQuery }) => {
     return <p className="overview-hint">No classes match "{searchQuery}".</p>;
   }
 
-  const listHeight = Math.min(MAX_VIRTUALIZED_HEIGHT, filtered.length * CLASS_ROW_HEIGHT);
-
   return (
     <div className="class-directory" role="table" aria-label="Class directory">
       <div className="class-directory-header" role="row">
@@ -29,25 +25,14 @@ const ClassDirectory = ({ classes, searchQuery }) => {
         <span role="columnheader">Stereotype</span>
         <span role="columnheader">Source Set</span>
       </div>
-      <div className="class-directory-rows" role="rowgroup">
-        <List
-          height={Math.max(CLASS_ROW_HEIGHT, listHeight)}
-          itemCount={filtered.length}
-          itemSize={CLASS_ROW_HEIGHT}
-          width="100%"
-          itemData={filtered}
-        >
-          {({ index, style, data }) => {
-            const cls = data[index];
-            return (
-              <div className="class-directory-row" key={cls.fullyQualifiedName} style={style} role="row">
-                <span role="cell">{cls.fullyQualifiedName}</span>
-                <span role="cell">{cls.stereotype || '—'}</span>
-                <span role="cell">{cls.sourceSet || '—'}</span>
-              </div>
-            );
-          }}
-        </List>
+      <div className="class-directory-rows class-directory-rows--scrollable" role="rowgroup">
+        {filtered.map((cls) => (
+          <div className="class-directory-row" key={cls.fullyQualifiedName} role="row">
+            <span role="cell">{cls.fullyQualifiedName}</span>
+            <span role="cell">{cls.stereotype || '—'}</span>
+            <span role="cell">{cls.sourceSet || '—'}</span>
+          </div>
+        ))}
       </div>
     </div>
   );

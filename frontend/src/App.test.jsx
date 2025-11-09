@@ -3,15 +3,6 @@ import userEvent from '@testing-library/user-event';
 import App from './App';
 import axios from './lib/apiClient';
 
-vi.mock('react-window', () => {
-  const MockList = ({ itemCount, itemData, children }) => (
-    <div data-testid="mock-react-window">
-      {Array.from({ length: itemCount }).map((_, index) => children({ index, style: {}, data: itemData }))}
-    </div>
-  );
-  return { List: MockList };
-});
-
 vi.mock('./lib/apiClient', () => ({
   __esModule: true,
   default: {
