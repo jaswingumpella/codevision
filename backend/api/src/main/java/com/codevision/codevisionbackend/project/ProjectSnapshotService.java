@@ -187,6 +187,7 @@ public class ProjectSnapshotService {
                 fromSnapshot.assets(),
                 fromSnapshot.loggerInsights(),
                 fromSnapshot.piiPciScan(),
+                fromSnapshot.gherkinFeatures(),
                 fromSnapshot.callFlows(),
                 fromSnapshot.diagrams());
         return enrichWithDiagrams(snapshot, enrichedSnapshot);
@@ -210,11 +211,12 @@ public class ProjectSnapshotService {
                         data.metadataDump(),
                         data.dbAnalysis(),
                         data.apiEndpoints(),
-                        data.assets(),
-                        data.loggerInsights(),
-                        data.piiPciScan(),
-                        data.callFlows(),
-                        hydrated);
+                data.assets(),
+                data.loggerInsights(),
+                data.piiPciScan(),
+                data.gherkinFeatures(),
+                data.callFlows(),
+                hydrated);
             }
         }
         return data;

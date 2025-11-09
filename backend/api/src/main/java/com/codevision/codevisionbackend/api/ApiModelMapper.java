@@ -7,17 +7,22 @@ import com.codevision.codevisionbackend.analyze.ClassMetadataSummary;
 import com.codevision.codevisionbackend.analyze.DbAnalysisSummary;
 import com.codevision.codevisionbackend.analyze.DiagramSummary;
 import com.codevision.codevisionbackend.analyze.LoggerInsightSummary;
+import com.codevision.codevisionbackend.analyze.GherkinFeatureSummary;
+import com.codevision.codevisionbackend.analyze.GherkinScenarioSummary;
 import com.codevision.codevisionbackend.analyze.MetadataDump;
 import com.codevision.codevisionbackend.analyze.MetadataDump.SoapPortSummary;
 import com.codevision.codevisionbackend.analyze.MetadataDump.SoapServiceSummary;
 import com.codevision.codevisionbackend.analyze.ParsedDataResponse;
 import com.codevision.codevisionbackend.analyze.PiiPciFindingSummary;
+import com.codevision.codevisionbackend.api.model.GherkinFeature;
+import com.codevision.codevisionbackend.api.model.GherkinScenario;
 import com.codevision.codevisionbackend.api.model.DiagramDescriptor;
 import com.codevision.codevisionbackend.api.model.LoggerInsight;
 import com.codevision.codevisionbackend.api.model.PiiPciFinding;
 import com.codevision.codevisionbackend.api.model.ProjectDiagramsResponse;
 import com.codevision.codevisionbackend.api.model.ProjectLoggerInsightsResponse;
 import com.codevision.codevisionbackend.api.model.ProjectPiiPciResponse;
+import com.codevision.codevisionbackend.api.model.ProjectMetadataResponse;
 import java.net.URI;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -96,6 +101,13 @@ public class ApiModelMapper {
             response.setPiiPciScan(piiPciScan.stream()
                     .filter(Objects::nonNull)
                     .map(this::toPiiPciFinding)
+                    .collect(Collectors.toList()));
+        }
+
+        if (snapshot.gherkinFeatures() != null) {
+            response.setGherkinFeatures(snapshot.gherkinFeatures().stream()
+                    .filter(Objects::nonNull)
+                    .map(this::toGherkinFeature)
                     .collect(Collectors.toList()));
         }
 
@@ -228,6 +240,26 @@ public class ApiModelMapper {
                 .reference(artifact.reference());
     }
 
+    private GherkinFeature toGherkinFeature(GherkinFeatureSummary summary) {
+        GherkinFeature feature = new GherkinFeature()
+                .featureFile(summary.featureFile())
+                .featureTitle(summary.featureTitle());
+        if (summary.scenarios() != null) {
+            feature.setScenarios(summary.scenarios().stream()
+                    .filter(Objects::nonNull)
+                    .map(this::toGherkinScenario)
+                    .collect(Collectors.toList()));
+        }
+        return feature;
+    }
+
+    private GherkinScenario toGherkinScenario(GherkinScenarioSummary summary) {
+        return new GherkinScenario()
+                .name(summary.name())
+                .scenarioType(summary.scenarioType())
+                .steps(summary.steps());
+    }
+
     private LoggerInsight toLoggerInsight(LoggerInsightSummary summary) {
         return new LoggerInsight()
                 .className(summary.className())
@@ -268,6 +300,26 @@ public class ApiModelMapper {
             descriptor.setSvgDownloadUrl(String.format("/project/%d/diagram/%d/svg", projectId, summary.diagramId()));
         }
         return descriptor;
+    }
+
+    public ProjectMetadataResponse toProjectMetadataResponse(Long projectId, ParsedDataResponse snapshot) {
+        if (snapshot == null) {
+            return null;
+        }
+        MetadataDump metadataDump = snapshot.metadataDump() != null ? snapshot.metadataDump() : MetadataDump.empty();
+        ProjectMetadataResponse response = new ProjectMetadataResponse()
+                .projectId(projectId)
+                .projectName(snapshot.projectName())
+                .repoUrl(toUri(snapshot.repoUrl()))
+                .analyzedAt(snapshot.analyzedAt())
+                .metadataDump(toMetadataDump(metadataDump))
+                .snapshotDownloadUrl(projectId == null
+                        ? null
+                        : String.format("/project/%d/export/snapshot", projectId));
+        if (snapshot.buildInfo() != null) {
+            response.setBuildInfo(toBuildInfo(snapshot.buildInfo()));
+        }
+        return response;
     }
 
     private com.codevision.codevisionbackend.api.model.DbAnalysis toDbAnalysis(DbAnalysisSummary summary) {

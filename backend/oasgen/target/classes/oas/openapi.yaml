@@ -17,6 +17,10 @@ tags:
     description: Security and compliance visibility endpoints.
   - name: Diagram
     description: Architectural diagram retrieval endpoints.
+  - name: Metadata
+    description: Raw metadata payloads and AI-friendly exports.
+  - name: Export
+    description: Downloadable documentation bundles and snapshots.
 paths:
   /analyze:
     post:
@@ -323,6 +327,76 @@ paths:
                 format: binary
         '404':
           description: No PCI/PII findings were found to export.
+  /project/{projectId}/metadata:
+    get:
+      operationId: getProjectMetadata
+      tags:
+        - Metadata
+      summary: Retrieve raw metadata payloads
+      description: Returns captured OpenAPI/WSDL/XSD documents plus build info and a link to the snapshot download endpoint.
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          description: Unique identifier of the project.
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Metadata payload retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: ./components/schemas.yaml#/ProjectMetadataResponse
+        '404':
+          description: No metadata was found for the supplied identifier.
+  /project/{projectId}/export/confluence.html:
+    get:
+      operationId: exportProjectHtml
+      tags:
+        - Export
+      summary: Download the consolidated HTML documentation bundle
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: HTML export generated and returned as a download.
+          content:
+            text/html:
+              schema:
+                type: string
+        '204':
+          description: Snapshot exists but no exportable content was generated.
+        '404':
+          description: No snapshot exists for the supplied identifier.
+  /project/{projectId}/export/snapshot:
+    get:
+      operationId: exportProjectSnapshot
+      tags:
+        - Export
+      summary: Download the full ParsedDataResponse JSON snapshot
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Snapshot JSON returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: ./components/schemas.yaml#/ParsedDataResponse
+        '404':
+          description: No snapshot exists for the supplied identifier.
 components:
   securitySchemes:
     ApiKeyAuth:

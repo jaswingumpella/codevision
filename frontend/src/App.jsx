@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import axios from './lib/apiClient';
 import './App.css';
 
@@ -742,6 +742,220 @@ const PiiPciPanel = ({ findings, loading, onDownloadCsv, onDownloadPdf }) => {
   );
 };
 
+const GherkinPanel = ({ features, loading }) => {
+  if (loading) {
+    return (
+      <div className="overview-content">
+        <h2>Gherkin Features</h2>
+        <p className="overview-hint">Loading scenarios…</p>
+      </div>
+    );
+  }
+
+  if (!features || features.length === 0) {
+    return (
+      <div className="overview-content">
+        <h2>Gherkin Features</h2>
+        <p className="overview-hint">No .feature files were detected during the last analysis.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="overview-content">
+      <h2>Gherkin Features</h2>
+      <p className="overview-hint">
+        These scenarios come straight from your repository&apos;s <code>.feature</code> files. Expand a feature to review the captured
+        steps and share them with QA or AI copilots.
+      </p>
+      <div className="gherkin-grid">
+        {features.map((feature) => (
+          <details key={`${feature.featureTitle}-${feature.featureFile}`} className="gherkin-card" open>
+            <summary>
+              <div>
+                <strong>{feature.featureTitle || 'Untitled feature'}</strong>
+                <p className="overview-hint">{feature.featureFile || 'Unknown path'}</p>
+              </div>
+            </summary>
+            {Array.isArray(feature.scenarios) && feature.scenarios.length > 0 ? (
+              feature.scenarios.map((scenario) => (
+                <div key={`${feature.featureTitle}-${scenario.name}`} className="gherkin-scenario">
+                  <h4>
+                    {scenario.name || 'Scenario'}
+                    {scenario.scenarioType ? <span className="pill pill--muted">{scenario.scenarioType}</span> : null}
+                  </h4>
+                  {Array.isArray(scenario.steps) && scenario.steps.length > 0 ? (
+                    <ul>
+                      {scenario.steps.map((step, index) => (
+                        <li key={`${scenario.name}-${index}`}>{step}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="overview-hint">No steps recorded.</p>
+                  )}
+                </div>
+              ))
+            ) : (
+              <p className="overview-hint">No scenarios found for this feature.</p>
+            )}
+          </details>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const MetadataPanel = ({ metadata, loading }) => {
+  if (loading) {
+    return (
+      <div className="overview-content">
+        <h2>Metadata &amp; Specs</h2>
+        <p className="overview-hint">Collecting metadata artifacts…</p>
+      </div>
+    );
+  }
+
+  if (!metadata) {
+    return (
+      <div className="overview-content">
+        <h2>Metadata &amp; Specs</h2>
+        <p className="overview-hint">Switch to this tab after running an analysis to view OpenAPI/WSDL/XSD captures.</p>
+      </div>
+    );
+  }
+
+  const dump = metadata.metadataDump || {};
+  const openApiSpecs = dump.openApiSpecs || [];
+  const wsdlDocs = dump.wsdlDocuments || [];
+  const xsdDocs = dump.xsdDocuments || [];
+  const soapServices = dump.soapServices || [];
+
+  return (
+    <div className="overview-content">
+      <h2>Metadata &amp; Specs</h2>
+      <p className="overview-hint">
+        Download the snapshot JSON and feed it to GitLab Duo, ChatGPT, or other copilots for deeper reasoning. Specs listed here
+        mirror the raw artifacts captured on disk.
+      </p>
+      <dl className="metadata-summary">
+        <div>
+          <dt>Project</dt>
+          <dd>{metadata.projectName || '—'}</dd>
+        </div>
+        <div>
+          <dt>Analyzed</dt>
+          <dd>{formatDate(metadata.analyzedAt)}</dd>
+        </div>
+        <div>
+          <dt>Snapshot API</dt>
+          <dd>
+            <code>{metadata.snapshotDownloadUrl || `/project/${metadata.projectId}/export/snapshot`}</code>
+          </dd>
+        </div>
+      </dl>
+
+      <section className="api-section">
+        <h3>OpenAPI Specs ({openApiSpecs.length})</h3>
+        {openApiSpecs.length === 0 ? (
+          <p className="overview-hint">No OpenAPI files were captured.</p>
+        ) : (
+          openApiSpecs.map((spec) => (
+            <details key={spec.fileName} className="spec-doc" open={false}>
+              <summary>{spec.fileName}</summary>
+              <pre>{spec.content}</pre>
+            </details>
+          ))
+        )}
+      </section>
+
+      <section className="api-section">
+        <h3>WSDL Documents ({wsdlDocs.length})</h3>
+        {wsdlDocs.length === 0 ? (
+          <p className="overview-hint">No WSDL files detected.</p>
+        ) : (
+          wsdlDocs.map((doc) => (
+            <details key={`wsdl-${doc.fileName}`} className="spec-doc" open={false}>
+              <summary>{doc.fileName}</summary>
+              <pre>{doc.content}</pre>
+            </details>
+          ))
+        )}
+      </section>
+
+      <section className="api-section">
+        <h3>XSD Documents ({xsdDocs.length})</h3>
+        {xsdDocs.length === 0 ? (
+          <p className="overview-hint">No XSD files detected.</p>
+        ) : (
+          xsdDocs.map((doc) => (
+            <details key={`xsd-${doc.fileName}`} className="spec-doc" open={false}>
+              <summary>{doc.fileName}</summary>
+              <pre>{doc.content}</pre>
+            </details>
+          ))
+        )}
+      </section>
+
+      {soapServices.length > 0 && (
+        <section className="api-section">
+          <h3>SOAP Services</h3>
+          <div className="soap-summary">
+            {soapServices.map((service) => (
+              <div key={`${service.fileName}-${service.serviceName}`} className="soap-service">
+                <strong>{service.serviceName}</strong>
+                <span className="overview-hint">{service.fileName}</span>
+                <ul>
+                  {(service.ports || []).map((port) => (
+                    <li key={`${service.serviceName}-${port.portName}`}>
+                      <strong>{port.portName}:</strong> {(port.operations || []).join(', ') || '—'}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+    </div>
+  );
+};
+
+const ExportPanel = ({
+  projectId,
+  onDownloadHtml,
+  onDownloadSnapshot,
+  htmlPreview,
+  loading,
+  onRefreshPreview
+}) => (
+  <div className="overview-content">
+    <h2>Exports &amp; Downloads</h2>
+    <p className="overview-hint">
+      Ship this Confluence-ready HTML bundle to auditors or paste the snapshot JSON into an AI assistant for deeper Q&amp;A.
+    </p>
+    <div className="export-actions">
+      <button type="button" onClick={onDownloadHtml} disabled={!projectId}>
+        Download Project HTML
+      </button>
+      <button type="button" onClick={onDownloadSnapshot} disabled={!projectId}>
+        Download ParsedDataResponse.json
+      </button>
+      <button type="button" className="ghost-button" onClick={onRefreshPreview} disabled={loading || !projectId}>
+        {loading ? 'Refreshing…' : 'Refresh Preview'}
+      </button>
+    </div>
+    <div className="export-preview">
+      {loading ? (
+        <p className="overview-hint">Rendering HTML preview…</p>
+      ) : htmlPreview ? (
+        <iframe title="Confluence export preview" srcDoc={htmlPreview} />
+      ) : (
+        <p className="overview-hint">Preview will appear here after the export endpoint responds.</p>
+      )}
+    </div>
+  </div>
+);
+
 const DIAGRAM_TYPE_LABELS = {
   CLASS: 'Class',
   COMPONENT: 'Component',
@@ -993,6 +1207,11 @@ function App() {
   const [sequenceIncludeExternal, setSequenceIncludeExternal] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [loadingSteps, setLoadingSteps] = useState([]);
+  const [metadataPayload, setMetadataPayload] = useState(null);
+  const [metadataLoading, setMetadataLoading] = useState(false);
+  const [exportPreviewHtml, setExportPreviewHtml] = useState('');
+  const [exportPreviewProjectId, setExportPreviewProjectId] = useState(null);
+  const [exportPreviewLoading, setExportPreviewLoading] = useState(false);
 
   const projectName = useMemo(() => deriveProjectName(repoUrl), [repoUrl]);
   const diagramsByType = useMemo(() => {
@@ -1040,6 +1259,37 @@ function App() {
       return prev.map((step) => (lookup[step.id] ? { ...step, status: lookup[step.id] } : step));
     });
   };
+
+  const loadExportPreview = useCallback(
+    (force = false) => {
+      if (!projectId) {
+        return;
+      }
+      if (!force && exportPreviewProjectId === projectId && exportPreviewHtml) {
+        return;
+      }
+      setExportPreviewLoading(true);
+      axios
+        .get(`/project/${projectId}/export/confluence.html`, {
+          headers: {
+            ...authHeaders()
+          },
+          responseType: 'text'
+        })
+        .then((response) => {
+          const payload = typeof response.data === 'string' ? response.data : new TextDecoder().decode(response.data);
+          setExportPreviewHtml(payload);
+          setExportPreviewProjectId(projectId);
+        })
+        .catch((error) => {
+          console.warn('Failed to load export preview', error);
+          setExportPreviewHtml('');
+          setExportPreviewProjectId(null);
+        })
+        .finally(() => setExportPreviewLoading(false));
+    },
+    [apiKey, exportPreviewHtml, exportPreviewProjectId, projectId]
+  );
 
   useEffect(() => {
     if (diagrams.length === 0) {
@@ -1134,6 +1384,37 @@ function App() {
     }
   }, [error]);
 
+  useEffect(() => {
+    if (activeTab !== 'metadata' || !projectId) {
+      return;
+    }
+    if (metadataPayload && metadataPayload.projectId === projectId) {
+      return;
+    }
+    setMetadataLoading(true);
+    axios
+      .get(`/project/${projectId}/metadata`, {
+        headers: {
+          ...authHeaders()
+        }
+      })
+      .then((response) => {
+        setMetadataPayload(response.data);
+      })
+      .catch((metadataError) => {
+        console.warn('Failed to load metadata payload', metadataError);
+        setMetadataPayload(null);
+      })
+      .finally(() => setMetadataLoading(false));
+  }, [activeTab, projectId, apiKey, metadataPayload]);
+
+  useEffect(() => {
+    if (activeTab !== 'export' || !projectId) {
+      return;
+    }
+    loadExportPreview(false);
+  }, [activeTab, projectId, loadExportPreview]);
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     setLoading(true);
@@ -1156,6 +1437,11 @@ function App() {
     setActiveDiagramId(null);
     setActiveDiagramType('CLASS');
     setSequenceIncludeExternal(false);
+    setMetadataPayload(null);
+    setMetadataLoading(false);
+    setExportPreviewHtml('');
+    setExportPreviewProjectId(null);
+    setExportPreviewLoading(false);
     startProgress();
 
     console.info('Submitting analysis request', {
@@ -1402,6 +1688,11 @@ function App() {
     projectId && handleExport(`/project/${projectId}/export/pii.csv`, `pii-findings-${projectId}.csv`);
   const downloadPiiPdf = () =>
     projectId && handleExport(`/project/${projectId}/export/pii.pdf`, `pii-findings-${projectId}.pdf`);
+  const downloadHtmlExport = () =>
+    projectId && handleExport(`/project/${projectId}/export/confluence.html`, `project-${projectId}.html`);
+  const downloadSnapshotJson = () =>
+    projectId && handleExport(`/project/${projectId}/export/snapshot`, `snapshot-${projectId}.json`);
+  const refreshExportPreview = () => loadExportPreview(true);
 
   const downloadDiagramSvg = (diagram) => {
     if (!diagram || !diagram.svgAvailable || !diagram.svgDownloadUrl) {
@@ -1423,7 +1714,14 @@ function App() {
         disabled: !projectId && loggerInsights.length === 0 && !loggerLoading
       },
       { value: 'pii', label: 'PCI / PII Scan', disabled: !projectId && piiFindings.length === 0 && !piiLoading },
-      { value: 'diagrams', label: 'Diagrams', disabled: diagrams.length === 0 && !diagramLoading }
+      { value: 'diagrams', label: 'Diagrams', disabled: diagrams.length === 0 && !diagramLoading },
+      {
+        value: 'gherkin',
+        label: 'Gherkin',
+        disabled: !overview || !overview.gherkinFeatures || overview.gherkinFeatures.length === 0
+      },
+      { value: 'metadata', label: 'Metadata', disabled: !projectId && !metadataPayload },
+      { value: 'export', label: 'Export', disabled: !projectId }
     ],
     [
       overview,
@@ -1436,7 +1734,8 @@ function App() {
       piiFindings,
       piiLoading,
       diagrams,
-      diagramLoading
+      diagramLoading,
+      metadataPayload
     ]
   );
 
@@ -1607,7 +1906,7 @@ function App() {
               onDownloadCsv={downloadPiiCsv}
               onDownloadPdf={downloadPiiPdf}
             />
-          ) : (
+          ) : activeTab === 'diagrams' ? (
             <DiagramsPanel
               diagramsByType={diagramsByType}
               loading={diagramLoading}
@@ -1620,6 +1919,21 @@ function App() {
               sequenceIncludeExternal={sequenceIncludeExternal}
               onSequenceToggle={setSequenceIncludeExternal}
             />
+          ) : activeTab === 'gherkin' ? (
+            <GherkinPanel features={overview?.gherkinFeatures || []} loading={loading && !overview} />
+          ) : activeTab === 'metadata' ? (
+            <MetadataPanel metadata={metadataPayload} loading={metadataLoading} />
+          ) : activeTab === 'export' ? (
+            <ExportPanel
+              projectId={projectId}
+              onDownloadHtml={downloadHtmlExport}
+              onDownloadSnapshot={downloadSnapshotJson}
+              htmlPreview={exportPreviewHtml}
+              loading={exportPreviewLoading}
+              onRefreshPreview={refreshExportPreview}
+            />
+          ) : (
+            <OverviewPanel overview={overview} loading={loading && !overview} />
           )}
         </section>
       </div>
@@ -1628,3 +1942,17 @@ function App() {
 }
 
 export default App;
+
+export {
+  deriveProjectName,
+  formatDate,
+  OverviewPanel,
+  ApiSpecsPanel,
+  DatabasePanel,
+  LoggerInsightsPanel,
+  PiiPciPanel,
+  DiagramsPanel,
+  GherkinPanel,
+  MetadataPanel,
+  ExportPanel
+};

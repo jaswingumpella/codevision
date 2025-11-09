@@ -28,6 +28,7 @@ import com.codevision.codevisionbackend.analyze.scanner.JavaSourceScanner;
 import com.codevision.codevisionbackend.analyze.scanner.JpaEntityScanner;
 import com.codevision.codevisionbackend.analyze.scanner.LogStatementRecord;
 import com.codevision.codevisionbackend.analyze.scanner.LoggerScanner;
+import com.codevision.codevisionbackend.analyze.scanner.GherkinScanner;
 import com.codevision.codevisionbackend.analyze.scanner.PiiPciFindingRecord;
 import com.codevision.codevisionbackend.analyze.scanner.PiiPciInspector;
 import com.codevision.codevisionbackend.analyze.scanner.YamlScanner;
@@ -93,6 +94,9 @@ class AnalysisServiceTest {
     private PiiPciInspector piiPciInspector;
 
     @Mock
+    private GherkinScanner gherkinScanner;
+
+    @Mock
     private ProjectService projectService;
 
     @Mock
@@ -144,6 +148,7 @@ class AnalysisServiceTest {
                 daoAnalysisService,
                 loggerScanner,
                 piiPciInspector,
+                gherkinScanner,
                 projectService,
                 classMetadataRepository,
                 apiEndpointRepository,
@@ -197,6 +202,7 @@ class AnalysisServiceTest {
                 List.of(),
                 List.of()));
         when(jpaEntityScanner.scan(repoDir, metadata.moduleRoots())).thenReturn(entityRecords);
+        when(gherkinScanner.scan(repoDir)).thenReturn(List.of());
 
         DbAnalysisResult daoAnalysisResult = new DbAnalysisResult(
                 entityRecords,

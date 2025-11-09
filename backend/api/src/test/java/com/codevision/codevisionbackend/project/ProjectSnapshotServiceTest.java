@@ -84,6 +84,7 @@ class ProjectSnapshotServiceTest {
                 AssetInventory.empty(),
                 List.of(),
                 List.of(),
+                List.of(),
                 Map.of(),
                 List.of());
 
@@ -165,6 +166,7 @@ class ProjectSnapshotServiceTest {
                 emptyDbAnalysis(),
                 List.of(),
                 AssetInventory.empty(),
+                List.of(),
                 List.of(),
                 List.of(),
                 Map.of(),

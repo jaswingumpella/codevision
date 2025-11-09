@@ -4,7 +4,7 @@ CodeVision ingests a Git repository, extracts structural metadata, and surfaces 
 
 ## Backend (Spring Boot)
 
-The backend lives in [`backend/`](backend/). It exposes a synchronous `/analyze` endpoint that clones a Git repository, extracts build/class/API metadata, and records a snapshot in an H2 database. Companion endpoints return the stored data for the UI and integrations:
+The backend lives in [`backend/`](backend/). It exposes a synchronous `/analyze` endpoint that clones a Git repository, extracts build/class/API metadata, and records a snapshot in PostgreSQL. Companion endpoints return the stored data for the UI and integrations:
 
 - `GET /project/{id}/overview` – the latest `ParsedDataResponse`.
 - `GET /project/{id}/api-endpoints` – the persisted API catalog (requires the API key when security is enabled).
@@ -183,10 +183,35 @@ Because the Spring Boot backend cannot run on Vercel, configure the frontend to 
 - Iteration 4 summary: [`docs/iteration-4-completion.md`](docs/iteration-4-completion.md)
 - Iteration 5 summary: [`docs/iteration-5-completion.md`](docs/iteration-5-completion.md)
 - Iteration 6 summary: [`docs/iteration-6-completion.md`](docs/iteration-6-completion.md)
+- Iteration 7 summary: [`docs/iteration-7-completion.md`](docs/iteration-7-completion.md)
 
-## Database
+## Database (PostgreSQL)
 
-The backend uses an on-disk H2 database stored under `backend/data/`. Key tables:
+CodeVision now persists all analysis results in PostgreSQL so history survives Render restarts. The backend reads its datasource settings from the standard Spring variables (`SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, etc.) and defaults them to the local Docker values.
+
+### Local workflow
+
+1. Copy the sample env file: `cp .env.example .env`. By default it points at the managed Render instance so your laptop and Render share the same data set.
+2. If you prefer to run Postgres locally, uncomment the “local Docker” block in `.env` and start the container: `docker compose up -d postgres`.
+3. Run `mvn -f backend/pom.xml spring-boot:run` and analyze repos as usual. When using the managed instance, your local runs immediately populate the Render database.
+
+### Render / production
+
+Point `SPRING_DATASOURCE_URL` at the managed Render Postgres connection string (e.g., `jdbc:postgresql://${RENDER_DB_HOST}:${RENDER_DB_PORT}/${RENDER_DB_NAME}`) and set the matching username/password. Set `SPRING_DATASOURCE_MAX_POOL_SIZE` and `SPRING_DATASOURCE_MIN_IDLE` to align with your plan’s connection limits. No filesystem persistence is required anymore.
+
+For the Render instance described in `docs/render-postgres.md`, the variables would be:
+
+```bash
+SPRING_DATASOURCE_URL=jdbc:postgresql://dpg-d480qabipnbc73d6felg-a.oregon-postgres.render.com:5432/codevision_postgres
+SPRING_DATASOURCE_USERNAME=codevision_postgres_user
+SPRING_DATASOURCE_PASSWORD=<Render-provided password>
+SPRING_DATASOURCE_MAX_POOL_SIZE=5   # or any limit below your plan’s max connections
+SPRING_DATASOURCE_MIN_IDLE=1
+```
+
+Use the internal hostname (`dpg-d480qabipnbc73d6felg-a`) when wiring another Render service in the same region to avoid egress charges; the external hostname (ending in `.oregon-postgres.render.com`) works everywhere else (local laptops, CI).
+
+### Schema
 
 - `project` – canonical project record (`repo_url` unique)
 - `class_metadata` – flattened Java class inventory per project
