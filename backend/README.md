@@ -1,6 +1,6 @@
 # CodeVision Backend
 
-Spring Boot services that ingest repositories, persist analysis results in H2, and expose the API surface consumed by the React frontend.
+Spring Boot services that ingest repositories, persist analysis results in PostgreSQL, and expose the API surface consumed by the React frontend.
 
 ## Prerequisites
 
@@ -16,6 +16,16 @@ The main configuration file lives at `backend/api/src/main/resources/application
 - `security.apiKey` to protect every endpoint with `X-API-KEY`
 - `diagram.storage.root` to control where rendered SVGs are written
 - `security.scan` rules and `ignorePatterns` for PCI/PII detection
+
+## Database (PostgreSQL)
+
+The backend no longer writes to an embedded H2 file. Point it at PostgreSQL instead:
+
+1. `cp .env.example .env`. The defaults already point at the managed Render database so local runs share the same data as production.
+2. If you prefer a local container, uncomment the “local Docker” block inside `.env` and then run `docker compose up -d postgres`.
+3. Launch the backend with `mvn -f backend/pom.xml -pl api spring-boot:run`. If you change any values, export `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD`, etc., before starting the app.
+
+Render (and other hosts) must provide the same variables so the backend can connect to the managed Postgres instance. You can also override `SPRING_DATASOURCE_MAX_POOL_SIZE` / `SPRING_DATASOURCE_MIN_IDLE` per environment.
 
 ## Run the API locally
 

@@ -779,4 +779,34 @@ Close the UX gaps discovered during internal dogfooding: hidden Diagrams tab on 
 * Timeline reflects real-time status of every fetch in the `/analyze` workflow and shows `Skipped` states when runs abort midstream.
 * OpenAPI empty states in Overview and API Specs encourage users to add Swagger/OpenAPI files instead of stopping at “No definitions detected.”
 
-At this point, CodeDocGen v1 meets the PRD’s vision fully. Any further enhancements (like Gradle support, deeper static code analysis such as control flow or execution paths, or integration with CI pipelines) would be beyond v1 and can be planned separately. For now, the focus was delivering a comprehensive static analysis and documentation tool for Java codebases, and with iteration 7 done, we have achieved that.
+At this point, CodeDocGen v1 meets the PRD’s vision functionally, but running on Render highlighted a reliability gap: the on-disk H2 database lives on ephemeral storage, so every restart wipes the user’s analysis history. To keep the product usable in hosted scenarios we are extending the plan with a focused persistence-hardening iteration.
+
+## Iteration 9 – PostgreSQL persistence hardening *(Status: 🚧 Planned)*
+
+### Goal
+
+Replace the brittle, file-based H2 datastore with a managed PostgreSQL instance so analysis history survives restarts in Render and other hosts, while keeping local setup one-command simple.
+
+### Backend
+
+* Swap the runtime dependency from H2 to the PostgreSQL JDBC driver and point Spring Data JPA at the external database via `SPRING_DATASOURCE_*` env vars.
+* Ensure Hibernate dialect/timezone defaults are Postgres-friendly and that connection pool sizing is overridable per environment.
+* Add a readiness check (e.g., Spring Boot actuator health or startup validation) that fails fast when the DB is unreachable so Render restarts don’t go into partial states.
+* Update application defaults so diagram storage paths, snapshot writes, etc., continue to work with the new datasource.
+
+### Persistence / DevOps
+
+* Introduce a `docker-compose.postgres.yml` (or similar) that boots a local Postgres 15 instance with persistent volumes, matching production schemas and credentials via `.env`.
+* Document the exact env vars Render must supply (`SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD`, `SPRING_JPA_HIBERNATE_DDL_AUTO` override if needed).
+* Provide a lightweight migration/story for existing H2 data (explicitly call out that historic local runs will be dropped, but offer an export/import script if feasible).
+
+### UI / DX
+
+* Update README + onboarding docs so engineers know how to spin up the dockerized DB locally before launching the backend.
+* Add a troubleshooting section that covers common Postgres startup issues (port busy, auth failure) and how to reset the docker volume.
+
+### Done Criteria
+
+* Backend boots locally against the dockerized Postgres container (schema auto-creates, `/analyze` runs, restart retains projects).
+* Render deployment variables point at the managed Postgres service and retain data across restarts.
+* README / PRD / iteration plan all reflect Postgres as the canonical datastore, and there is a documented local workflow that new contributors can follow without manual DB installs.

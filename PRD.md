@@ -44,10 +44,11 @@ The product runs locally. There is no AI integration in the runtime. All logic i
    * Media asset inventory (images, diagrams stored in the repo)
    * Full “project tech doc” export (HTML)
    * CSV and PDF security exports
-4. Persist results in H2:
+4. Persist results in PostgreSQL:
 
    * Structured tables for the UI and exports
    * A full project snapshot JSON blob (`ParsedDataResponse`) for external tooling
+   * Production uses Render's managed PostgreSQL to avoid data loss on restarts; local dev runs the same schema via Docker or any developer-hosted Postgres instance.
 5. Expose everything through:
 
    * A React + Material UI dashboard
@@ -74,7 +75,7 @@ The product runs locally. There is no AI integration in the runtime. All logic i
 * Java 21
 * Spring Boot
 * Maven
-* H2 for persistence
+* PostgreSQL (managed in production, Dockerized locally) for persistence
 * JavaParser for static code analysis (Java 7–21 compatible)
 * PlantUML + Graphviz for diagram rendering (to SVG)
 * Mermaid output generation (text source)
@@ -108,7 +109,7 @@ Behavior:
 * On each analysis run for a given repo URL:
 
   * Clone repo
-  * Wipe and replace previously stored data for that project in H2
+* Wipe and replace previously stored data for that project in PostgreSQL
   * Recompute analysis
 * We do not retain analysis history or per-commit versioning.
 * We do not store commit hash.
@@ -127,7 +128,7 @@ After analysis, the system builds `ParsedDataResponse` — a full JSON view of:
 * Tech stack info
 * Metadata dumps (OpenAPI YAML, WSDL, XSD, etc.)
 
-This snapshot is persisted in H2 and is downloadable via API for pasting into external assistants like GitLab Duo.
+This snapshot is persisted in PostgreSQL and is downloadable via API for pasting into external assistants like GitLab Duo.
 
 ### 5.3 Cyclic safety
 
@@ -187,7 +188,7 @@ This applies to:
 
 **Outcome**
 
-* Project entry created/updated in H2:
+* Project entry created/updated in PostgreSQL:
 
   * `project_name`
   * `repo_url` (unique)
@@ -234,7 +235,7 @@ For each class found:
 
 **Storage**
 
-* `class_metadata` table in H2
+* `class_metadata` table in PostgreSQL
 * Included in `ParsedDataResponse.classes`
 
 **Metadata Dump**
@@ -282,7 +283,7 @@ Identify every externally callable API surface in the project, across modern and
 
 **Storage**
 
-* `api_endpoint` table in H2
+* `api_endpoint` table in PostgreSQL
 * Added to `ParsedDataResponse.apiEndpoints`
 * Returned by `/project/{id}/api-endpoints`
 
@@ -886,7 +887,9 @@ All secured with `X-API-KEY: <value from application.yml>` unless noted.
 
 ---
 
-## 9. Persistence / H2 Schema (Logical)
+## 9. Persistence / PostgreSQL Schema (Logical)
+
+Render deployments attach to a managed PostgreSQL service (non-ephemeral disk) so project history survives restarts. Developers run the same schema locally via Docker Compose or any Postgres 15+ instance by pointing `SPRING_DATASOURCE_URL` at it. The logical shape of the schema is unchanged:
 
 **project**
 
@@ -998,7 +1001,7 @@ All secured with `X-API-KEY: <value from application.yml>` unless noted.
 3. **Local Runtime**
 
    * Application is intended to run locally on developer/consultant/security engineer machine
-   * H2 is embedded/local
+   * PostgreSQL runs via Docker (compose) or any developer-supplied instance that mirrors production
    * No user auth/multi-tenancy
 
 ---
@@ -1106,7 +1109,7 @@ CodeDocGen is considered “functionally complete” when:
    * Diagrams (class, component, use case, ERD, DB schema, sequence)
    * Gherkin feature listing
    * Call flow view, with inter-service calls
-2. All derived content is persisted to H2 for that repo, overwriting previous runs for that same repo.
+2. All derived content is persisted to PostgreSQL for that repo, overwriting previous runs for that same repo.
 3. Cycles in code do not crash or loop forever; instead, diagrams and call flows show a readable cyclic reference marker.
 4. The React UI shows all sections in a left-nav dashboard, with light/dark mode, filters, toggles, downloads.
 5. The backend exposes:
@@ -1184,7 +1187,7 @@ CodeDocGen v1 has a focused scope. It will not: implement multi-user access or a
 
 4. Tech Stack
 
-Backend: Java 21 (Spring Boot). Data is stored in an embedded H2 database for each project’s results. JavaParser is used for parsing Java source code (ensuring compatibility with Java 7–21 syntax), and an ASM-based parser or similar is used for reading compiled .class files from dependencies. Diagram generation leverages PlantUML (with Graphviz) for rendering diagrams and also outputs Mermaid definitions for compatibility with other platforms. Miscellaneous: Lombok for data classes, a PDF library for report exports, and standard libraries for YAML/JSON processing.
+Backend: Java 21 (Spring Boot). Data is stored in PostgreSQL (managed in production, Dockerized locally) for each project’s results. JavaParser is used for parsing Java source code (ensuring compatibility with Java 7–21 syntax), and an ASM-based parser or similar is used for reading compiled .class files from dependencies. Diagram generation leverages PlantUML (with Graphviz) for rendering diagrams and also outputs Mermaid definitions for compatibility with other platforms. Miscellaneous: Lombok for data classes, a PDF library for report exports, and standard libraries for YAML/JSON processing.
 
 Frontend: React + Material-UI, packaged via Vite. The UI is a single-page app communicating with the Spring Boot API (which is proxied in development). It offers responsive design with light/dark mode. Axios is used for API calls (automatically including the API key header).
 
@@ -1218,7 +1221,7 @@ Application configs: e.g. application.yml and any variant (application-*.yml), a
 
 Gherkin feature files: (*.feature under src/test/resources or elsewhere) are parsed to extract the feature title and scenario names/steps, which are stored in gherkinFeatures in the snapshot for documentation and QA reference.
 
-All the above extracted data is assembled into a partial ParsedDataResponse object. The class metadata is persisted in a new class_metadata table in H2, and the full snapshot JSON is saved in a project_snapshot table for retrieval. A new API GET /project/{id}/overview returns the current snapshot (or an overview subset) so that the frontend can display high-level stats (counts of classes, etc.). At this point (Iteration 2), we have a basic overview available: project info, build info, number of classes, and any OpenAPI specs discovered (e.g. listing their file names). Cyclic references in class parsing (e.g. class A references B which references A) are safely handled by not traversing into already-seen classes; this lays the groundwork for cycle-safe processing in later analyses.
+All the above extracted data is assembled into a partial ParsedDataResponse object. The class metadata is persisted in a new class_metadata table in PostgreSQL, and the full snapshot JSON is saved in a project_snapshot table for retrieval. A new API GET /project/{id}/overview returns the current snapshot (or an overview subset) so that the frontend can display high-level stats (counts of classes, etc.). At this point (Iteration 2), we have a basic overview available: project info, build info, number of classes, and any OpenAPI specs discovered (e.g. listing their file names). Cyclic references in class parsing (e.g. class A references B which references A) are safely handled by not traversing into already-seen classes; this lays the groundwork for cycle-safe processing in later analyses.
 
 6.3 API Surface Extraction: (Iteration 3) The next step is to build a full inventory of APIs. CodeDocGen scans for known patterns that indicate an externally callable API: REST controllers, SOAP endpoints, servlets, JAX-RS resources, etc. Using the class and annotation data from earlier, it performs the following:
 
@@ -1230,7 +1233,7 @@ Legacy Servlets: Find any class extending HttpServlet. Record a pseudo-endpoint 
 
 JAX-RS Resources: Find classes or methods annotated with JAX-RS annotations (@Path at class or method, along with @GET, @POST, etc.). These indicate RESTful endpoints typically in Java EE or Jakarta EE projects outside of Spring. Capture the HTTP method and the URI path from @Path.
 
-All the above are normalized into a common ApiEndpoint model with fields: protocol (REST, SOAP, SERVLET, JAX-RS), httpMethod (if applicable), pathOrOperation (URI path or SOAP operation name), controllerClass and controllerMethod (the implementing class and method signature). These entries are saved in an api_endpoint table in H2 and also added to the JSON snapshot (apiEndpoints list). A new API GET /project/{id}/api-endpoints returns this list for the UI.
+All the above are normalized into a common ApiEndpoint model with fields: protocol (REST, SOAP, SERVLET, JAX-RS), httpMethod (if applicable), pathOrOperation (URI path or SOAP operation name), controllerClass and controllerMethod (the implementing class and method signature). These entries are saved in an api_endpoint table in PostgreSQL and also added to the JSON snapshot (apiEndpoints list). A new API GET /project/{id}/api-endpoints returns this list for the UI.
 
 On the UI side, a new “API Specs” page presents the API catalog. It is typically organized into tabs or sections for REST, SOAP, and Legacy (servlets/JAX-RS). Each section is a table listing endpoints (HTTP method, URL/path or operation, class, method). If OpenAPI spec files were found, the UI shows a link or embedded viewer for the OpenAPI YAML content. If WSDL/XSD files were found, a SOAP-specific view lists the services/ports/operations derived from them, and allows the user to view the raw WSDL or a summary (e.g. in a read-only text panel). This provides direct access to formal API specifications alongside the code-extracted info.
 
