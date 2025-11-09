@@ -312,6 +312,18 @@ Use the internal hostname (`dpg-d480qabipnbc73d6felg-a`) when wiring another Ren
 
 After the schema has been created (either by running locally with `SPRING_JPA_HIBERNATE_DDL_AUTO=update` once or by applying the SQL in [`backend/api/src/test/resources/schema-h2.sql`](backend/api/src/test/resources/schema-h2.sql)), set `SPRING_JPA_HIBERNATE_DDL_AUTO=validate` or `none` in Render so production deploys never attempt destructive DDL.
 
+#### Updating existing schemas
+
+If your Render (or self-managed) instance predates the Iteration 3 API catalog changes, it will be missing the new `spec_artifacts_json` column on `api_endpoint`. Apply [`scripts/migration/sql/20241109_add_spec_artifacts_column.sql`](scripts/migration/sql/20241109_add_spec_artifacts_column.sql) against the target database to add it (the script is idempotent thanks to `IF NOT EXISTS`):
+
+```bash
+PGPASSWORD=<password> psql \
+  -h <host> -U <user> -d <db> \
+  -f scripts/migration/sql/20241109_add_spec_artifacts_column.sql
+```
+
+Re-run `/analyze` after applying the script and the `ApiEndpoint` persistence will succeed.
+
 ### Schema
 
 - `project` – canonical project record keyed by `(repo_url, branch_name)` plus derived build metadata and timestamps.

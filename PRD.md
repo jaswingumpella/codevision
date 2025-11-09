@@ -975,6 +975,7 @@ Render deployments attach to a managed PostgreSQL service (non-ephemeral disk) s
 * `path_or_operation`
 * `controller_class`
 * `controller_method`
+* `spec_artifacts_json` (serialized references to OpenAPI/WSDL/XSD artifacts)
 
 **db_entity**
 

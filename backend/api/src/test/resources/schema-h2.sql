@@ -1,3 +1,9 @@
+DROP TABLE IF EXISTS log_statement;
+DROP TABLE IF EXISTS diagram;
+DROP TABLE IF EXISTS dao_operation;
+DROP TABLE IF EXISTS db_entity;
+DROP TABLE IF EXISTS asset_image;
+DROP TABLE IF EXISTS api_endpoint;
 DROP TABLE IF EXISTS pii_pci_finding;
 DROP TABLE IF EXISTS class_metadata;
 DROP TABLE IF EXISTS project_snapshot;
@@ -62,6 +68,84 @@ CREATE TABLE class_metadata (
     annotations_json CLOB,
     interfaces_json CLOB,
     CONSTRAINT fk_class_metadata_project FOREIGN KEY (project_id)
+        REFERENCES project (id) ON DELETE CASCADE
+);
+
+CREATE TABLE api_endpoint (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    project_id BIGINT NOT NULL,
+    protocol VARCHAR(64) NOT NULL,
+    http_method VARCHAR(32),
+    path_or_operation VARCHAR(512) NOT NULL,
+    controller_class VARCHAR(512) NOT NULL,
+    controller_method VARCHAR(512),
+    spec_artifacts_json CLOB,
+    CONSTRAINT fk_api_endpoint_project FOREIGN KEY (project_id)
+        REFERENCES project (id) ON DELETE CASCADE
+);
+
+CREATE TABLE asset_image (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    project_id BIGINT NOT NULL,
+    file_name VARCHAR(512) NOT NULL,
+    relative_path VARCHAR(1024) NOT NULL,
+    size_bytes BIGINT NOT NULL,
+    sha256 VARCHAR(64),
+    CONSTRAINT fk_asset_image_project FOREIGN KEY (project_id)
+        REFERENCES project (id) ON DELETE CASCADE
+);
+
+CREATE TABLE db_entity (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    project_id BIGINT NOT NULL,
+    entity_name VARCHAR(256) NOT NULL,
+    fully_qualified_name VARCHAR(512),
+    table_name VARCHAR(256),
+    primary_keys_json CLOB,
+    fields_json CLOB,
+    relationships_json CLOB,
+    CONSTRAINT fk_db_entity_project FOREIGN KEY (project_id)
+        REFERENCES project (id) ON DELETE CASCADE
+);
+
+CREATE TABLE dao_operation (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    project_id BIGINT NOT NULL,
+    repository_class VARCHAR(512) NOT NULL,
+    method_name VARCHAR(255) NOT NULL,
+    operation_type VARCHAR(64) NOT NULL,
+    target_descriptor VARCHAR(512),
+    query_snippet CLOB,
+    CONSTRAINT fk_dao_operation_project FOREIGN KEY (project_id)
+        REFERENCES project (id) ON DELETE CASCADE
+);
+
+CREATE TABLE diagram (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    project_id BIGINT NOT NULL,
+    diagram_type VARCHAR(32) NOT NULL,
+    title VARCHAR(256) NOT NULL,
+    sequence_order INT,
+    plantuml_source CLOB,
+    mermaid_source CLOB,
+    svg_path VARCHAR(1024),
+    metadata_json CLOB,
+    CONSTRAINT fk_diagram_project FOREIGN KEY (project_id)
+        REFERENCES project (id) ON DELETE CASCADE
+);
+
+CREATE TABLE log_statement (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    project_id BIGINT NOT NULL,
+    class_name VARCHAR(512) NOT NULL,
+    file_path VARCHAR(1024),
+    log_level VARCHAR(32) NOT NULL,
+    line_number INT,
+    message_template VARCHAR(2000),
+    variables_json CLOB,
+    pii_risk BOOLEAN NOT NULL,
+    pci_risk BOOLEAN NOT NULL,
+    CONSTRAINT fk_log_statement_project FOREIGN KEY (project_id)
         REFERENCES project (id) ON DELETE CASCADE
 );
 
