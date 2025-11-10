@@ -1,14 +1,11 @@
 package com.codevision.codevisionbackend.analysis;
 
 import com.codevision.codevisionbackend.analysis.config.CompiledAnalysisProperties;
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -16,7 +13,6 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -30,9 +26,11 @@ public class ClasspathBuilder {
 
     private static final Logger log = LoggerFactory.getLogger(ClasspathBuilder.class);
     private final CompiledAnalysisProperties properties;
+    private final MavenCommandRunner commandRunner;
 
-    public ClasspathBuilder(CompiledAnalysisProperties properties) {
+    public ClasspathBuilder(CompiledAnalysisProperties properties, MavenCommandRunner commandRunner) {
         this.properties = properties;
+        this.commandRunner = commandRunner;
     }
 
     public ClasspathDescriptor build(Path repoRoot, boolean includeDependencies) {
@@ -108,37 +106,7 @@ public class ClasspathBuilder {
 
     private void runMaven(Path workingDir, List<String> command) {
         Duration timeout = Duration.ofSeconds(Math.max(30, properties.getSafety().getMaxRuntimeSeconds()));
-        Instant start = Instant.now();
-        ProcessBuilder builder = new ProcessBuilder(command);
-        builder.directory(workingDir.toFile());
-        builder.redirectErrorStream(true);
-        builder.environment().putIfAbsent("MAVEN_OPTS", "-Xmx" + properties.getSafety().getMaxHeapMb() + "m");
-
-        try {
-            Process process = builder.start();
-            try (BufferedReader reader = new BufferedReader(
-                    new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    log.debug("[mvn] {}", line);
-                }
-            }
-            boolean finished = process.waitFor(timeout.toMillis(), TimeUnit.MILLISECONDS);
-            if (!finished) {
-                process.destroyForcibly();
-                throw new IllegalStateException("Maven command timed out after " + timeout.getSeconds() + " seconds");
-            }
-            int exitCode = process.exitValue();
-            if (exitCode != 0) {
-                throw new IllegalStateException("Maven command failed with exit code " + exitCode);
-            }
-            log.info("Command {} completed in {} ms", command, Duration.between(start, Instant.now()).toMillis());
-        } catch (InterruptedException ex) {
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException("Maven command interrupted: " + ex.getMessage(), ex);
-        } catch (IOException ex) {
-            throw new IllegalStateException("Failed running command " + command + ": " + ex.getMessage(), ex);
-        }
+        commandRunner.run(workingDir, command, timeout, properties.getSafety().getMaxHeapMb());
     }
 
     private static boolean matchesAny(String candidate, List<Pattern> patterns) {

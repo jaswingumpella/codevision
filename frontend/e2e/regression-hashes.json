@@ -1,0 +1,14 @@
+{
+  "exports": {
+    "analysis.json": "5f688f2c929740cdffa781a126abbd3b52cc273ea9c5e710d9eab0c851273395",
+    "class-diagram.puml": "69e969fd3951f0d3f9e38b19e4cb83eb0b89c5ca46985370f71bd43297d41a5d",
+    "dependencies.csv": "280b911bcb48a4515f4b2022e0c5d516bd9324c42e228a7520dc1651407d59f0",
+    "endpoints.csv": "5f236015d6aee638d3c3fe6f518a51fefc029e7f6151ba89528e602403b889a8",
+    "entities.csv": "03be494ff233f26cf9448518dfd312b8a2f5274ba95b9c9b607452efa1abf5ad",
+    "erd.mmd": "17631522761a016c16d87e45fdb83a66343f5b3656b785eafde39e32bd023cb8",
+    "erd.puml": "1c20164bd0a655ceab506a586bc3f0097f52531f186b256aa1abe4b83c7b6b76",
+    "seq_01_com_codevision_fixtures_controller_FixtureController_getFixtures.puml": "90d8c7be6dfe87d7302d5f2aeb0daeb84a12697f49f666d250a93b8a40cd2b3f",
+    "seq_02_com_codevision_fixtures_controller_FixtureController_updateFixture.puml": "f3e292b74c99d5b1e38823fd4a8c6cee2af362a9ae844a544f7657c530fe2a54",
+    "sequences.csv": "9c44d3b4acc030f8414bfcd55937a9a34a85f2f3acfd9c0f2b96a90b4ca15dfd"
+  }
+}

@@ -919,7 +919,7 @@ Add durable snapshot history + diffing, reuse results across commits, and tighte
 
 ---
 
-## Iteration 18 – Backend unit test expansion *(Status: Planned)*
+## Iteration 18 – Backend unit test expansion *(Status: ✅ Completed – see [`docs/iteration-18-completion.md`](docs/iteration-18-completion.md))*
 
 ### Goal
 Raise `backend/api` unit coverage to ≥90% by adding deterministic tests for the new compiled-analysis components and legacy analyzers.
@@ -940,7 +940,7 @@ Raise `backend/api` unit coverage to ≥90% by adding deterministic tests for th
 * `mvn test` passes with JaCoCo reports ≥90% for `backend/api`.
 * Every new component from iterations 12–17 has direct unit coverage.
 
-## Iteration 19 – Backend integration & pipeline tests *(Status: Planned)*
+## Iteration 19 – Backend integration & pipeline tests *(Status: ✅ Completed – see [`docs/iteration-19-completion.md`](docs/iteration-19-completion.md))*
 
 ### Goal
 Cover the end-to-end analyzer (source + compiled) using integration tests that run against fixture repos and real persistence layers.
@@ -960,7 +960,7 @@ Cover the end-to-end analyzer (source + compiled) using integration tests that r
 * Integration suite runs via `mvn verify` and populates fixture databases/artifacts deterministically.
 * Coverage (unit+integration) stays ≥90%.
 
-## Iteration 20 – Frontend unit/component coverage *(Status: Planned)*
+## Iteration 20 – Frontend unit/component coverage *(Status: ✅ Completed – see [`docs/iteration-20-completion.md`](docs/iteration-20-completion.md))*
 
 ### Goal
 Achieve ≥90% coverage for the React app through Vitest + React Testing Library suites.
@@ -975,7 +975,7 @@ Achieve ≥90% coverage for the React app through Vitest + React Testing Library
 * `npm run test` (Vitest) succeeds with ≥90% statements/branches/functions/lines.
 * CI fails if coverage drops below threshold.
 
-## Iteration 21 – End-to-end & regression tests *(Status: Planned)*
+## Iteration 21 – End-to-end & regression tests *(Status: ✅ Completed – see [`docs/iteration-21-completion.md`](docs/iteration-21-completion.md))*
 
 ### Goal
 Add Playwright/Cypress E2E flows plus basic performance/regression checks so core workflows remain stable.

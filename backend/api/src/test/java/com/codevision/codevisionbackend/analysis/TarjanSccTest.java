@@ -37,4 +37,13 @@ class TarjanSccTest {
         assertFalse(result.isCyclic("B"));
         assertFalse(result.isCyclic("C"));
     }
+
+    @Test
+    void assignsComponentIdsToLeafTargets() {
+        Map<String, Set<String>> graph = new HashMap<>();
+        graph.put("A", Set.of("B"));
+
+        TarjanScc.Result result = tarjanScc.compute(graph);
+        assertTrue(result.componentIds().containsKey("B"));
+    }
 }

@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite';
+import { configDefaults } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig({
@@ -20,13 +21,14 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: './src/setupTests.js',
     globals: true,
+    exclude: [...configDefaults.exclude, 'e2e/**'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov'],
-      statements: 0.9,
-      branches: 0.9,
-      functions: 0.9,
-      lines: 0.9,
+      statements: 90,
+      branches: 90,
+      functions: 90,
+      lines: 90,
       include: ['src/**/*.{js,jsx}']
     }
   }

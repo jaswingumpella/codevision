@@ -113,7 +113,7 @@ const PiiPciPanel = ({ findings, loading, onDownloadCsv, onDownloadPdf, onToggle
                       type="button"
                       className="ghost-button"
                       disabled={!entry.findingId}
-                      onClick={() => entry.findingId && onToggleIgnored(entry.findingId, !entry.ignored)}
+                      onClick={async () => entry.findingId && (await onToggleIgnored(entry.findingId, !entry.ignored))}
                     >
                       {entry.ignored ? 'Restore' : 'Ignore'}
                     </button>

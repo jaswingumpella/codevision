@@ -47,6 +47,16 @@ const SnapshotsPanel = ({
 }) => {
   const hasSnapshots = Array.isArray(snapshots) && snapshots.length > 0;
   const compareDisabled = !selectedBase || snapshots.length < 2;
+  const handleRefreshClick = async () => {
+    if (typeof onRefresh === 'function') {
+      await onRefresh();
+    }
+  };
+  const handleDiffClick = async () => {
+    if (typeof onDiff === 'function' && selectedBase && selectedCompare && selectedBase !== selectedCompare) {
+      await onDiff(selectedBase, selectedCompare);
+    }
+  };
 
   return (
     <div className="overview-content">
@@ -55,7 +65,7 @@ const SnapshotsPanel = ({
           <h2>Snapshot History</h2>
           <p className="overview-hint">Track how the project evolves between analyses.</p>
         </div>
-        <button type="button" className="ghost-button" onClick={onRefresh} disabled={loading}>
+        <button type="button" className="ghost-button" onClick={handleRefreshClick} disabled={loading}>
           Refresh
         </button>
       </div>
@@ -100,11 +110,7 @@ const SnapshotsPanel = ({
             </select>
           </label>
 
-          <button
-            type="button"
-            onClick={() => onDiff && selectedBase && selectedCompare && onDiff(selectedBase, selectedCompare)}
-            disabled={!selectedBase || !selectedCompare || selectedBase === selectedCompare}
-          >
+          <button type="button" onClick={handleDiffClick} disabled={!selectedBase || !selectedCompare || selectedBase === selectedCompare}>
             Show Diff
           </button>
         </div>

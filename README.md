@@ -16,6 +16,7 @@ The backend lives in [`backend/`](backend/). It now exposes an asynchronous `/an
 - `GET /project/{id}/snapshots/{snapshotId}/diff/{compareSnapshotId}` – diff payload describing added/removed classes, endpoints, and DB entities between any two snapshots.
 - `PATCH /project/{id}/pii-pci/{findingId}` – toggle the ignore flag on a PCI/PII finding (used by the Logger + PCI panels).
 - `GET /api/keycloak/realms/{realm}/users?limit=20` – experimental endpoint used to verify Keycloak’s `keycloak-model-jpa` dependency is wired correctly; it returns a paged list of realm users and is meant solely for testing external library integration.
+- `GET /healthz` – lightweight readiness endpoint used by CI harnesses to wait for the Spring context.
 
 ### Prerequisites
 
@@ -377,10 +378,46 @@ scripts/migration/run-h2-to-postgres.sh
 
 ### Testing
 
-Backend tests now target PostgreSQL via Testcontainers. Make sure Docker is reachable before running:
+Use the focused Maven targets below while iterating on the backend:
 
-```bash
-mvn -f backend/pom.xml test
-```
+1. **Unit / MVC suite + coverage prep**
+   ```bash
+   mvn -pl backend/api test
+   ```
+   This runs all unit and MVC slice tests (including the compiled-analysis fixtures) and wires JaCoCo so coverage data is ready.
 
-If Docker (or outgoing network access for Testcontainers images) is unavailable, the suite will fail to start.
+2. **Integration suite + coverage gates**
+   ```bash
+   mvn -pl backend/api verify
+   # skip the Testcontainers-powered integration suite if Docker is unavailable
+   mvn -pl backend/api verify -DskipITs=true
+   ```
+   The `verify` phase now runs the full unit/MVC suite, executes the Postgres/Testcontainers integration tests, and then runs `jacoco:check`, failing if line or branch coverage for `backend/api` drops below 90%. Because the integration suite needs Docker, pass `-DskipITs=true` when you explicitly want to skip the containerized tests.
+
+   > The JaCoCo gate currently targets the compiled-analysis stack (classpath builder, bytecode scanners, graph writers, export/persist services, and the compiled-analysis REST controllers) so we get deterministic protection on the Iterations 12–18 work while we backfill coverage for the rest of the service.
+
+### Frontend & E2E suites
+
+1. **Unit tests (Vitest + Testing Library)**
+   ```bash
+   cd frontend
+   npm run test:unit
+   ```
+
+2. **Coverage (≥90% statements/branches/functions/lines)**
+   ```bash
+   cd frontend
+   npm run test:coverage
+   ```
+   Coverage reports emit to `frontend/coverage`.
+
+3. **End-to-end workflow guardrails (Playwright)**
+   ```bash
+   cd frontend
+   # one-time browser install
+   npx playwright install --with-deps chromium
+   npm run test:e2e
+   ```
+   The Playwright harness copies the deterministic fixture repo out of `backend/api/src/test/resources/fixtures/compiled-app`, initializes it as a local Git remote, launches the backend on port **8090** (H2/in-memory, compiled analysis auto-build disabled), and starts the Vite dev server on **4173**. It then runs the full “analyze → dashboard → compiled analysis” flow headlessly, enforces a 120s SLA, and downloads every compiled export to verify their SHA-256 hashes against `frontend/e2e/regression-hashes.json`. The suite writes temporary artifacts under `.codevision-e2e/`. Because the backend and dev server bind to local ports, run the suite in an environment that permits opening loopback sockets.
+
+   > When fixtures change, run `mvn -f backend/pom.xml -pl api -Dtest=CompiledFixtureSnapshotTest -Dcodevision.e2e.printHashes=true test` to reprint the export hashes, then update `frontend/e2e/regression-hashes.json` so the Playwright assertions continue to match the canonical artifacts.

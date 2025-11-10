@@ -298,11 +298,11 @@ const handleSearchNavigate = useCallback(
     [projectId, fetchSnapshotDiff]
   );
 
-  const handleSnapshotRefresh = useCallback(() => {
+  const handleSnapshotRefresh = useCallback(async () => {
     if (!projectId) {
       return;
     }
-    fetchSnapshots(projectId);
+    await fetchSnapshots(projectId);
   }, [projectId, fetchSnapshots]);
 
   const handleToggleFindingIgnored = useCallback(

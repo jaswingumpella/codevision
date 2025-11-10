@@ -31,10 +31,22 @@ The dev server runs on `http://localhost:5173` and proxies `/analyze` and `/proj
 
 ```bash
 # unit tests
-npm run test
+npm run test:unit
 
 # enforce ≥90% statements/branches/functions/lines using Vitest + V8 coverage
 npm run test:coverage
 ```
 
 Coverage reports are emitted to `frontend/coverage`. The Vitest config blocks the run if any metric drops below 90%.
+
+## End-to-end Workflow Guard
+
+The Playwright suite spins up the backend on an in-memory H2 profile, starts the Vite dev server, drives the “analyze → dashboard → compiled analysis” flow, and validates the exported artifact hashes.
+
+```bash
+# one-time browser download
+npx playwright install --with-deps chromium
+npm run test:e2e
+```
+
+The harness copies the deterministic fixture repo into `.codevision-e2e/`, initializes it as a local Git remote, and verifies the SHA-256 hashes listed in `frontend/e2e/regression-hashes.json`. Run the suite in an environment that allows binding to localhost ports 8090 and 4173.

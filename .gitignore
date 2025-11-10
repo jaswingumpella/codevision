@@ -16,6 +16,9 @@ target/
 /frontend/dist/
 /frontend/.vite/
 
+# E2E fixture workspace
+/.codevision-e2e/
+
 # Legacy H2 database files (kept only until migration runs)
 /backend/data/
 # OpenAPI generator state
