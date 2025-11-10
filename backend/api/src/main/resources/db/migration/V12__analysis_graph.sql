@@ -1,6 +1,7 @@
 CREATE TABLE IF NOT EXISTS compiled_analysis_run (
     id UUID PRIMARY KEY,
     repo_path TEXT NOT NULL,
+    project_id BIGINT,
     started_at TIMESTAMPTZ,
     completed_at TIMESTAMPTZ,
     status VARCHAR(32) NOT NULL,
@@ -12,7 +13,8 @@ CREATE TABLE IF NOT EXISTS compiled_analysis_run (
     sequence_count BIGINT,
     duration_ms BIGINT,
     classpath TEXT,
-    accept_packages TEXT
+    accept_packages TEXT,
+    CONSTRAINT fk_compiled_run_project FOREIGN KEY (project_id) REFERENCES project(id) ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS entity (

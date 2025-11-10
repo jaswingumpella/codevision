@@ -206,27 +206,20 @@ Every property in `application.yml` can be overridden the same way (for example 
   }
   ```
 
-### Compiled Artefact Analysis (`POST /api/analyze`)
+### Compiled Artefact Analysis (automatic)
 
-Trigger the new compiled bytecode analysis directly when you already have the repo checked out on the same host as the backend:
-
-```bash
-curl -X POST 'http://localhost:8080/api/analyze' \
-  -H 'Content-Type: application/json' \
-  -d '{
-        "repoPath": "/Users/me/work/spring-app",
-        "acceptPackages": ["com.barclays","com.codeviz2"],
-        "includeDependencies": true
-      }'
-```
-
-The response returns an `analysisId`. Download exports or feed the UI by calling:
+After each repository analysis finishes, the backend now runs the compiled bytecode scanner automatically using the freshly cloned workspace. The React “Compiled Analysis” tab simply pulls the latest run via:
 
 ```bash
-curl 'http://localhost:8080/api/analyze/{analysisId}/exports'
-curl -OJ 'http://localhost:8080/api/analyze/{analysisId}/exports/analysis.json'
+curl 'http://localhost:8080/api/project/{projectId}/compiled-analysis'
 curl 'http://localhost:8080/api/entities?page=0&size=50'
+curl 'http://localhost:8080/api/sequences?page=0&size=50'
+curl 'http://localhost:8080/api/endpoints?page=0&size=50'
 ```
+
+Each response lists the run metadata plus download URLs for `analysis.json`, CSV exports, and PlantUML/Mermaid artifacts. When you need to refresh the exports, re-run the full `/analyze` workflow; the compiled pass will execute in-line.
+
+> Advanced: `POST /api/analyze` is still available if you really do want to point the scanner at an arbitrary local checkout (for example, a one-off experiment). Supply `repoPath` and optional `acceptPackages`/`includeDependencies` exactly as before—the UI just doesn’t require it anymore.
 
 ## Frontend (React + Vite)
 

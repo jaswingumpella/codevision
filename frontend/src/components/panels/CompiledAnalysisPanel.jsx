@@ -38,11 +38,6 @@ const Table = ({ columns, rows, emptyLabel }) => {
 };
 
 const CompiledAnalysisPanel = ({
-  repoPath,
-  onRepoPathChange,
-  acceptPackages,
-  onAcceptPackagesChange,
-  onRunAnalysis,
   analysis,
   exports,
   entities,
@@ -52,11 +47,16 @@ const CompiledAnalysisPanel = ({
   loading,
   error,
   onDownloadExport,
-  onRefreshExports
+  onRefresh
 }) => {
   const renderStatus = () => {
     if (!analysis) {
-      return <p className="overview-hint">Run the compiled analysis to populate artifacts.</p>;
+      return (
+        <p className="overview-hint">
+          Compiled analysis runs automatically after each repository analysis. Run a new analysis to populate these
+          artifacts.
+        </p>
+      );
     }
     return (
       <ul className="compiled-status-list">
@@ -84,40 +84,15 @@ const CompiledAnalysisPanel = ({
 
   return (
     <div className="overview-content compiled-panel">
-      <Section title="Run Compiled Analysis">
-        <div className="compiled-form-grid">
-          <label>
-            <span>Repository path</span>
-            <input
-              type="text"
-              value={repoPath}
-              onChange={(event) => onRepoPathChange(event.target.value)}
-              placeholder="/Users/me/work/backend"
-            />
-          </label>
-          <label>
-            <span>Accept packages (comma separated)</span>
-            <input
-              type="text"
-              value={acceptPackages}
-              onChange={(event) => onAcceptPackagesChange(event.target.value)}
-              placeholder="com.barclays,com.codeviz2"
-            />
-          </label>
-        </div>
-        <div className="compiled-actions">
-          <button type="button" onClick={onRunAnalysis} disabled={loading}>
-            {loading ? 'Analyzing…' : 'Run Analysis'}
-          </button>
-        </div>
+      <Section title="Compiled Analysis">
         {error ? <p className="error-text">{error}</p> : null}
-        {renderStatus()}
+        {loading ? <p className="overview-hint">Loading compiled analysis…</p> : renderStatus()}
       </Section>
 
       <Section title="Exports">
         <div className="compiled-actions">
-          <button type="button" onClick={onRefreshExports} disabled={!analysis || loading}>
-            Refresh exports
+          <button type="button" onClick={onRefresh} disabled={loading}>
+            Refresh
           </button>
         </div>
         {exports && exports.length > 0 ? (

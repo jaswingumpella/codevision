@@ -172,6 +172,7 @@ CREATE TABLE pii_pci_finding (
 CREATE TABLE compiled_analysis_run (
     id UUID PRIMARY KEY,
     repo_path VARCHAR(1024) NOT NULL,
+    project_id BIGINT,
     started_at TIMESTAMP,
     completed_at TIMESTAMP,
     status VARCHAR(32) NOT NULL,

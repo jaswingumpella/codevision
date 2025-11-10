@@ -34,7 +34,7 @@ import java.util.Map;
 import java.util.Optional;
 import jakarta.annotation.Generated;
 
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2025-11-09T21:12:14.696819-05:00[America/New_York]", comments = "Generator version: 7.5.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2025-11-09T21:44:00.250675-05:00[America/New_York]", comments = "Generator version: 7.5.0")
 @Validated
 @Tag(name = "Analysis", description = "Endpoints used to trigger repository analysis workflows.")
 public interface AnalysisApi {

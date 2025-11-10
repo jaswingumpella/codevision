@@ -19,6 +19,9 @@ public class CompiledAnalysisRun {
     @Column(name = "repo_path", nullable = false)
     private String repoPath;
 
+    @Column(name = "project_id")
+    private Long projectId;
+
     @Column(name = "started_at")
     private Instant startedAt;
 
@@ -70,6 +73,14 @@ public class CompiledAnalysisRun {
 
     public void setRepoPath(String repoPath) {
         this.repoPath = repoPath;
+    }
+
+    public Long getProjectId() {
+        return projectId;
+    }
+
+    public void setProjectId(Long projectId) {
+        this.projectId = projectId;
     }
 
     public Instant getStartedAt() {

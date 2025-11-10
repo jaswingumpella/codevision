@@ -65,6 +65,7 @@ analysis:
       - csv
       - plantuml
       - mermaid
+    root: ${ANALYSIS_OUTPUT_ROOT:./data/compiled}
   safety:
     maxRuntimeSeconds: ${ANALYSIS_MAX_RUNTIME_SECONDS:600}
     maxHeapMb: ${ANALYSIS_MAX_HEAP_MB:1500}

@@ -75,8 +75,6 @@ function App() {
   const [selectedBaseSnapshot, setSelectedBaseSnapshot] = useState(null);
   const [selectedCompareSnapshot, setSelectedCompareSnapshot] = useState(null);
   const [snapshotDiff, setSnapshotDiff] = useState(null);
-  const [compiledRepoPath, setCompiledRepoPath] = useState('');
-  const [compiledAcceptPackages, setCompiledAcceptPackages] = useState('com.barclays,com.codeviz2');
   const [compiledAnalysis, setCompiledAnalysis] = useState(null);
   const [compiledExports, setCompiledExports] = useState([]);
   const [compiledEntities, setCompiledEntities] = useState({ items: [] });
@@ -208,7 +206,7 @@ function App() {
     });
   };
 
-  const handleSearchNavigate = useCallback(
+const handleSearchNavigate = useCallback(
     (match) => {
       if (!match || !match.tabValue) {
         return;
@@ -851,44 +849,6 @@ function App() {
   const downloadSnapshotJson = () =>
     projectId && handleExport(`/project/${projectId}/export/snapshot`, `snapshot-${projectId}.json`);
   const refreshExportPreview = () => loadExportPreview(true);
-  const parseAcceptPackages = (input) =>
-    input
-      .split(',')
-      .map((pkg) => pkg.trim())
-      .filter((pkg) => pkg.length > 0);
-  const fetchCompiledEntities = async () => {
-    try {
-      const { data } = await axios.get('/api/entities', {
-        params: { page: 0, size: 10 },
-        headers: authHeaders()
-      });
-      setCompiledEntities(data);
-    } catch (entitiesError) {
-      console.warn('Failed to load compiled entities', entitiesError);
-    }
-  };
-  const fetchCompiledSequences = async () => {
-    try {
-      const { data } = await axios.get('/api/sequences', {
-        params: { page: 0, size: 10 },
-        headers: authHeaders()
-      });
-      setCompiledSequencesTable(data);
-    } catch (sequencesError) {
-      console.warn('Failed to load compiled sequences', sequencesError);
-    }
-  };
-  const fetchCompiledEndpoints = async () => {
-    try {
-      const { data } = await axios.get('/api/endpoints', {
-        params: { page: 0, size: 10 },
-        headers: authHeaders()
-      });
-      setCompiledEndpointsTable(data);
-    } catch (endpointsError) {
-      console.warn('Failed to load compiled endpoints', endpointsError);
-    }
-  };
   const fetchCompiledMermaid = async (analysisId, exportedFiles) => {
     if (!exportedFiles || exportedFiles.length === 0) {
       setCompiledMermaidSource('');
@@ -912,53 +872,59 @@ function App() {
       console.warn(`Failed to load Mermaid ERD for analysis ${analysisId}`, mermaidError);
     }
   };
-  const refreshCompiledExports = async (analysisId) => {
-    if (!analysisId) {
-      return;
-    }
-    try {
-      const { data } = await axios.get(`/api/analyze/${analysisId}/exports`, {
-        headers: authHeaders()
-      });
-      setCompiledExports(data);
-      await fetchCompiledMermaid(analysisId, data);
-    } catch (exportError) {
-      console.warn('Failed to refresh compiled exports', exportError);
-    }
-  };
-  const runCompiledAnalysis = async () => {
-    const trimmedPath = compiledRepoPath.trim();
-    if (!trimmedPath) {
-      setCompiledError('Repository path is required.');
+  const loadCompiledAnalysis = async () => {
+    if (!projectId) {
       return;
     }
     setCompiledLoading(true);
     setCompiledError(null);
     try {
-      const payload = { repoPath: trimmedPath };
-      const packages = parseAcceptPackages(compiledAcceptPackages);
-      if (packages.length > 0) {
-        payload.acceptPackages = packages;
-      }
-      const response = await axios.post('/api/analyze', payload, {
-        headers: { ...authHeaders(), 'Content-Type': 'application/json' }
+      const { data } = await axios.get(`/project/${projectId}/compiled-analysis`, {
+        headers: authHeaders()
       });
-      const analysisPayload = response.data;
-      setCompiledAnalysis(analysisPayload);
-      const exportList = analysisPayload.exports || [];
+      setCompiledAnalysis(data);
+      const exportList = data.exports || [];
       setCompiledExports(exportList);
-      await Promise.all([
-        fetchCompiledEntities(),
-        fetchCompiledSequences(),
-        fetchCompiledEndpoints(),
-        fetchCompiledMermaid(analysisPayload.analysisId, exportList)
-      ]);
+      try {
+        const [entitiesRes, sequencesRes, endpointsRes] = await Promise.all([
+          axios.get('/api/entities', { params: { page: 0, size: 10 }, headers: authHeaders() }),
+          axios.get('/api/sequences', { params: { page: 0, size: 10 }, headers: authHeaders() }),
+          axios.get('/api/endpoints', { params: { page: 0, size: 10 }, headers: authHeaders() })
+        ]);
+        setCompiledEntities(entitiesRes.data);
+        setCompiledSequencesTable(sequencesRes.data);
+        setCompiledEndpointsTable(endpointsRes.data);
+      } catch (tableError) {
+        console.warn('Failed to load compiled analysis tables', tableError);
+      }
+      await fetchCompiledMermaid(data.analysisId, exportList);
     } catch (analysisError) {
-      setCompiledError(buildFriendlyError(analysisError));
+      if (analysisError?.response?.status === 404) {
+        setCompiledAnalysis(null);
+        setCompiledExports([]);
+        setCompiledMermaidSource('');
+      } else {
+        setCompiledError(buildFriendlyError(analysisError));
+      }
     } finally {
       setCompiledLoading(false);
     }
   };
+
+  const refreshCompiledExports = () => {
+    loadCompiledAnalysis();
+  };
+
+  useEffect(() => {
+    if (!projectId) {
+      setCompiledAnalysis(null);
+      setCompiledExports([]);
+      setCompiledMermaidSource('');
+      return;
+    }
+    loadCompiledAnalysis();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
   const downloadCompiledExport = (exportFile) => {
     if (!exportFile || !exportFile.downloadUrl) {
       return;
@@ -1267,11 +1233,6 @@ function App() {
               <OverviewPanel overview={overview} loading={loading && !overview} searchQuery={globalSearchQuery} />
             ) : activeTab === 'compiled' ? (
               <CompiledAnalysisPanel
-                repoPath={compiledRepoPath}
-                onRepoPathChange={setCompiledRepoPath}
-                acceptPackages={compiledAcceptPackages}
-                onAcceptPackagesChange={setCompiledAcceptPackages}
-                onRunAnalysis={runCompiledAnalysis}
                 analysis={compiledAnalysis}
                 exports={compiledExports}
                 entities={compiledEntities}
@@ -1281,7 +1242,7 @@ function App() {
                 loading={compiledLoading}
                 error={compiledError}
                 onDownloadExport={downloadCompiledExport}
-                onRefreshExports={() => refreshCompiledExports(compiledAnalysis?.analysisId)}
+                onRefresh={refreshCompiledExports}
               />
             ) : activeTab === 'api' ? (
               <ApiSpecsPanel

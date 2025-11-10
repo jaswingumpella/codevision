@@ -180,7 +180,8 @@ This applies to:
 
 ### Functional requirements
 
-* CLI/REST “Analyze” entrypoints must:
+* The compiled scanner executes automatically as part of the standard `/analyze` workflow (after the JavaParser/metadata passes). A manual `POST /api/analyze` endpoint may exist for advanced scenarios but should never be required for normal usage.
+* During the compiled step:
   * Run `mvn -q -DskipTests compile` automatically when `target/classes` is missing.
   * Build the classpath via `mvn -q -DincludeScope=compile -DoutputFile=target/classpath.txt dependency:build-classpath`.
   * Scan compiled classes + jars and merge results with the existing source scan.
@@ -197,8 +198,43 @@ This applies to:
 ### Security
 
 * Never classload user bytecode; everything happens through ASM/ClassGraph.
-* Run Maven/scanners with timeouts and constrained heap (`analysis.safety.*`), writing artifacts into sandboxed dirs under `build/analysis/`.
+* Run Maven/scanners with timeouts and constrained heap (`analysis.safety.*`), writing artifacts into sandboxed dirs under `analysis.output.root`.
 
+---
+
+## Test Coverage & Automation Roadmap
+
+### Objectives
+
+* Achieve ≥90% line and branch coverage across backend and frontend modules.
+* Provide layered confidence: fast unit suites, focused integration tests (service + persistence), end-to-end regression coverage (API + UI) plus cross-cutting performance/regression gates.
+* Keep coverage from regressing by enforcing JaCoCo thresholds (backend) and Vite/Jest coverage thresholds (frontend) in CI.
+
+### Scope
+
+1. **Backend unit tests**  
+   * Target every service/component with deterministic boundaries (scanners, builders, graph utilities, persistence helpers, controllers).  
+   * Use Mockito + Spring slices where appropriate; rely on fixture repositories/jars under `backend/api/src/test/resources`.
+
+2. **Backend integration tests**  
+   * Exercise the full analysis pipeline (source + compiled) against fixture repos using TempDir clones and H2/Postgres (Testcontainers) to verify persistence, exports, and REST endpoints.
+
+3. **Frontend unit/component tests**  
+   * Cover panel components, hooks, and state orchestration (App.jsx) with Vitest + React Testing Library.  
+   * Mock network calls via MSW/test doubles; assert loading/error states for every panel, especially compiled analysis, snapshots, export flows.
+
+4. **End-to-end/UI smoke tests**  
+   * Add Playwright/Cypress suite that boots the dev server (pointed to fixture backend), runs through the analyzer workflow, and verifies key UI flows (Overview, Diagrams, Compiled Analysis tab, exports).
+
+5. **Performance/regression checks**  
+   * Add optional “heavy fixture” pipeline verifying the analyzer finishes within configured SLAs and produces consistent artifact hashes (stable ordering).
+
+### Deliverables
+
+* Dedicated `backend/api` test fixtures (mini Spring projects, bytecode jars) committed under `backend/api/src/test/resources/fixtures/**`.
+* Coverage reports published during CI (JaCoCo XML + HTML, Vite coverage summarized in console).  
+* Failing builds when coverage drops below 90% globally or below module-specific thresholds.
+* README / Contributing guide updates detailing how to run the suites locally (`mvn test`, `npm run test:unit`, `npm run test:e2e`).
 ---
 
 ## 6. Detailed Feature Areas

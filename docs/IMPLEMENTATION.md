@@ -4,9 +4,8 @@ The compiled analysis pipeline lives under `backend/api/src/main/java/com/codevi
 
 ### Runtime flow
 
-1. `CompiledAnalysisController` accepts `POST /api/analyze` requests with a local `repoPath`.
-2. The controller builds a `CompiledAnalysisParameters` instance and forwards it to `CompiledAnalysisService`.
-3. `CompiledAnalysisService` orchestrates the steps:
+1. `AnalysisService` invokes `CompiledAnalysisService` automatically (after JavaParser/diagram generation) while the repo clone still exists. `CompiledAnalysisController` keeps a `POST /api/analyze` escape hatch for rare “run on arbitrary checkout” scenarios.
+2. `CompiledAnalysisService` orchestrates the steps:
    - `ClasspathBuilder` ensures `target/classes` exists (running `mvn -q -DskipTests compile` when necessary) and resolves the compile-scope classpath.
    - `JavaSourceScanner` (existing component) parses `src/main/java` for context so we can tag merged nodes with `Origin.SOURCE`.
    - `BytecodeEntityScanner` (ClassGraph) walks the compiled classpath collecting class metadata, Spring stereotypes, endpoints, JPA entities, and sequence generators without classloading user code.
@@ -16,7 +15,7 @@ The compiled analysis pipeline lives under `backend/api/src/main/java/com/codevi
    - `DiagramWriter` emits PlantUML + Mermaid diagrams (`class-diagram.puml`, `erd.puml`, `erd.mmd`, `seq_*.puml`) while `ExportWriter` writes `analysis.json`, `entities.csv`, `sequences.csv`, `endpoints.csv`, and `dependencies.csv`.
    - `PersistService` bulk-upserts summary tables (`entity`, `entity_field`, `sequence`, `entity_uses_sequence`, `class_dep`, `compiled_endpoint`) so the UI can filter/search without reloading the flat files.
    - The service saves a `CompiledAnalysisRun` row (status, timestamps, counts, output directory) that powers download links.
-4. The response returns the run metadata plus all export URLs so the frontend can render the “Compiled Analysis” tab immediately.
+3. The service returns run metadata plus all export URLs so the frontend can render the “Compiled Analysis” tab immediately.
 
 ### Key classes
 
@@ -34,10 +33,10 @@ The compiled analysis pipeline lives under `backend/api/src/main/java/com/codevi
 
 ### REST + UI integration
 
-* `POST /api/analyze` runs the compiled analysis synchronously and returns `analysisId`, timings, counts, and download URLs.
+* `GET /project/{projectId}/compiled-analysis` returns the latest run for a project (status + download URLs) and powers the React tab. `POST /api/analyze` remains available for manual/local runs when needed.
 * `GET /api/analyze/{id}/exports` + `GET /api/analyze/{id}/exports/{file}` power the download buttons in the new “Compiled Analysis” UI tab.
 * `GET /api/entities`, `/api/sequences`, `/api/endpoints` surface the Postgres-backed summaries for table views/search.
-* The React panel (`CompiledAnalysisPanel`) calls these endpoints, displays Mermaid/PlantUML sources inline, and offers “Run Analysis” + download actions.
+* The React panel (`CompiledAnalysisPanel`) now loads results automatically after each repository analysis, offers a “Refresh” action, and displays Mermaid/PlantUML sources inline with download buttons.
 
 ### Configuration and safety
 

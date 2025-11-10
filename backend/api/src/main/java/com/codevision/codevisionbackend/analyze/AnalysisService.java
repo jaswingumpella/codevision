@@ -2,6 +2,8 @@ package com.codevision.codevisionbackend.analyze;
 
 import static com.codevision.codevisionbackend.git.BranchUtils.normalize;
 
+import com.codevision.codevisionbackend.analysis.CompiledAnalysisService;
+import com.codevision.codevisionbackend.analysis.CompiledAnalysisService.CompiledAnalysisParameters;
 import com.codevision.codevisionbackend.analyze.GherkinFeatureSummary;
 import com.codevision.codevisionbackend.analyze.diagram.DiagramBuilderService;
 import com.codevision.codevisionbackend.analyze.diagram.DiagramGenerationResult;
@@ -103,6 +105,7 @@ public class AnalysisService {
     private final DiagramService diagramService;
     private final ObjectMapper objectMapper;
     private final GherkinScanner gherkinScanner;
+    private final CompiledAnalysisService compiledAnalysisService;
 
     public AnalysisService(
             GitCloneService gitCloneService,
@@ -127,7 +130,8 @@ public class AnalysisService {
             ProjectSnapshotService projectSnapshotService,
             DiagramBuilderService diagramBuilderService,
             DiagramService diagramService,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            CompiledAnalysisService compiledAnalysisService) {
         this.gitCloneService = gitCloneService;
         this.buildMetadataExtractor = buildMetadataExtractor;
         this.javaSourceScanner = javaSourceScanner;
@@ -151,6 +155,7 @@ public class AnalysisService {
         this.diagramBuilderService = diagramBuilderService;
         this.diagramService = diagramService;
         this.objectMapper = objectMapper;
+        this.compiledAnalysisService = compiledAnalysisService;
     }
 
     @Transactional
@@ -271,6 +276,18 @@ public class AnalysisService {
                     persistedProject,
                     parsedData,
                     new SnapshotMetadata(cloneResult.branchName(), cloneResult.commitHash(), moduleFingerprints));
+
+            try {
+                compiledAnalysisService.analyze(new CompiledAnalysisParameters(
+                        cloneResult.directory(), null, null, persistedProject.getId()));
+            } catch (Exception compiledEx) {
+                log.warn(
+                        "Compiled analysis failed for projectId={} repo={} : {}",
+                        persistedProject.getId(),
+                        repoUrl,
+                        compiledEx.getMessage());
+            }
+
             log.info(
                     "Completed analysis for {} ({}) with projectId={} snapshotId={}",
                     repoUrl,

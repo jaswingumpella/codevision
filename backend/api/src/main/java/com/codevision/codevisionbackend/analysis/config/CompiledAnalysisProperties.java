@@ -98,6 +98,7 @@ public class CompiledAnalysisProperties {
 
     public static class OutputProperties {
         private List<String> formats = new ArrayList<>(Arrays.asList("json", "csv", "plantuml", "mermaid"));
+        private String root = "./data/compiled";
 
         public List<String> getFormats() {
             return formats;
@@ -105,6 +106,14 @@ public class CompiledAnalysisProperties {
 
         public void setFormats(List<String> formats) {
             this.formats = formats == null ? new ArrayList<>() : new ArrayList<>(formats);
+        }
+
+        public String getRoot() {
+            return root;
+        }
+
+        public void setRoot(String root) {
+            this.root = root;
         }
     }
 

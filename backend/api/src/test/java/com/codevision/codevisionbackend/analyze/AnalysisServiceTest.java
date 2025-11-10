@@ -7,11 +7,13 @@ import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.codevision.codevisionbackend.analysis.CompiledAnalysisService;
 import com.codevision.codevisionbackend.analyze.BuildInfo;
 import com.codevision.codevisionbackend.analyze.MetadataDump;
 import com.codevision.codevisionbackend.analyze.ParsedDataResponse;
 import com.codevision.codevisionbackend.analyze.diagram.DiagramBuilderService;
 import com.codevision.codevisionbackend.analyze.diagram.DiagramGenerationResult;
+import com.codevision.codevisionbackend.analysis.CompiledAnalysisService;
 import com.codevision.codevisionbackend.analyze.scanner.ApiEndpointRecord;
 import com.codevision.codevisionbackend.analyze.scanner.ApiScanner;
 import com.codevision.codevisionbackend.analyze.scanner.AssetScanner;
@@ -131,6 +133,9 @@ class AnalysisServiceTest {
     @Mock
     private DiagramService diagramService;
 
+    @Mock
+    private CompiledAnalysisService compiledAnalysisService;
+
     private AnalysisService analysisService;
 
     @Test
@@ -162,7 +167,8 @@ class AnalysisServiceTest {
                 projectSnapshotService,
                 diagramBuilderService,
                 diagramService,
-                new ObjectMapper());
+                new ObjectMapper(),
+                compiledAnalysisService);
 
         BuildInfo buildInfo = new BuildInfo("com.barclays", "demo-app", "1.0.0", "21");
         BuildMetadata metadata = new BuildMetadata(buildInfo, List.of(repoDir));
@@ -171,6 +177,7 @@ class AnalysisServiceTest {
         project.setId(101L);
 
         when(buildMetadataExtractor.extract(repoDir)).thenReturn(metadata);
+        when(compiledAnalysisService.analyze(Mockito.any())).thenReturn(null);
         when(projectSnapshotService.findLatestSnapshotEntity(101L)).thenReturn(Optional.empty());
 
         List<ClassMetadataRecord> classRecords = List.of(new ClassMetadataRecord(

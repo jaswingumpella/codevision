@@ -916,3 +916,75 @@ Add durable snapshot history + diffing, reuse results across commits, and tighte
 **UI:** Add the “Compiled Analysis” tab with Run button, download list, inline Mermaid ERD, and PlantUML text viewers.
 
 **DoD:** API + UI allow analysts to run compiled analysis, inspect tables/diagrams, and download exports without shell access.
+
+---
+
+## Iteration 18 – Backend unit test expansion *(Status: Planned)*
+
+### Goal
+Raise `backend/api` unit coverage to ≥90% by adding deterministic tests for the new compiled-analysis components and legacy analyzers.
+
+### Backend
+* Introduce fixture repositories and bytecode jars under `backend/api/src/test/resources/fixtures/`.
+* Add targeted unit tests for:
+  * `ClasspathBuilder` (classpath generation, exclusion filters, timeout handling).
+  * `BytecodeEntityScanner`, `BytecodeCallGraphScanner`, `TarjanScc`, `GraphMerger`, `DiagramWriter`, `ExportWriter`, `PersistService`.
+  * REST controllers (`AnalysisController`, metadata/export controllers) using Spring MVC slice tests.
+* Enable JaCoCo thresholds (line + branch ≥0.90) and fail tests if coverage dips below target.
+
+### Persistence / DevOps
+* Update Maven Surefire/Failsafe config to split unit vs. integration suites (prepping for Iteration 19).
+* Document new `mvn test` commands in README.
+
+### Done Criteria
+* `mvn test` passes with JaCoCo reports ≥90% for `backend/api`.
+* Every new component from iterations 12–17 has direct unit coverage.
+
+## Iteration 19 – Backend integration & pipeline tests *(Status: Planned)*
+
+### Goal
+Cover the end-to-end analyzer (source + compiled) using integration tests that run against fixture repos and real persistence layers.
+
+### Backend
+* Add Testcontainers (Postgres) integration suite that:
+  * Runs the full `AnalysisService` pipeline on fixture repos.
+  * Verifies persisted rows across `project_snapshot`, compiled tables, and export artifacts on disk.
+  * Exercises `CompiledAnalysisService` directly with temp directories for bytecode-only scenarios.
+* Add MVC integration tests for `/api/analyze`, `/project/{id}/compiled-analysis`, `/api/entities`, etc., validating authentication and pagination.
+
+### Tooling
+* Configure Maven `verify` phase to run integration tests separately (Failsafe).
+* Publish JaCoCo IT reports and merge with unit coverage to keep ≥90% overall.
+
+### Done Criteria
+* Integration suite runs via `mvn verify` and populates fixture databases/artifacts deterministically.
+* Coverage (unit+integration) stays ≥90%.
+
+## Iteration 20 – Frontend unit/component coverage *(Status: Planned)*
+
+### Goal
+Achieve ≥90% coverage for the React app through Vitest + React Testing Library suites.
+
+### Frontend
+* Add unit tests for shared utilities (formatters, hooks).
+* Add component tests for every panel (Overview, API, Database, Logger, PCI/PII, Diagrams, Gherkin, Metadata, Export, Compiled Analysis) covering loading/error/empty states.
+* Mock Axios via MSW/test doubles to assert request payloads and UI transitions.
+* Enforce coverage thresholds in `package.json` (`"coverage": { "lines": 0.9, ... }`).
+
+### Done Criteria
+* `npm run test` (Vitest) succeeds with ≥90% statements/branches/functions/lines.
+* CI fails if coverage drops below threshold.
+
+## Iteration 21 – End-to-end & regression tests *(Status: Planned)*
+
+### Goal
+Add Playwright/Cypress E2E flows plus basic performance/regression checks so core workflows remain stable.
+
+### Work
+* Build e2e suite that spins up backend (with fixture repos) + frontend, runs analyze → dashboard viewing → compiled analysis downloads.
+* Add snapshot assertions for exported files (hash comparison) to detect regressions.
+* Optional: add performance guard (ensure analyze+compiled run finishes within SLA on fixture repo; alert if not).
+
+### Done Criteria
+* `npm run test:e2e` (or similar) executes the workflows headlessly in CI.
+* Regression hashes stored for artifacts; job fails on diff unless approved.

@@ -61,11 +61,24 @@ public class AnalysisController {
     public ResponseEntity<CompiledAnalysisResponse> runCompiledAnalysis(
             @Valid @RequestBody CompiledAnalysisRequest request) throws IOException {
         Path repoPath = Path.of(request.getRepoPath());
-        CompiledAnalysisParameters parameters =
-                new CompiledAnalysisParameters(repoPath, request.getAcceptPackages(), request.getIncludeDependencies());
+        CompiledAnalysisParameters parameters = new CompiledAnalysisParameters(
+                repoPath, request.getAcceptPackages(), request.getIncludeDependencies(), null);
         CompiledAnalysisResult result = compiledAnalysisService.analyze(parameters);
-        CompiledAnalysisResponse response = toResponse(result);
+        List<ExportedFile> exports = compiledAnalysisService.listExports(result.run().getId());
+        CompiledAnalysisResponse response = toResponse(result, exports);
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/project/{projectId}/compiled-analysis")
+    public ResponseEntity<CompiledAnalysisResponse> getCompiledAnalysis(@PathVariable Long projectId)
+            throws IOException {
+        var latest = compiledAnalysisService.findLatestByProject(projectId);
+        if (latest.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        CompiledAnalysisResult result = latest.get();
+        List<ExportedFile> exports = compiledAnalysisService.listExports(result.run().getId());
+        return ResponseEntity.ok(toResponse(result, exports));
     }
 
     @GetMapping("/analyze/{id}/exports")
@@ -126,7 +139,8 @@ public class AnalysisController {
         return ResponseEntity.ok(new PageResponse<>(summaries, pageResult.getTotalElements(), page, size));
     }
 
-    private CompiledAnalysisResponse toResponse(CompiledAnalysisResult result) throws IOException {
+    private CompiledAnalysisResponse toResponse(CompiledAnalysisResult result, List<ExportedFile> exportFiles)
+            throws IOException {
         CompiledAnalysisResponse response = new CompiledAnalysisResponse();
         response.setAnalysisId(result.run().getId());
         response.setRepoPath(result.run().getRepoPath());
@@ -134,26 +148,15 @@ public class AnalysisController {
         response.setCompletedAt(result.run().getCompletedAt());
         response.setStatus(result.run().getStatus().name());
         response.setStatusMessage(result.run().getStatusMessage());
-        response.setOutputDirectory(result.outputs().getRootDirectory().toString());
+        response.setOutputDirectory(result.run().getOutputDirectory());
         response.setEntityCount(result.run().getEntityCount());
         response.setEndpointCount(result.run().getEndpointCount());
         response.setDependencyCount(result.run().getDependencyCount());
         response.setSequenceCount(result.run().getSequenceCount());
         response.setDurationMillis(result.run().getDurationMillis());
-        List<ExportFileResponse> exports = result.outputs().allFiles().stream()
-                .distinct()
-                .map(path -> {
-                    long size;
-                    try {
-                        size = Files.size(path);
-                    } catch (IOException e) {
-                        size = 0;
-                    }
-                    return new ExportFileResponse(
-                            path.getFileName().toString(),
-                            size,
-                            buildDownloadUrl(result.run().getId(), path.getFileName().toString()));
-                })
+        List<ExportFileResponse> exports = exportFiles.stream()
+                .map(file -> new ExportFileResponse(
+                        file.name(), file.size(), buildDownloadUrl(result.run().getId(), file.name())))
                 .toList();
         response.setExports(exports);
         return response;

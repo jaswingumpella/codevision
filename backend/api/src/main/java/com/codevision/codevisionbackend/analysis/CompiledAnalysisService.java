@@ -16,7 +16,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -31,8 +30,6 @@ import org.springframework.stereotype.Service;
 @Service
 public class CompiledAnalysisService {
 
-    private static final DateTimeFormatter DIRECTORY_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
-
     private final ClasspathBuilder classpathBuilder;
     private final BytecodeEntityScanner bytecodeEntityScanner;
     private final BytecodeCallGraphScanner callGraphScanner;
@@ -45,6 +42,7 @@ public class CompiledAnalysisService {
     private final BuildMetadataExtractor buildMetadataExtractor;
     private final CompiledAnalysisProperties properties;
     private final CompiledAnalysisRunRepository runRepository;
+    private final Path outputRoot;
 
     public CompiledAnalysisService(
             ClasspathBuilder classpathBuilder,
@@ -71,6 +69,13 @@ public class CompiledAnalysisService {
         this.buildMetadataExtractor = buildMetadataExtractor;
         this.properties = properties;
         this.runRepository = runRepository;
+        this.outputRoot = Path.of(properties.getOutput().getRoot()).toAbsolutePath().normalize();
+        try {
+            Files.createDirectories(this.outputRoot);
+        } catch (IOException e) {
+            throw new IllegalStateException(
+                    "Unable to create compiled analysis output root at " + this.outputRoot, e);
+        }
     }
 
     public CompiledAnalysisResult analyze(CompiledAnalysisParameters parameters) throws IOException {
@@ -85,6 +90,7 @@ public class CompiledAnalysisService {
         CompiledAnalysisRun run = new CompiledAnalysisRun();
         run.setId(UUID.randomUUID());
         run.setRepoPath(repoPath.toString());
+        run.setProjectId(parameters.projectId());
         run.setStartedAt(Instant.now());
         run.setStatus(CompiledAnalysisRunStatus.RUNNING);
         run.setStatusMessage("Bytecode analysis in progress");
@@ -112,9 +118,7 @@ public class CompiledAnalysisService {
                 node.setInCycle(scc != null && sccResult.cyclicComponents().contains(scc));
             });
 
-            Path outputDir = repoPath.resolve("build")
-                    .resolve("analysis")
-                    .resolve(DIRECTORY_FORMAT.format(Instant.now()));
+            Path outputDir = outputRoot.resolve(run.getId().toString());
             Files.createDirectories(outputDir);
 
             DiagramWriter.DiagramArtifacts diagramArtifacts =
@@ -198,6 +202,14 @@ public class CompiledAnalysisService {
         return resolved;
     }
 
+    public java.util.Optional<CompiledAnalysisResult> findLatestByProject(Long projectId) {
+        if (projectId == null) {
+            return java.util.Optional.empty();
+        }
+        return runRepository.findTopByProjectIdOrderByStartedAtDesc(projectId)
+                .map(run -> new CompiledAnalysisResult(run, null, null));
+    }
+
     private GraphModel buildSourceGraph(Path repoPath, List<String> acceptPackages) {
         BuildMetadataExtractor.BuildMetadata metadata = buildMetadataExtractor.extract(repoPath);
         List<Path> moduleRoots = metadata.moduleRoots();
@@ -228,5 +240,5 @@ public class CompiledAnalysisService {
     }
 
     public record CompiledAnalysisParameters(
-            Path repoPath, List<String> acceptPackages, Boolean includeDependencies) {}
+            Path repoPath, List<String> acceptPackages, Boolean includeDependencies, Long projectId) {}
 }
