@@ -1,7 +1,10 @@
-# syntax=docker/dockerfile:1
+# syntax=docker/dockerfile:1.7
 
 FROM maven:3.9-eclipse-temurin-21 AS build
 WORKDIR /workspace
+
+ARG MAVEN_MODULES="-pl api -am"
+ARG MAVEN_BUILD_FLAGS="-DskipTests"
 
 RUN apt-get update \
     && apt-get install -y curl gnupg ca-certificates graphviz \
@@ -14,12 +17,14 @@ RUN apt-get update \
 COPY backend/pom.xml backend/pom.xml
 COPY backend/api/pom.xml backend/api/pom.xml
 COPY backend/oasgen/pom.xml backend/oasgen/pom.xml
-RUN mvn -f backend/pom.xml -pl api -am dependency:go-offline
+RUN --mount=type=cache,target=/root/.m2 \
+    mvn -f backend/pom.xml ${MAVEN_MODULES} dependency:go-offline -B
 
 # Copy the full backend sources and build the Spring Boot jar
 COPY backend backend
 COPY frontend frontend
-RUN mvn -f backend/pom.xml -pl api -am package -DskipTests
+RUN --mount=type=cache,target=/root/.m2 \
+    mvn -f backend/pom.xml ${MAVEN_MODULES} package ${MAVEN_BUILD_FLAGS}
 
 FROM eclipse-temurin:21-jre-jammy AS runtime
 WORKDIR /app
