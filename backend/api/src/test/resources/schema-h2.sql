@@ -1,3 +1,10 @@
+DROP TABLE IF EXISTS compiled_endpoint;
+DROP TABLE IF EXISTS class_dep;
+DROP TABLE IF EXISTS entity_uses_sequence;
+DROP TABLE IF EXISTS sequence;
+DROP TABLE IF EXISTS entity_field;
+DROP TABLE IF EXISTS entity;
+DROP TABLE IF EXISTS compiled_analysis_run;
 DROP TABLE IF EXISTS log_statement;
 DROP TABLE IF EXISTS diagram;
 DROP TABLE IF EXISTS dao_operation;
@@ -160,4 +167,78 @@ CREATE TABLE pii_pci_finding (
     ignored BOOLEAN NOT NULL,
     CONSTRAINT fk_pii_pci_project FOREIGN KEY (project_id)
         REFERENCES project (id) ON DELETE CASCADE
+);
+
+CREATE TABLE compiled_analysis_run (
+    id UUID PRIMARY KEY,
+    repo_path VARCHAR(1024) NOT NULL,
+    started_at TIMESTAMP,
+    completed_at TIMESTAMP,
+    status VARCHAR(32) NOT NULL,
+    status_message VARCHAR(512),
+    output_dir VARCHAR(1024),
+    entity_count BIGINT,
+    endpoint_count BIGINT,
+    dependency_count BIGINT,
+    sequence_count BIGINT,
+    duration_ms BIGINT,
+    classpath CLOB,
+    accept_packages VARCHAR(512)
+);
+
+CREATE TABLE entity (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    class_name VARCHAR(512) NOT NULL UNIQUE,
+    package_name VARCHAR(512) NOT NULL,
+    jar_or_dir VARCHAR(1024),
+    table_name VARCHAR(512),
+    origin VARCHAR(16) NOT NULL,
+    scc_id BIGINT,
+    in_cycle BOOLEAN DEFAULT FALSE
+);
+
+CREATE TABLE entity_field (
+    entity_id BIGINT NOT NULL,
+    name VARCHAR(256) NOT NULL,
+    type VARCHAR(512),
+    is_join BOOLEAN DEFAULT FALSE,
+    PRIMARY KEY (entity_id, name),
+    CONSTRAINT fk_entity_field_entity FOREIGN KEY (entity_id)
+        REFERENCES entity (id) ON DELETE CASCADE
+);
+
+CREATE TABLE sequence (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    generator_name VARCHAR(512) NOT NULL UNIQUE,
+    sequence_name VARCHAR(512),
+    allocation_size INT,
+    initial_value INT
+);
+
+CREATE TABLE entity_uses_sequence (
+    entity_id BIGINT NOT NULL,
+    field_name VARCHAR(256) NOT NULL,
+    sequence_id BIGINT NOT NULL,
+    PRIMARY KEY (entity_id, field_name),
+    CONSTRAINT fk_entity_sequence_entity FOREIGN KEY (entity_id)
+        REFERENCES entity (id) ON DELETE CASCADE,
+    CONSTRAINT fk_entity_sequence_sequence FOREIGN KEY (sequence_id)
+        REFERENCES sequence (id) ON DELETE CASCADE
+);
+
+CREATE TABLE class_dep (
+    caller VARCHAR(512) NOT NULL,
+    callee VARCHAR(512) NOT NULL,
+    package_filter VARCHAR(512) NOT NULL,
+    PRIMARY KEY (caller, callee)
+);
+
+CREATE TABLE compiled_endpoint (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    endpoint_type VARCHAR(32) NOT NULL,
+    http_method VARCHAR(32),
+    path VARCHAR(1024),
+    controller_class VARCHAR(512),
+    controller_method VARCHAR(512),
+    framework VARCHAR(128)
 );

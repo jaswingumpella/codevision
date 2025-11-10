@@ -206,6 +206,28 @@ Every property in `application.yml` can be overridden the same way (for example 
   }
   ```
 
+### Compiled Artefact Analysis (`POST /api/analyze`)
+
+Trigger the new compiled bytecode analysis directly when you already have the repo checked out on the same host as the backend:
+
+```bash
+curl -X POST 'http://localhost:8080/api/analyze' \
+  -H 'Content-Type: application/json' \
+  -d '{
+        "repoPath": "/Users/me/work/spring-app",
+        "acceptPackages": ["com.barclays","com.codeviz2"],
+        "includeDependencies": true
+      }'
+```
+
+The response returns an `analysisId`. Download exports or feed the UI by calling:
+
+```bash
+curl 'http://localhost:8080/api/analyze/{analysisId}/exports'
+curl -OJ 'http://localhost:8080/api/analyze/{analysisId}/exports/analysis.json'
+curl 'http://localhost:8080/api/entities?page=0&size=50'
+```
+
 ## Frontend (React + Vite)
 
 The frontend lives in [`frontend/`](frontend/). It provides a single-page workflow to submit repository URLs and, after analysis completes, renders the project overview (build metadata, class totals, OpenAPI summaries).

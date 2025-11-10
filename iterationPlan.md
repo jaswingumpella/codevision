@@ -864,3 +864,55 @@ Add durable snapshot history + diffing, reuse results across commits, and tighte
 * Snapshot list/diff endpoints wired to the React panel and documented in the PRD.
 * Running analysis twice on the same commit reuses the prior snapshot; touching a single module only re-parses that module’s sources/logs/PII files.
 * Logger/PII exports + HTML preview remain responsive on thousands of rows; iframe preview no longer causes scroll jank.
+
+---
+
+## Iteration 12 — Bytecode ingestion POC *(Status: ✅ Completed – see [`docs/iteration-12-completion.md`](docs/iteration-12-completion.md))*
+
+**Goal:** Build a ClassGraph-powered bytecode scan that ingests `target/classes` + compile-scope jars and emits a minimal `analysis.json`.
+
+**Backend:** Detect missing `target/classes` and run `mvn -q -DskipTests compile`, resolve the classpath via `dependency:build-classpath`, and implement `BytecodeEntityScanner` + `analysis.acceptPackages`.
+
+**DoD:** Fixture jars pass unit tests, bytecode scan emits JSON deterministically, package filters are respected.
+
+## Iteration 13 — Call graph & SCC *(Status: ✅ Completed – see [`docs/iteration-13-completion.md`](docs/iteration-13-completion.md))*
+
+**Goal:** Capture method-level call edges and class-level dependencies, then tag cycles.
+
+**Backend:** `BytecodeCallGraphScanner` (ASM) records `INVOKE*` instructions, `TarjanScc` tags `sccId/inCycle`, and `dependencies.csv` lists class-to-class edges.
+
+**DoD:** Cyclic fixtures mark every node in the SCC, CSV contains every edge.
+
+## Iteration 14 — JPA ERD & Sequences + CSVs *(Status: ✅ Completed – see [`docs/iteration-14-completion.md`](docs/iteration-14-completion.md))*
+
+**Goal:** Parse JPA tables/relationships and sequence annotations for ERD/sequence exports.
+
+**Backend:** Extend the scanner to read `@Entity/@Table/@Id/@Join*`, map relationships, parse `@SequenceGenerator/@GeneratedValue/@GenericGenerator`, and emit `entities.csv` + `sequences.csv`.
+
+**DoD:** CSV rows match fixture expectations, GraphModel holds ER metadata.
+
+## Iteration 15 — Spring wiring & endpoints *(Status: ✅ Completed – see [`docs/iteration-15-completion.md`](docs/iteration-15-completion.md))*
+
+**Goal:** Detect Spring stereotypes, injections, HTTP endpoints, schedulers, and Kafka listeners from bytecode.
+
+**Backend:** Wire stereotype detection, normalize `RequestMapping` attributes, capture Kafka/Scheduled annotations, and write `endpoints.csv` plus injection dependency edges.
+
+**DoD:** Endpoint CSV contains every controller method, injection edges exist for `@Autowired/@Inject`.
+
+## Iteration 16 — Diagram generators *(Status: ✅ Completed – see [`docs/iteration-16-completion.md`](docs/iteration-16-completion.md))*
+
+**Goal:** Emit PlantUML/Mermaid diagrams (class, ERD, per-endpoint sequence) without infinite recursion.
+
+**Backend:** `DiagramWriter` writes `class-diagram.puml`, `erd.puml`, `erd.mmd`, and `seq_*.puml`, respecting SCC loops and `analysis.maxCallDepth`.
+
+**DoD:** Fixture diagrams render, Mermaid ERD shows up in the UI, sequence diagrams stay finite even on cyclic graphs.
+
+## Iteration 17 — Postgres persistence & API *(Status: ✅ Completed – see [`docs/iteration-17-completion.md`](docs/iteration-17-completion.md))*
+
+**Goal:** Persist compiled metadata to Postgres and expose REST/UI hooks.
+
+**Backend:** Add tables (`compiled_analysis_run`, `entity`, `entity_field`, `sequence`, `entity_uses_sequence`, `class_dep`, `compiled_endpoint`), bulk-upsert via `PersistService`, and ship `POST /api/analyze`, `GET /api/analyze/{id}/exports`, `GET /api/entities`, `/api/sequences`, `/api/endpoints`.
+
+**UI:** Add the “Compiled Analysis” tab with Run button, download list, inline Mermaid ERD, and PlantUML text viewers.
+
+**DoD:** API + UI allow analysts to run compiled analysis, inspect tables/diagrams, and download exports without shell access.

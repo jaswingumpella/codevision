@@ -163,6 +163,44 @@ This applies to:
 
 ---
 
+## Compiled Artefact & Graph Analysis
+
+### Scope
+
+* Ingest compiled bytecode from `target/classes` and every compile-scope jar.
+* Detect classes, interfaces, enums, and records including extends/implements relationships, fields, Spring stereotypes, beans/injections, HTTP endpoints, messaging listeners, schedulers, and all JPA entities/sequences.
+* Build method-level call graphs and class-level dependency graphs, detect Tarjan SCCs, and tag nodes with cycle metadata for traversal safety.
+* Produce PlantUML + Mermaid diagrams plus JSON/CSV exports that downstream tooling can consume.
+* Persist summarized metadata into Postgres so the UI can search/filter without re-reading the flat files.
+
+### Non-goals
+
+* No runtime or reflective analysis (the app never boots user code).
+* No attempt to resolve dynamic URLs or expressions—only literal/static metadata is extracted.
+
+### Functional requirements
+
+* CLI/REST “Analyze” entrypoints must:
+  * Run `mvn -q -DskipTests compile` automatically when `target/classes` is missing.
+  * Build the classpath via `mvn -q -DincludeScope=compile -DoutputFile=target/classpath.txt dependency:build-classpath`.
+  * Scan compiled classes + jars and merge results with the existing source scan.
+* Outputs:
+  * `analysis.json`, `entities.csv`, `sequences.csv`, `endpoints.csv`, `dependencies.csv`.
+  * `class-diagram.puml`, `erd.puml`, `erd.mmd`, and per-endpoint `seq_*.puml`.
+* The UI must provide download buttons for these exports and inline Mermaid rendering for ERDs, with PlantUML text views for copy/paste workflows.
+
+### Quality
+
+* Performance target: analyze ≤2k classes / ~200 jars within 90 seconds on a 2 vCPU development host.
+* Outputs must be deterministic (consistent ordering) to simplify diffing.
+
+### Security
+
+* Never classload user bytecode; everything happens through ASM/ClassGraph.
+* Run Maven/scanners with timeouts and constrained heap (`analysis.safety.*`), writing artifacts into sandboxed dirs under `build/analysis/`.
+
+---
+
 ## 6. Detailed Feature Areas
 
 ### 6.1 Repo ingestion

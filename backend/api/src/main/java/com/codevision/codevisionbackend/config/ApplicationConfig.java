@@ -1,5 +1,6 @@
 package com.codevision.codevisionbackend.config;
 
+import com.codevision.codevisionbackend.analysis.config.CompiledAnalysisProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 
@@ -9,6 +10,7 @@ import org.springframework.context.annotation.Configuration;
     SecurityProperties.class,
     SecurityScanProperties.class,
     DiagramStorageProperties.class,
-    AnalysisJobExecutorProperties.class
+    AnalysisJobExecutorProperties.class,
+    CompiledAnalysisProperties.class
 })
 public class ApplicationConfig {}

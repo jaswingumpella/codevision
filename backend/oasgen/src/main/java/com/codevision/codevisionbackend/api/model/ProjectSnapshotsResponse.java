@@ -22,7 +22,7 @@ import jakarta.annotation.Generated;
  * ProjectSnapshotsResponse
  */
 
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2025-11-09T19:10:45.782948-05:00[America/New_York]", comments = "Generator version: 7.5.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2025-11-09T21:12:14.696819-05:00[America/New_York]", comments = "Generator version: 7.5.0")
 public class ProjectSnapshotsResponse {
 
   private Long projectId;

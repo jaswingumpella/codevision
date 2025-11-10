@@ -17,6 +17,8 @@ spring:
       hibernate:
         jdbc:
           time_zone: UTC
+  liquibase:
+    enabled: false
 
 logging:
   level:
@@ -49,6 +51,28 @@ diagram:
     enabled: true
 
 analysis:
+  acceptPackages:
+    - com.barclays
+    - com.codeviz2
+  includeDependencies: true
+  maxCallDepth: 8
+  compile:
+    auto: true
+    mvnExecutable: ${ANALYSIS_MAVEN_EXECUTABLE:mvn}
+  output:
+    formats:
+      - json
+      - csv
+      - plantuml
+      - mermaid
+  safety:
+    maxRuntimeSeconds: ${ANALYSIS_MAX_RUNTIME_SECONDS:600}
+    maxHeapMb: ${ANALYSIS_MAX_HEAP_MB:1500}
+  filters:
+    excludeJars:
+      - "*junit*"
+      - "*hamcrest*"
+      - "*mockito*"
   jobs:
     core-pool-size: ${ANALYSIS_JOBS_CORE_POOL_SIZE:1}
     max-pool-size: ${ANALYSIS_JOBS_MAX_POOL_SIZE:2}

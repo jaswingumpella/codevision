@@ -8,3 +8,4 @@ export { default as MetadataPanel } from './MetadataPanel';
 export { default as ExportPanel } from './ExportPanel';
 export { default as DiagramsPanel } from './DiagramsPanel';
 export { default as SnapshotsPanel } from './SnapshotsPanel';
+export { default as CompiledAnalysisPanel } from './CompiledAnalysisPanel';
