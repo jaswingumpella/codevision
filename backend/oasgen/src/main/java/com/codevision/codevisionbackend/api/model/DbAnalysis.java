@@ -25,7 +25,7 @@ import jakarta.annotation.Generated;
  * DbAnalysis
  */
 
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2025-11-09T15:30:27.709921-05:00[America/New_York]", comments = "Generator version: 7.5.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2025-11-09T19:10:45.782948-05:00[America/New_York]", comments = "Generator version: 7.5.0")
 public class DbAnalysis {
 
   @Valid

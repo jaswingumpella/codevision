@@ -15,6 +15,7 @@ The backend lives in [`backend/`](backend/). It now exposes an asynchronous `/an
 - `GET /project/{id}/snapshots` – branch-aware history (ID, branch, commit hash, captured timestamp, fingerprints).
 - `GET /project/{id}/snapshots/{snapshotId}/diff/{compareSnapshotId}` – diff payload describing added/removed classes, endpoints, and DB entities between any two snapshots.
 - `PATCH /project/{id}/pii-pci/{findingId}` – toggle the ignore flag on a PCI/PII finding (used by the Logger + PCI panels).
+- `GET /api/keycloak/realms/{realm}/users?limit=20` – experimental endpoint used to verify Keycloak’s `keycloak-model-jpa` dependency is wired correctly; it returns a paged list of realm users and is meant solely for testing external library integration.
 
 ### Prerequisites
 

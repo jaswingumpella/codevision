@@ -6,8 +6,9 @@ import com.codevision.codevisionbackend.config.GitAuthProperties;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import org.eclipse.jgit.api.CheckoutCommand;
+import org.eclipse.jgit.api.CreateBranchCommand.SetupUpstreamMode;
 import org.eclipse.jgit.api.Git;
+import org.eclipse.jgit.api.ListBranchCommand.ListMode;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.lib.Constants;
 import org.eclipse.jgit.lib.ObjectId;
@@ -21,6 +22,8 @@ import org.springframework.stereotype.Service;
 public class GitCloneService {
 
     private static final Logger log = LoggerFactory.getLogger(GitCloneService.class);
+    private static final String LOCAL_BRANCH_PREFIX = "refs/heads/";
+    private static final String ORIGIN_BRANCH_PREFIX = "refs/remotes/origin/";
     private final GitAuthProperties gitAuthProperties;
 
     public GitCloneService(GitAuthProperties gitAuthProperties) {
@@ -36,8 +39,7 @@ public class GitCloneService {
             var cloneCommand = Git.cloneRepository()
                     .setURI(repoUrl)
                     .setDirectory(workingDir.toFile())
-                    .setCloneAllBranches(true)
-                    .setBranch("refs/heads/" + normalizedBranch);
+                    .setCloneAllBranches(true);
 
             CredentialsProvider credentialsProvider = resolveCredentialsProvider();
             if (credentialsProvider != null) {
@@ -121,13 +123,34 @@ public class GitCloneService {
     }
 
     private void ensureBranchCheckedOut(Git git, String branchName) throws GitAPIException {
-        CheckoutCommand checkout = git.checkout().setName(branchName);
-        try {
-            checkout.call();
-        } catch (GitAPIException ex) {
-            log.warn("Unable to checkout branch {} directly, attempting refs/heads/{}", branchName, branchName);
-            git.checkout().setName("refs/heads/" + branchName).call();
+        if (branchName == null || branchName.isBlank()) {
+            return;
         }
+        String currentBranch = safeBranch(git);
+        if (branchName.equals(currentBranch)) {
+            return;
+        }
+
+        if (hasLocalBranch(git, branchName)) {
+            git.checkout().setName(branchName).call();
+            return;
+        }
+
+        if (hasRemoteBranch(git, branchName)) {
+            git.checkout()
+                    .setCreateBranch(true)
+                    .setName(branchName)
+                    .setStartPoint("origin/" + branchName)
+                    .setUpstreamMode(SetupUpstreamMode.TRACK)
+                    .call();
+            return;
+        }
+
+        log.warn(
+                "Branch {} not found for repo {}; staying on {}",
+                branchName,
+                git.getRepository().getDirectory(),
+                currentBranch);
     }
 
     private String safeBranch(Git git) {
@@ -149,5 +172,15 @@ public class GitCloneService {
     }
 
     public record CloneResult(String projectName, Path directory, String branchName, String commitHash) {
+    }
+
+    private boolean hasLocalBranch(Git git, String branchName) throws GitAPIException {
+        return git.branchList().call().stream()
+                .anyMatch(ref -> ref.getName().equals(LOCAL_BRANCH_PREFIX + branchName));
+    }
+
+    private boolean hasRemoteBranch(Git git, String branchName) throws GitAPIException {
+        return git.branchList().setListMode(ListMode.REMOTE).call().stream()
+                .anyMatch(ref -> ref.getName().equals(ORIGIN_BRANCH_PREFIX + branchName));
     }
 }
