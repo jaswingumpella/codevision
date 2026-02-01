@@ -160,6 +160,11 @@ public class AnalysisService {
 
     @Transactional
     public AnalysisOutcome analyze(String repoUrl, String branchName) {
+        return analyze(repoUrl, branchName, true);
+    }
+
+    @Transactional
+    public AnalysisOutcome analyze(String repoUrl, String branchName, boolean includeSecurity) {
         String normalizedBranch = normalize(branchName);
         log.info("Starting analysis for {} (branch={})", repoUrl, normalizedBranch);
         GitCloneService.CloneResult cloneResult = gitCloneService.cloneRepository(repoUrl, normalizedBranch);
@@ -183,7 +188,8 @@ public class AnalysisService {
                 previousSnapshotData = projectSnapshotService.hydrateSnapshot(previousSnapshot.get());
                 previousFingerprints = projectSnapshotService.readModuleFingerprints(previousSnapshot.get());
                 previousSnapshotId = previousSnapshot.get().getId();
-                if (cloneResult.commitHash() != null
+                if (includeSecurity
+                        && cloneResult.commitHash() != null
                         && cloneResult.commitHash().equals(previousSnapshot.get().getCommitHash())
                         && previousSnapshotData != null) {
                     log.info(
@@ -213,7 +219,9 @@ public class AnalysisService {
                             .map(ModuleDescriptor::absolutePath)
                             .toList()
                     : modulesToScan;
-            List<Path> piiScanRoots = scanAllModules ? List.of(cloneResult.directory()) : modulesToScan;
+            List<Path> piiScanRoots = includeSecurity
+                    ? (scanAllModules ? List.of(cloneResult.directory()) : modulesToScan)
+                    : List.of();
             ReusedData reusedData =
                     reusePreviousData(previousSnapshotData, moduleDescriptors, moduleIndex, changedModules);
 
@@ -237,13 +245,14 @@ public class AnalysisService {
             List<ImageAssetRecord> imageAssets = assetScanner.scan(cloneResult.directory());
             replaceAssetImages(persistedProject, imageAssets);
 
-            List<PiiPciFindingRecord> newFindings = piiPciInspector.scan(cloneResult.directory(), piiScanRoots);
-            List<PiiPciFindingRecord> piiFindings = mergeLists(reusedData.piiFindings(), newFindings);
+            List<PiiPciFindingRecord> piiFindings = includeSecurity
+                    ? mergeLists(reusedData.piiFindings(), piiPciInspector.scan(cloneResult.directory(), piiScanRoots))
+                    : List.of();
             replacePiiPciFindings(persistedProject, piiFindings);
 
-            List<LogStatementRecord> newLogStatements =
-                    loggerScanner.scan(cloneResult.directory(), effectiveModuleRoots);
-            List<LogStatementRecord> logStatements = mergeLists(reusedData.logStatements(), newLogStatements);
+            List<LogStatementRecord> logStatements = includeSecurity
+                    ? mergeLists(reusedData.logStatements(), loggerScanner.scan(cloneResult.directory(), effectiveModuleRoots))
+                    : List.of();
             replaceLogStatements(persistedProject, logStatements);
 
             List<GherkinFeatureSummary> gherkinFeatures = gherkinScanner.scan(cloneResult.directory());

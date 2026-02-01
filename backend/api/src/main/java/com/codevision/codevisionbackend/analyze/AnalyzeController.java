@@ -32,9 +32,10 @@ public class AnalyzeController implements AnalysisApi {
     public ResponseEntity<AnalyzeResponse> analyzeRepository(@Valid @RequestBody AnalyzeRequest analyzeRequest) {
         String repoUrl = analyzeRequest.getRepoUrl() != null ? analyzeRequest.getRepoUrl().toString() : "n/a";
         String branchName = analyzeRequest.getBranchName();
+        Boolean includeSecurity = analyzeRequest.getIncludeSecurity();
         log.info("Received analyze request for {} (branch={})", repoUrl, branchName);
         try {
-            AnalysisJob job = analysisJobService.enqueue(repoUrl, branchName);
+            AnalysisJob job = analysisJobService.enqueue(repoUrl, branchName, includeSecurity);
             AnalyzeResponse response = apiModelMapper.toAnalyzeResponse(job);
             log.info("Enqueued analysis job {} for {} ({})", job.getId(), repoUrl, branchName);
             return ResponseEntity.accepted().body(response);

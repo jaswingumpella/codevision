@@ -33,12 +33,13 @@ public class AnalysisJobService {
         this.analysisJobExecutor = analysisJobExecutor;
     }
 
-    public AnalysisJob enqueue(String repoUrl, String branchName) {
+    public AnalysisJob enqueue(String repoUrl, String branchName, Boolean includeSecurity) {
         if (repoUrl == null || repoUrl.isBlank()) {
             throw new IllegalArgumentException("Repository URL must be provided");
         }
         String normalizedRepoUrl = repoUrl.trim();
         String normalizedBranch = normalize(branchName);
+        boolean securityEnabled = includeSecurity == null || includeSecurity;
         OffsetDateTime now = OffsetDateTime.now();
         AnalysisJob job = new AnalysisJob();
         job.setRepoUrl(normalizedRepoUrl);
@@ -49,7 +50,11 @@ public class AnalysisJobService {
         job.setUpdatedAt(now);
         AnalysisJob persisted = jobRepository.save(job);
         try {
-            analysisJobExecutor.execute(() -> processJob(persisted.getId(), normalizedRepoUrl, normalizedBranch));
+            analysisJobExecutor.execute(() -> processJob(
+                    persisted.getId(),
+                    normalizedRepoUrl,
+                    normalizedBranch,
+                    securityEnabled));
         } catch (RejectedExecutionException rex) {
             log.error("Unable to enqueue analysis job {}", persisted.getId(), rex);
             markFailed(persisted.getId(), "Worker queue is full", rex);
@@ -62,7 +67,7 @@ public class AnalysisJobService {
         return jobRepository.findById(jobId);
     }
 
-    private void processJob(UUID jobId, String repoUrl, String branchName) {
+    private void processJob(UUID jobId, String repoUrl, String branchName, boolean includeSecurity) {
         log.info("Starting analysis job {} for {} ({})", jobId, repoUrl, branchName);
         updateJob(jobId, job -> {
             OffsetDateTime now = OffsetDateTime.now();
@@ -73,7 +78,7 @@ public class AnalysisJobService {
             job.setErrorMessage(null);
         });
         try {
-            AnalysisOutcome outcome = analysisService.analyze(repoUrl, branchName);
+            AnalysisOutcome outcome = analysisService.analyze(repoUrl, branchName, includeSecurity);
             Project project = outcome.project();
             Long projectId = project != null ? project.getId() : null;
             updateJob(jobId, job -> {

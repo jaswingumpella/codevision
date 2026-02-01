@@ -6,7 +6,7 @@ The compiled analysis pipeline lives under `backend/api/src/main/java/com/codevi
 
 1. `AnalysisService` invokes `CompiledAnalysisService` automatically (after JavaParser/diagram generation) while the repo clone still exists. `CompiledAnalysisController` keeps a `POST /api/analyze` escape hatch for rare “run on arbitrary checkout” scenarios.
 2. `CompiledAnalysisService` orchestrates the steps:
-   - `ClasspathBuilder` ensures `target/classes` exists (running `mvn -q -DskipTests compile` when necessary) and resolves the compile-scope classpath.
+   - `ClasspathBuilder` ensures `target/classes` exists for every detected Maven module (running `mvn -q -DskipTests compile` when necessary) and resolves a merged compile-scope classpath so module-specific dependencies are included.
    - `JavaSourceScanner` (existing component) parses `src/main/java` for context so we can tag merged nodes with `Origin.SOURCE`.
    - `BytecodeEntityScanner` (ClassGraph) walks the compiled classpath collecting class metadata, Spring stereotypes, endpoints, JPA entities, and sequence generators without classloading user code.
    - `BytecodeCallGraphScanner` (ASM) traverses every `.class`/jar to record method call edges; edges are aggregated into class-level dependencies.
@@ -21,7 +21,7 @@ The compiled analysis pipeline lives under `backend/api/src/main/java/com/codevi
 
 | Class | Responsibility |
 | --- | --- |
-| `ClasspathBuilder` | Builds/validates `target/classes`, invokes Maven to build the dependency classpath, and filters jars using `analysis.filters.excludeJars`. |
+| `ClasspathBuilder` | Builds/validates `target/classes` per module, invokes Maven to build each module’s dependency classpath, merges the entries, and filters jars using `analysis.filters.excludeJars`. |
 | `GraphModel` | Single in-memory representation for classes, endpoints, sequences, dependencies, SCC metadata, and call graphs (serialised to `analysis.json`). |
 | `BytecodeEntityScanner` | Uses ClassGraph to discover stereotypes, endpoints, Spring beans, JPA metadata, Kafka listeners, schedulers, and generator annotations from compiled bytecode. |
 | `BytecodeCallGraphScanner` | Uses ASM to record `INVOKE*` instructions and aggregate them to class-level `DependencyEdge` instances of type `CALL`. |
@@ -33,7 +33,7 @@ The compiled analysis pipeline lives under `backend/api/src/main/java/com/codevi
 
 ### REST + UI integration
 
-* `GET /project/{projectId}/compiled-analysis` returns the latest run for a project (status + download URLs) and powers the React tab. `POST /api/analyze` remains available for manual/local runs when needed.
+* `GET /api/project/{projectId}/compiled-analysis` returns the latest run for a project (status + download URLs) and powers the React tab. `POST /api/analyze` remains available for manual/local runs when needed (use `includeSecurity=false` to skip logger/PII scans).
 * `GET /api/analyze/{id}/exports` + `GET /api/analyze/{id}/exports/{file}` power the download buttons in the new “Compiled Analysis” UI tab.
 * `GET /api/entities`, `/api/sequences`, `/api/endpoints` surface the Postgres-backed summaries for table views/search.
 * The React panel (`CompiledAnalysisPanel`) now loads results automatically after each repository analysis, offers a “Refresh” action, and displays Mermaid/PlantUML sources inline with download buttons.

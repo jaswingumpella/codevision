@@ -40,6 +40,7 @@ function App() {
   const [repoUrl, setRepoUrl] = useState('');
   const [branchName, setBranchName] = useState('main');
   const [apiKey, setApiKey] = useState('');
+  const [securityScanEnabled, setSecurityScanEnabled] = useState(true);
   const [loading, setLoading] = useState(false);
   const [errorState, setErrorState] = useState(null);
   const [result, setResult] = useState(null);
@@ -152,38 +153,43 @@ function App() {
         });
       }
     });
-    (loggerInsights || []).forEach((entry, index) => {
-      if (textMatches(normalizedSearch, entry.className, entry.filePath, entry.messageTemplate)) {
-        matches.push({
-          id: `log-${entry.className}-${index}`,
-          type: 'log',
-          title: entry.className || entry.filePath || 'Logger entry',
-          subtitle: `${entry.logLevel || 'LOG'} · line ${entry.lineNumber ?? '—'}`,
-          description: entry.messageTemplate || '',
-          tabValue: 'logger'
-        });
-      }
-    });
-    (piiFindings || []).forEach((entry, index) => {
-      if (textMatches(normalizedSearch, entry.filePath, entry.snippet, entry.matchType, entry.severity)) {
-        matches.push({
-          id: `pii-${entry.filePath}-${index}`,
-          type: 'pii',
-          title: entry.filePath || entry.matchType || 'Sensitive finding',
-          subtitle: `${entry.matchType || 'PII'} · ${entry.severity || 'unknown'} severity`,
-          description: entry.snippet || '',
-          tabValue: 'pii'
-        });
-      }
-    });
+    if (securityScanEnabled) {
+      (loggerInsights || []).forEach((entry, index) => {
+        if (textMatches(normalizedSearch, entry.className, entry.filePath, entry.messageTemplate)) {
+          matches.push({
+            id: `log-${entry.className}-${index}`,
+            type: 'log',
+            title: entry.className || entry.filePath || 'Logger entry',
+            subtitle: `${entry.logLevel || 'LOG'} · line ${entry.lineNumber ?? '—'}`,
+            description: entry.messageTemplate || '',
+            tabValue: 'logger'
+          });
+        }
+      });
+      (piiFindings || []).forEach((entry, index) => {
+        if (textMatches(normalizedSearch, entry.filePath, entry.snippet, entry.matchType, entry.severity)) {
+          matches.push({
+            id: `pii-${entry.filePath}-${index}`,
+            type: 'pii',
+            title: entry.filePath || entry.matchType || 'Sensitive finding',
+            subtitle: `${entry.matchType || 'PII'} · ${entry.severity || 'unknown'} severity`,
+            description: entry.snippet || '',
+            tabValue: 'pii'
+          });
+        }
+      });
+    }
     return matches;
-  }, [normalizedSearch, overview, apiCatalog, loggerInsights, piiFindings]);
+  }, [normalizedSearch, overview, apiCatalog, loggerInsights, piiFindings, securityScanEnabled]);
 
   const authHeaders = () => (apiKey ? { 'X-API-KEY': apiKey } : {});
 
   const startProgress = () => {
+    const steps = securityScanEnabled
+      ? ANALYSIS_STEPS
+      : ANALYSIS_STEPS.filter((step) => step.id !== 'logger' && step.id !== 'pii');
     setLoadingSteps(
-      ANALYSIS_STEPS.map((step, index) => ({
+      steps.map((step, index) => ({
         ...step,
         status: index === 0 ? 'active' : 'pending'
       }))
@@ -486,6 +492,12 @@ const handleSearchNavigate = useCallback(
   }, [result]);
 
   useEffect(() => {
+    if (!securityScanEnabled && (activeTab === 'logger' || activeTab === 'pii')) {
+      setActiveTab('overview');
+    }
+  }, [securityScanEnabled, activeTab]);
+
+  useEffect(() => {
     if (isCompactLayout) {
       setSidebarCollapsed(true);
     }
@@ -582,7 +594,7 @@ const handleSearchNavigate = useCallback(
     try {
       const response = await axios.post(
         '/analyze',
-        { repoUrl, branchName: branchName?.trim() || undefined },
+        { repoUrl, branchName: branchName?.trim() || undefined, includeSecurity: securityScanEnabled },
         {
           headers: {
             'Content-Type': 'application/json',
@@ -676,73 +688,96 @@ const handleSearchNavigate = useCallback(
             entityCount: dbResponse.data?.dbAnalysis?.entities?.length ?? 0
           });
           setDbAnalysis(dbResponse.data?.dbAnalysis ?? null);
-          updateStepStatuses([
-            { id: 'db', status: 'complete' },
-            { id: 'logger', status: 'active' }
-          ]);
+          if (securityScanEnabled) {
+            updateStepStatuses([
+              { id: 'db', status: 'complete' },
+              { id: 'logger', status: 'active' }
+            ]);
+          } else {
+            updateStepStatuses([
+              { id: 'db', status: 'complete' },
+              { id: 'logger', status: 'complete' },
+              { id: 'pii', status: 'complete' },
+              { id: 'diagrams', status: 'active' }
+            ]);
+          }
         } catch (dbError) {
           console.warn('Failed to load database analysis', dbError);
           setDbAnalysis(null);
-          updateStepStatuses([
-            { id: 'db', status: 'error' },
-            { id: 'logger', status: 'active' }
-          ]);
+          if (securityScanEnabled) {
+            updateStepStatuses([
+              { id: 'db', status: 'error' },
+              { id: 'logger', status: 'active' }
+            ]);
+          } else {
+            updateStepStatuses([
+              { id: 'db', status: 'error' },
+              { id: 'logger', status: 'complete' },
+              { id: 'pii', status: 'complete' },
+              { id: 'diagrams', status: 'active' }
+            ]);
+          }
         } finally {
           setDbLoading(false);
         }
 
-        try {
-          setLoggerLoading(true);
-          const loggerResponse = await axios.get(`/project/${targetProjectId}/logger-insights`, {
-            headers: {
-              ...authHeaders()
-            }
-          });
-          console.info('Loaded logger insights', {
-            projectId: targetProjectId,
-            count: loggerResponse.data?.loggerInsights?.length ?? 0
-          });
-          setLoggerInsights(loggerResponse.data?.loggerInsights ?? []);
-          updateStepStatuses([
-            { id: 'logger', status: 'complete' },
-            { id: 'pii', status: 'active' }
-          ]);
-        } catch (loggerError) {
-          console.warn('Failed to load logger insights', loggerError);
-          setLoggerInsights([]);
-          updateStepStatuses([
-            { id: 'logger', status: 'error' },
-            { id: 'pii', status: 'active' }
-          ]);
-        } finally {
-          setLoggerLoading(false);
-        }
+        if (securityScanEnabled) {
+          try {
+            setLoggerLoading(true);
+            const loggerResponse = await axios.get(`/project/${targetProjectId}/logger-insights`, {
+              headers: {
+                ...authHeaders()
+              }
+            });
+            console.info('Loaded logger insights', {
+              projectId: targetProjectId,
+              count: loggerResponse.data?.loggerInsights?.length ?? 0
+            });
+            setLoggerInsights(loggerResponse.data?.loggerInsights ?? []);
+            updateStepStatuses([
+              { id: 'logger', status: 'complete' },
+              { id: 'pii', status: 'active' }
+            ]);
+          } catch (loggerError) {
+            console.warn('Failed to load logger insights', loggerError);
+            setLoggerInsights([]);
+            updateStepStatuses([
+              { id: 'logger', status: 'error' },
+              { id: 'pii', status: 'active' }
+            ]);
+          } finally {
+            setLoggerLoading(false);
+          }
 
-        try {
-          setPiiLoading(true);
-          const piiResponse = await axios.get(`/project/${targetProjectId}/pii-pci`, {
-            headers: {
-              ...authHeaders()
-            }
-          });
-          console.info('Loaded PCI / PII findings', {
-            projectId: targetProjectId,
-            count: piiResponse.data?.findings?.length ?? 0
-          });
-          setPiiFindings(piiResponse.data?.findings ?? []);
-          updateStepStatuses([
-            { id: 'pii', status: 'complete' },
-            { id: 'diagrams', status: 'active' }
-          ]);
-        } catch (piiError) {
-          console.warn('Failed to load PCI / PII findings', piiError);
+          try {
+            setPiiLoading(true);
+            const piiResponse = await axios.get(`/project/${targetProjectId}/pii-pci`, {
+              headers: {
+                ...authHeaders()
+              }
+            });
+            console.info('Loaded PCI / PII findings', {
+              projectId: targetProjectId,
+              count: piiResponse.data?.findings?.length ?? 0
+            });
+            setPiiFindings(piiResponse.data?.findings ?? []);
+            updateStepStatuses([
+              { id: 'pii', status: 'complete' },
+              { id: 'diagrams', status: 'active' }
+            ]);
+          } catch (piiError) {
+            console.warn('Failed to load PCI / PII findings', piiError);
+            setPiiFindings([]);
+            updateStepStatuses([
+              { id: 'pii', status: 'error' },
+              { id: 'diagrams', status: 'active' }
+            ]);
+          } finally {
+            setPiiLoading(false);
+          }
+        } else {
+          setLoggerInsights([]);
           setPiiFindings([]);
-          updateStepStatuses([
-            { id: 'pii', status: 'error' },
-            { id: 'diagrams', status: 'active' }
-          ]);
-        } finally {
-          setPiiLoading(false);
         }
 
         try {
@@ -879,7 +914,7 @@ const handleSearchNavigate = useCallback(
     setCompiledLoading(true);
     setCompiledError(null);
     try {
-      const { data } = await axios.get(`/project/${projectId}/compiled-analysis`, {
+      const { data } = await axios.get(`/api/project/${projectId}/compiled-analysis`, {
         headers: authHeaders()
       });
       setCompiledAnalysis(data);
@@ -951,9 +986,13 @@ const handleSearchNavigate = useCallback(
       {
         value: 'logger',
         label: 'Logger Insights',
-        disabled: !projectId && loggerInsights.length === 0 && !loggerLoading
+        disabled: !securityScanEnabled || (!projectId && loggerInsights.length === 0 && !loggerLoading)
       },
-      { value: 'pii', label: 'PCI / PII Scan', disabled: !projectId && piiFindings.length === 0 && !piiLoading },
+      {
+        value: 'pii',
+        label: 'PCI / PII Scan',
+        disabled: !securityScanEnabled || (!projectId && piiFindings.length === 0 && !piiLoading)
+      },
       { value: 'diagrams', label: 'Diagrams', disabled: diagrams.length === 0 && !diagramLoading },
       {
         value: 'gherkin',
@@ -982,7 +1021,8 @@ const handleSearchNavigate = useCallback(
       diagramLoading,
       snapshots,
       snapshotLoading,
-      metadataPayload
+      metadataPayload,
+      securityScanEnabled
     ]
   );
   const handleTabKeyDown = useCallback(
@@ -1109,6 +1149,18 @@ const handleSearchNavigate = useCallback(
                 value={apiKey}
                 onChange={(event) => setApiKey(event.target.value)}
               />
+
+              <div className="toggle-group">
+                <label htmlFor="securityScanEnabled">
+                  <input
+                    id="securityScanEnabled"
+                    type="checkbox"
+                    checked={securityScanEnabled}
+                    onChange={(event) => setSecurityScanEnabled(event.target.checked)}
+                  />
+                  Include logger insights &amp; PCI/PII scans
+                </label>
+              </div>
 
               <button type="submit" disabled={loading}>
                 {loading ? 'Analyzing…' : 'Analyze'}

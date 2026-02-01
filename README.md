@@ -134,12 +134,15 @@ Every property in `application.yml` can be overridden the same way (for example 
      - `X-API-KEY: <value>` (required only when `security.apiKey` is populated)
    - Request body:
 
-     Include `branchName` to analyze a non-default branch; if omitted, `main` is assumed.
+     Include `branchName` to analyze a non-default branch; if omitted, `main` is assumed. Set
+     `includeSecurity` to `false` to skip logger insights + PCI/PII scanning (the UI will mark
+     those steps as skipped and disable the tabs).
 
      ```json
      {
        "repoUrl": "https://github.com/org/repo.git",
-       "branchName": "release/1.1"
+       "branchName": "release/1.1",
+       "includeSecurity": true
      }
      ```
 
@@ -219,6 +222,7 @@ curl 'http://localhost:8080/api/endpoints?page=0&size=50'
 ```
 
 Each response lists the run metadata plus download URLs for `analysis.json`, CSV exports, and PlantUML/Mermaid artifacts. When you need to refresh the exports, re-run the full `/analyze` workflow; the compiled pass will execute in-line.
+For multi-module Maven repositories, the compiled pass aggregates module classpaths so entities and dependencies declared in module-specific POMs show up in the compiled tables and diagrams.
 
 > Advanced: `POST /api/analyze` is still available if you really do want to point the scanner at an arbitrary local checkout (for example, a one-off experiment). Supply `repoPath` and optional `acceptPackages`/`includeDependencies` exactly as before—the UI just doesn’t require it anymore.
 
@@ -237,7 +241,7 @@ The frontend lives in [`frontend/`](frontend/). It provides a single-page workfl
 ### Overview experience
 
 - Analyzer card auto-collapses into a "Latest analysis" summary after a successful run (and automatically hides on compact screens), exposing project ID, repo URL, analyzed timestamp, and quick actions (Edit inputs, View dashboard, Hide/Show panel). Errors pop the form back open so inputs stay editable.
-- The analyze form now includes a Branch input (default `main`); values are normalized and echoed back in the summary so it’s obvious whether you’re inspecting `main`, `release/1.1`, etc.
+- The analyze form now includes a Branch input (default `main`) plus a security toggle to include/exclude logger insights + PCI/PII scans; values are normalized and echoed back in the summary so it’s obvious whether you’re inspecting `main`, `release/1.1`, etc.
 - A deterministic analysis timeline now includes a live progress bar that shows how far along the analyzer is across `Cloning`, `Overview`, `API`, `Database`, `Logger`, `PCI / PII`, and `Diagrams`, with `Queued / In progress… / Done / Skipped` states.
 - Global search sits above the tab rail; it streams filtered results across classes, endpoints, log statements, and sensitive-data findings and pipes the term into the Overview/API/Logger/PII tabs so they filter in-place.
 - The tab rail stays sticky on desktop/tablet, exposes a `<select>` fallback on narrow screens, and now ships with ARIA roles + keyboard navigation so every panel is reachable without horizontal scrolling.

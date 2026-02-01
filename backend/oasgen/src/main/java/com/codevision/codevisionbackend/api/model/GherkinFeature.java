@@ -22,7 +22,7 @@ import jakarta.annotation.Generated;
  * GherkinFeature
  */
 
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2025-11-10T00:23:13.435459-05:00[America/New_York]", comments = "Generator version: 7.5.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-02-01T02:54:38.384001-05:00[America/New_York]", comments = "Generator version: 7.5.0")
 public class GherkinFeature {
 
   private String featureFile;

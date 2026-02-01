@@ -31,7 +31,7 @@ public class DiagramBuilderService {
     private static final int MAX_CLASS_NODES = 30;
     private static final int MAX_COMPONENT_EDGES = 40;
     private static final int MAX_ENDPOINTS = 6;
-    private static final int MAX_SEQUENCE_DEPTH = 4;
+    private static final int MAX_SEQUENCE_DEPTH = 8;
     private static final int MAX_SEQUENCE_STEPS = 42;
 
     private final CallGraphBuilder callGraphBuilder;

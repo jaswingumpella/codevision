@@ -63,20 +63,57 @@ public class ClasspathBuilder {
             entries.addAll(readClasspathEntries(classpathFile));
         }
 
-        List<Pattern> excludePatterns = properties.getFilters().getExcludeJars().stream()
-                .filter(Objects::nonNull)
-                .map(ClasspathBuilder::wildcardToPattern)
-                .toList();
+        List<Path> filteredEntries = filterEntries(entries);
+        return toDescriptor(normalizedRoot, classesDir, filteredEntries);
+    }
 
-        List<Path> filteredEntries = entries.stream()
-                .filter(path -> !matchesAny(path.getFileName() != null ? path.getFileName().toString() : "", excludePatterns))
-                .distinct()
-                .toList();
+    public ClasspathDescriptor buildForModules(Path repoRoot, List<Path> moduleRoots, boolean includeDependencies) {
+        Objects.requireNonNull(repoRoot, "repoRoot must not be null");
+        List<Path> roots = moduleRoots == null || moduleRoots.isEmpty() ? List.of(repoRoot) : moduleRoots;
+        List<Path> entries = new ArrayList<>();
+        boolean foundClasses = false;
 
-        String classpathString = filteredEntries.stream()
-                .map(Path::toString)
-                .collect(Collectors.joining(System.getProperty("path.separator")));
-        return new ClasspathDescriptor(normalizedRoot, classesDir, filteredEntries, classpathString);
+        for (Path root : roots) {
+            if (root == null) {
+                continue;
+            }
+            Path normalizedRoot = root.toAbsolutePath().normalize();
+            Path classesDir = normalizedRoot.resolve("target").resolve("classes");
+            if (!Files.isDirectory(classesDir) && properties.getCompile().isAuto()) {
+                log.info("Compiled classes missing at {}. Triggering mvn compile.", classesDir);
+                runMaven(normalizedRoot, List.of(
+                        properties.getCompile().getMvnExecutable(),
+                        "-q",
+                        "-DskipTests",
+                        "compile"));
+            }
+            if (Files.isDirectory(classesDir)) {
+                entries.add(classesDir);
+                foundClasses = true;
+            } else {
+                log.warn("Classes directory not found at {} (skipping module {})", classesDir, normalizedRoot);
+            }
+
+            if (includeDependencies) {
+                Path classpathFile = normalizedRoot.resolve("target").resolve("classpath.txt");
+                runMaven(normalizedRoot, List.of(
+                        properties.getCompile().getMvnExecutable(),
+                        "-q",
+                        "-DincludeScope=compile",
+                        "-DoutputFile=target/classpath.txt",
+                        "dependency:build-classpath"));
+                entries.addAll(readClasspathEntries(classpathFile));
+            }
+        }
+
+        if (!foundClasses) {
+            throw new IllegalStateException("No classes directories found under " + repoRoot.toAbsolutePath().normalize());
+        }
+
+        List<Path> filteredEntries = filterEntries(entries);
+        Path normalizedRepo = repoRoot.toAbsolutePath().normalize();
+        Path defaultClasses = normalizedRepo.resolve("target").resolve("classes");
+        return toDescriptor(normalizedRepo, defaultClasses, filteredEntries);
     }
 
     private List<Path> readClasspathEntries(Path classpathFile) {
@@ -107,6 +144,24 @@ public class ClasspathBuilder {
     private void runMaven(Path workingDir, List<String> command) {
         Duration timeout = Duration.ofSeconds(Math.max(30, properties.getSafety().getMaxRuntimeSeconds()));
         commandRunner.run(workingDir, command, timeout, properties.getSafety().getMaxHeapMb());
+    }
+
+    private List<Path> filterEntries(List<Path> entries) {
+        List<Pattern> excludePatterns = properties.getFilters().getExcludeJars().stream()
+                .filter(Objects::nonNull)
+                .map(ClasspathBuilder::wildcardToPattern)
+                .toList();
+        return entries.stream()
+                .filter(path -> !matchesAny(path.getFileName() != null ? path.getFileName().toString() : "", excludePatterns))
+                .distinct()
+                .toList();
+    }
+
+    private ClasspathDescriptor toDescriptor(Path root, Path classesDir, List<Path> entries) {
+        String classpathString = entries.stream()
+                .map(Path::toString)
+                .collect(Collectors.joining(System.getProperty("path.separator")));
+        return new ClasspathDescriptor(root, classesDir, entries, classpathString);
     }
 
     private static boolean matchesAny(String candidate, List<Pattern> patterns) {

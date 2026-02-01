@@ -10,6 +10,9 @@ AnalyzeRequest:
     branchName:
       type: string
       description: Optional branch reference to analyze; defaults to main when omitted.
+    includeSecurity:
+      type: boolean
+      description: When true, include logger insights and PCI/PII scanning; defaults to true.
 
 AnalyzeResponse:
   type: object

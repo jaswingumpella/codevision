@@ -108,7 +108,7 @@ describe('App', () => {
     await waitFor(() =>
       expect(axios.post).toHaveBeenCalledWith(
         '/analyze',
-        { repoUrl: 'https://example.com/org/repo.git', branchName: 'feature/login' },
+        { repoUrl: 'https://example.com/org/repo.git', branchName: 'feature/login', includeSecurity: true },
         {
           headers: {
             'Content-Type': 'application/json',
@@ -352,7 +352,7 @@ describe('App', () => {
       if (url === `/project/${projectId}/export/confluence.html`) {
         return Promise.resolve({ data: '<html>preview</html>' });
       }
-      if (url === `/project/${projectId}/compiled-analysis`) {
+      if (url === `/api/project/${projectId}/compiled-analysis`) {
         return Promise.resolve({ data: compiledResponse });
       }
       if (url === '/api/entities') {

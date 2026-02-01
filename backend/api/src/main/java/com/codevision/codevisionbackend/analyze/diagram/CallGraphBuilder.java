@@ -76,6 +76,7 @@ public class CallGraphBuilder {
                 .filter(record -> record.relativePath() != null && !record.relativePath().isBlank())
                 .collect(Collectors.groupingBy(
                         ClassMetadataRecord::relativePath, LinkedHashMap::new, Collectors.toList()));
+        Map<String, List<String>> implementersByInterface = buildImplementerMap(classRecords);
 
         CallGraph.Builder builder = new CallGraph.Builder();
         classRecords.forEach(record -> builder.addNode(new GraphNode(
@@ -133,6 +134,7 @@ public class CallGraphBuilder {
                         wildcardImports,
                         bySimpleName,
                         byFqn,
+                        implementersByInterface,
                         builder);
             }
         });
@@ -245,6 +247,7 @@ public class CallGraphBuilder {
             Set<String> wildcardImports,
             Map<String, List<ClassMetadataRecord>> bySimpleName,
             Map<String, ClassMetadataRecord> byFqn,
+            Map<String, List<String>> implementersByInterface,
             CallGraph.Builder builder) {
         if (!(declaration instanceof ClassOrInterfaceDeclaration clazz)) {
             return;
@@ -281,6 +284,7 @@ public class CallGraphBuilder {
                     wildcardImports,
                     bySimpleName,
                     byFqn,
+                    implementersByInterface,
                     builder));
         }
     }
@@ -313,6 +317,7 @@ public class CallGraphBuilder {
             Set<String> wildcardImports,
             Map<String, List<ClassMetadataRecord>> bySimpleName,
             Map<String, ClassMetadataRecord> byFqn,
+            Map<String, List<String>> implementersByInterface,
             CallGraph.Builder builder) {
         if (record == null || record.fullyQualifiedName() == null) {
             return;
@@ -328,18 +333,20 @@ public class CallGraphBuilder {
         if (targetClass == null) {
             return;
         }
-        boolean known = byFqn.containsKey(targetClass);
-        if (!known && (targetClass.isBlank() || !targetClass.contains("codeviz2"))) {
+        String resolvedTarget = resolveImplementationTarget(targetClass, implementersByInterface);
+        boolean known = byFqn.containsKey(resolvedTarget);
+        if (!known && (resolvedTarget.isBlank() || !resolvedTarget.contains("codeviz2"))) {
             return;
         }
         if (!known) {
-            builder.addNode(new GraphNode(targetClass, simpleName(targetClass), "EXTERNAL", false, true));
+            builder.addNode(new GraphNode(resolvedTarget, simpleName(resolvedTarget), "EXTERNAL", false, true));
         }
-        builder.addEdge(record.fullyQualifiedName(), targetClass);
+        String edgeTarget = byFqn.containsKey(targetClass) ? targetClass : resolvedTarget;
+        builder.addEdge(record.fullyQualifiedName(), edgeTarget);
         builder.addMethodCall(
                 record.fullyQualifiedName(),
                 sourceMethod,
-                targetClass,
+                resolvedTarget,
                 call.getNameAsString(),
                 !known);
     }
@@ -478,6 +485,44 @@ public class CallGraphBuilder {
             return fullyQualifiedName.substring(lastDot + 1);
         }
         return fullyQualifiedName;
+    }
+
+    private Map<String, List<String>> buildImplementerMap(List<ClassMetadataRecord> classRecords) {
+        Map<String, List<String>> mapping = new LinkedHashMap<>();
+        if (classRecords == null) {
+            return mapping;
+        }
+        for (ClassMetadataRecord record : classRecords) {
+            if (record == null || record.fullyQualifiedName() == null) {
+                continue;
+            }
+            List<String> interfaces = record.implementedInterfaces();
+            if (interfaces == null || interfaces.isEmpty()) {
+                continue;
+            }
+            for (String iface : interfaces) {
+                if (iface == null || iface.isBlank()) {
+                    continue;
+                }
+                mapping.computeIfAbsent(iface, key -> new ArrayList<>()).add(record.fullyQualifiedName());
+            }
+        }
+        return mapping;
+    }
+
+    private String resolveImplementationTarget(String targetClass, Map<String, List<String>> implementersByInterface) {
+        if (targetClass == null || implementersByInterface == null || implementersByInterface.isEmpty()) {
+            return targetClass;
+        }
+        String simple = simpleName(targetClass);
+        if (simple == null) {
+            return targetClass;
+        }
+        List<String> implementers = implementersByInterface.get(simple);
+        if (implementers == null || implementers.size() != 1) {
+            return targetClass;
+        }
+        return implementers.getFirst();
     }
 
     private String cleanToken(String token) {

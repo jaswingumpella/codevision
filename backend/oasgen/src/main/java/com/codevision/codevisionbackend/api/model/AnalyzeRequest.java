@@ -19,12 +19,14 @@ import jakarta.annotation.Generated;
  * AnalyzeRequest
  */
 
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2025-11-10T00:23:13.435459-05:00[America/New_York]", comments = "Generator version: 7.5.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-02-01T02:54:38.384001-05:00[America/New_York]", comments = "Generator version: 7.5.0")
 public class AnalyzeRequest {
 
   private URI repoUrl;
 
   private String branchName;
+
+  private Boolean includeSecurity;
 
   public AnalyzeRequest() {
     super();
@@ -77,6 +79,26 @@ public class AnalyzeRequest {
     this.branchName = branchName;
   }
 
+  public AnalyzeRequest includeSecurity(Boolean includeSecurity) {
+    this.includeSecurity = includeSecurity;
+    return this;
+  }
+
+  /**
+   * When true, include logger insights and PCI/PII scanning; defaults to true.
+   * @return includeSecurity
+  */
+  
+  @Schema(name = "includeSecurity", description = "When true, include logger insights and PCI/PII scanning; defaults to true.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @JsonProperty("includeSecurity")
+  public Boolean getIncludeSecurity() {
+    return includeSecurity;
+  }
+
+  public void setIncludeSecurity(Boolean includeSecurity) {
+    this.includeSecurity = includeSecurity;
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) {
@@ -87,12 +109,13 @@ public class AnalyzeRequest {
     }
     AnalyzeRequest analyzeRequest = (AnalyzeRequest) o;
     return Objects.equals(this.repoUrl, analyzeRequest.repoUrl) &&
-        Objects.equals(this.branchName, analyzeRequest.branchName);
+        Objects.equals(this.branchName, analyzeRequest.branchName) &&
+        Objects.equals(this.includeSecurity, analyzeRequest.includeSecurity);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(repoUrl, branchName);
+    return Objects.hash(repoUrl, branchName, includeSecurity);
   }
 
   @Override
@@ -101,6 +124,7 @@ public class AnalyzeRequest {
     sb.append("class AnalyzeRequest {\n");
     sb.append("    repoUrl: ").append(toIndentedString(repoUrl)).append("\n");
     sb.append("    branchName: ").append(toIndentedString(branchName)).append("\n");
+    sb.append("    includeSecurity: ").append(toIndentedString(includeSecurity)).append("\n");
     sb.append("}");
     return sb.toString();
   }

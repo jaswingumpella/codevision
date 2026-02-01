@@ -99,9 +99,11 @@ public class CompiledAnalysisService {
 
         Instant start = Instant.now();
         try {
+            BuildMetadataExtractor.BuildMetadata buildMetadata = buildMetadataExtractor.extract(repoPath);
+            List<Path> moduleRoots = buildMetadata.moduleRoots();
             ClasspathBuilder.ClasspathDescriptor classpath =
-                    classpathBuilder.build(repoPath, includeDependencies);
-            GraphModel sourceGraph = buildSourceGraph(repoPath, acceptPackages);
+                    classpathBuilder.buildForModules(repoPath, moduleRoots, includeDependencies);
+            GraphModel sourceGraph = buildSourceGraph(repoPath, moduleRoots, acceptPackages);
             GraphModel bytecodeModel = bytecodeEntityScanner.scan(classpath, acceptPackages);
             GraphModel graphModel = graphMerger.merge(sourceGraph, bytecodeModel);
 
@@ -210,10 +212,9 @@ public class CompiledAnalysisService {
                 .map(run -> new CompiledAnalysisResult(run, null, null));
     }
 
-    private GraphModel buildSourceGraph(Path repoPath, List<String> acceptPackages) {
-        BuildMetadataExtractor.BuildMetadata metadata = buildMetadataExtractor.extract(repoPath);
-        List<Path> moduleRoots = metadata.moduleRoots();
-        List<ClassMetadataRecord> classes = javaSourceScanner.scan(repoPath, moduleRoots);
+    private GraphModel buildSourceGraph(Path repoPath, List<Path> moduleRoots, List<String> acceptPackages) {
+        List<Path> roots = moduleRoots == null ? List.of() : List.copyOf(moduleRoots);
+        List<ClassMetadataRecord> classes = javaSourceScanner.scan(repoPath, roots);
         GraphModel model = GraphModel.empty();
         for (ClassMetadataRecord record : classes) {
             if (!GraphModel.isUserPackage(record.fullyQualifiedName(), acceptPackages)) {

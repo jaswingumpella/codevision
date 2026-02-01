@@ -25,7 +25,7 @@ npm install
 npm run dev
 ```
 
-The dev server runs on `http://localhost:5173` and proxies `/analyze` and `/project/**` to `http://localhost:8080` by default. Supply the API key in the Analyzer form when your backend requires it.
+The dev server runs on `http://localhost:5173` and proxies `/analyze` and `/project/**` to `http://localhost:8080` by default. Supply the API key in the Analyzer form when your backend requires it; use the security toggle there to include/exclude logger insights + PCI/PII scans.
 
 ## Tests & Coverage
 

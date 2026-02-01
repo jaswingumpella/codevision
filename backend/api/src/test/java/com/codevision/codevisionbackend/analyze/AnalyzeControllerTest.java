@@ -2,6 +2,7 @@ package com.codevision.codevisionbackend.analyze;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
@@ -41,7 +42,7 @@ class AnalyzeControllerTest {
         job.setStatusMessage("Queued for analysis");
         job.setCreatedAt(OffsetDateTime.now());
         job.setUpdatedAt(job.getCreatedAt());
-        when(jobService.enqueue(anyString(), anyString())).thenReturn(job);
+        when(jobService.enqueue(anyString(), anyString(), any())).thenReturn(job);
 
         AnalyzeRequest request = new AnalyzeRequest();
         request.setRepoUrl(URI.create(job.getRepoUrl()));
@@ -95,7 +96,7 @@ class AnalyzeControllerTest {
         AnalyzeRequest request = new AnalyzeRequest();
         request.setRepoUrl(URI.create("https://example.com/repo.git"));
         request.setBranchName("main");
-        when(jobService.enqueue(anyString(), anyString())).thenThrow(new IllegalArgumentException("bad"));
+        when(jobService.enqueue(anyString(), anyString(), any())).thenThrow(new IllegalArgumentException("bad"));
 
         ResponseEntity<AnalyzeResponse> response = controller.analyzeRepository(request);
 
