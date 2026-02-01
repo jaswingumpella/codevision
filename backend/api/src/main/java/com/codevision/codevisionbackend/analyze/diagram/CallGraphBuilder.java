@@ -2,6 +2,7 @@ package com.codevision.codevisionbackend.analyze.diagram;
 
 import com.codevision.codevisionbackend.analyze.diagram.CallGraph.GraphNode;
 import com.codevision.codevisionbackend.analyze.scanner.ClassMetadataRecord;
+import com.codevision.codevisionbackend.analyze.scanner.AnalysisExclusions;
 import com.github.javaparser.JavaParser;
 import com.github.javaparser.ParseProblemException;
 import com.github.javaparser.ParserConfiguration;
@@ -114,6 +115,9 @@ public class CallGraphBuilder {
                     String resolved = resolveTypeName(
                             token, packageName, explicitImports, wildcardImports, bySimpleName);
                     if (resolved == null || resolved.equals(record.fullyQualifiedName())) {
+                        continue;
+                    }
+                    if (AnalysisExclusions.isMockClassName(resolved)) {
                         continue;
                     }
                     boolean known = byFqn.containsKey(resolved);

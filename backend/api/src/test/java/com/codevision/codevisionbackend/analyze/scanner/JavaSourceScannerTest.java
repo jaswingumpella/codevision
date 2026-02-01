@@ -20,10 +20,8 @@ class JavaSourceScannerTest {
     void scanCollectsAllClassesAndKeepsUserCodeFlag(@TempDir Path repoRoot) throws Exception {
         Path mainSource = repoRoot.resolve("src/main/java/com/barclays/demo");
         Path externalSource = repoRoot.resolve("src/main/java/com/example/external");
-        Path testSource = repoRoot.resolve("src/test/java/com/barclays/demo");
         Files.createDirectories(mainSource);
         Files.createDirectories(externalSource);
-        Files.createDirectories(testSource);
 
         Files.writeString(
                 mainSource.resolve("MyController.java"),
@@ -50,20 +48,6 @@ class JavaSourceScannerTest {
                 """);
 
         Files.writeString(
-                testSource.resolve("MyServiceTest.java"),
-                """
-                package com.barclays.demo;
-
-                import org.junit.jupiter.api.Test;
-
-                public class MyServiceTest {
-                    @Test
-                    void sample() {
-                    }
-                }
-                """);
-
-        Files.writeString(
                 externalSource.resolve("ExternalClass.java"),
                 """
                 package com.example.external;
@@ -73,14 +57,12 @@ class JavaSourceScannerTest {
                 """);
 
         List<ClassMetadataRecord> records = scanner.scan(repoRoot, List.of(repoRoot));
-        assertEquals(4, records.size());
+        assertEquals(3, records.size());
 
         Optional<ClassMetadataRecord> controller =
                 records.stream().filter(record -> record.className().equals("MyController")).findFirst();
         Optional<ClassMetadataRecord> service =
                 records.stream().filter(record -> record.className().equals("MyService")).findFirst();
-        Optional<ClassMetadataRecord> test =
-                records.stream().filter(record -> record.className().equals("MyServiceTest")).findFirst();
         Optional<ClassMetadataRecord> external =
                 records.stream().filter(record -> record.className().equals("ExternalClass")).findFirst();
 
@@ -93,11 +75,6 @@ class JavaSourceScannerTest {
         assertTrue(service.isPresent());
         assertEquals("SERVICE", service.get().stereotype());
         assertTrue(service.get().userCode());
-
-        assertTrue(test.isPresent());
-        assertEquals("TEST", test.get().stereotype());
-        assertEquals(SourceSet.TEST, test.get().sourceSet());
-        assertTrue(test.get().userCode());
 
         assertTrue(external.isPresent());
         assertEquals("OTHER", external.get().stereotype());

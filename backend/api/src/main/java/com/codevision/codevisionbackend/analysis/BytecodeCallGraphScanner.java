@@ -1,6 +1,7 @@
 package com.codevision.codevisionbackend.analysis;
 
 import com.codevision.codevisionbackend.analysis.config.CompiledAnalysisProperties;
+import com.codevision.codevisionbackend.analyze.scanner.AnalysisExclusions;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -151,6 +152,9 @@ public class BytecodeCallGraphScanner {
 
     private boolean shouldInclude(String className, List<String> acceptPackages) {
         if (className == null || className.startsWith("java.") || className.startsWith("jakarta.")) {
+            return false;
+        }
+        if (AnalysisExclusions.isMockClassName(className)) {
             return false;
         }
         return GraphModel.isUserPackage(className, acceptPackages);

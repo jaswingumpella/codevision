@@ -64,7 +64,6 @@ public class JavaSourceScanner {
                 continue;
             }
             collectFromSourceSet(normalizedRoot, normalizedModule.resolve("src/main/java"), SourceSet.MAIN, records);
-            collectFromSourceSet(normalizedRoot, normalizedModule.resolve("src/test/java"), SourceSet.TEST, records);
         }
 
         return records;
@@ -79,6 +78,7 @@ public class JavaSourceScanner {
         try (Stream<Path> paths = Files.walk(sourceRoot, Integer.MAX_VALUE, FileVisitOption.FOLLOW_LINKS)) {
             paths.filter(Files::isRegularFile)
                     .filter(path -> path.toString().endsWith(".java"))
+                    .filter(path -> !AnalysisExclusions.isExcludedPath(path))
                     .forEach(path -> parseJavaFile(repoRoot, sourceSet, path, collector));
         } catch (IOException e) {
             log.warn("Failed traversing source set {}: {}", sourceRoot, e.getMessage());
@@ -121,6 +121,10 @@ public class JavaSourceScanner {
             List<String> implementedInterfaces = extractImplementedInterfaces(type);
             String stereotype = determineStereotype(type, annotations, sourceSet);
             String relativePath = deriveRelativePath(repoRoot, sourceFile);
+            if (AnalysisExclusions.isExcludedPath(relativePath)
+                    || AnalysisExclusions.isMockClassName(type.getNameAsString())) {
+                continue;
+            }
 
             collector.add(new ClassMetadataRecord(
                     fullyQualifiedName,

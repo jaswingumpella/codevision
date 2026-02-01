@@ -10,6 +10,7 @@ import com.codevision.codevisionbackend.analysis.GraphModel.NodeKind;
 import com.codevision.codevisionbackend.analysis.GraphModel.SequenceNode;
 import com.codevision.codevisionbackend.analysis.GraphModel.SequenceUsage;
 import com.codevision.codevisionbackend.analysis.config.CompiledAnalysisProperties;
+import com.codevision.codevisionbackend.analyze.scanner.AnalysisExclusions;
 import io.github.classgraph.AnnotationInfo;
 import io.github.classgraph.AnnotationParameterValue;
 import io.github.classgraph.ClassGraph;
@@ -119,6 +120,9 @@ public class BytecodeEntityScanner {
                 }
                 String fqcn = classInfo.getName();
                 if (!GraphModel.isUserPackage(fqcn, acceptPackages)) {
+                    continue;
+                }
+                if (AnalysisExclusions.isMockClassName(fqcn)) {
                     continue;
                 }
                 ClassNode node = toClassNode(classInfo);

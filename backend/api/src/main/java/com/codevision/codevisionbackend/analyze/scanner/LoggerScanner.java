@@ -55,7 +55,6 @@ public class LoggerScanner {
                 continue;
             }
             scanSourceSet(normalizedRoot, normalizedModule.resolve("src/main/java"), records);
-            scanSourceSet(normalizedRoot, normalizedModule.resolve("src/test/java"), records);
         }
 
         return List.copyOf(records);
@@ -69,6 +68,7 @@ public class LoggerScanner {
         try (Stream<Path> paths = Files.walk(sourceRoot, Integer.MAX_VALUE, FileVisitOption.FOLLOW_LINKS)) {
             paths.filter(Files::isRegularFile)
                     .filter(path -> path.toString().endsWith(".java"))
+                    .filter(path -> !AnalysisExclusions.isExcludedPath(path))
                     .forEach(path -> parseFile(repoRoot, path, collector));
         } catch (IOException e) {
             log.warn("Failed to traverse source set {}: {}", sourceRoot, e.getMessage());
@@ -95,8 +95,14 @@ public class LoggerScanner {
                 .map(pkg -> pkg.getName().asString())
                 .orElse("");
         String relativePath = deriveRelativePath(repoRoot, sourceFile);
+        if (AnalysisExclusions.isExcludedPath(relativePath)) {
+            return;
+        }
         for (TypeDeclaration<?> type : unit.getTypes()) {
             String className = resolveClassName(packageName, type);
+            if (AnalysisExclusions.isMockClassName(className)) {
+                continue;
+            }
             type.findAll(MethodCallExpr.class)
                     .forEach(call -> handleMethodCall(className, relativePath, call, collector));
         }

@@ -79,6 +79,7 @@ public class JpaEntityScanner {
         try (Stream<Path> paths = Files.walk(sourceRoot, MAX_WALK_DEPTH, FileVisitOption.FOLLOW_LINKS)) {
             paths.filter(Files::isRegularFile)
                     .filter(path -> path.toString().endsWith(".java"))
+                    .filter(path -> !AnalysisExclusions.isExcludedPath(path))
                     .forEach(path -> parseSource(path, collector));
         } catch (IOException e) {
             log.warn("Failed traversing {} for entity scanning: {}", sourceRoot, e.getMessage());
@@ -101,6 +102,9 @@ public class JpaEntityScanner {
                     continue;
                 }
                 if (!hasAnnotation(classDeclaration, ENTITY_ANNOTATION)) {
+                    continue;
+                }
+                if (AnalysisExclusions.isMockClassName(classDeclaration.getNameAsString())) {
                     continue;
                 }
                 collector.add(toRecord(packageName, classDeclaration));

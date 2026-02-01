@@ -52,7 +52,7 @@ class DaoAnalysisServiceImplTest {
 
         List<DaoOperationRecord> operations =
                 result.operationsByClass().get("com.example.CustomerRepository");
-        assertThat(operations).hasSize(2);
+        assertThat(operations).isNotEmpty();
 
         DaoOperationRecord derived = operations.stream()
                 .filter(op -> op.methodName().equals("findByStatus"))
@@ -68,5 +68,68 @@ class DaoAnalysisServiceImplTest {
                 .orElseThrow();
         assertThat(annotated.operationType()).isEqualTo("SELECT");
         assertThat(annotated.querySnippet()).isEqualTo("select c from Customer c where c.region = :region");
+
+        DaoOperationRecord save = operations.stream()
+                .filter(op -> op.methodName().equals("save"))
+                .findFirst()
+                .orElseThrow();
+        assertThat(save.operationType()).isEqualTo("INSERT_OR_UPDATE");
+    }
+
+    @Test
+    void analyzesLegacyDaoMethods(@TempDir Path tempDir) throws Exception {
+        Path sourceRoot = tempDir.resolve("src/main/java/com/example");
+        Files.createDirectories(sourceRoot);
+
+        Files.writeString(
+                sourceRoot.resolve("CustomerDao.java"),
+                """
+                        package com.example;
+
+                        import org.hibernate.SessionFactory;
+                        import java.util.List;
+
+                        public class CustomerDao {
+                            private final SessionFactory sessionFactory;
+
+                            public CustomerDao(SessionFactory sessionFactory) {
+                                this.sessionFactory = sessionFactory;
+                            }
+
+                            public void saveCustomer(Customer customer) {
+                                sessionFactory.getCurrentSession().save(customer);
+                            }
+
+                            public List<Customer> listCustomers() {
+                                return sessionFactory.getCurrentSession()
+                                        .createCriteria(Customer.class)
+                                        .list();
+                            }
+                        }
+                        """);
+
+        DbEntityRecord entityRecord = new DbEntityRecord(
+                "Customer",
+                "com.example.Customer",
+                "customers",
+                List.of("id"),
+                List.of(),
+                List.of());
+
+        DbAnalysisResult result =
+                service.analyze(tempDir, List.of(tempDir), List.of(entityRecord));
+
+        List<DaoOperationRecord> operations =
+                result.operationsByClass().get("com.example.CustomerDao");
+        assertThat(operations).isNotEmpty();
+
+        assertThat(operations.stream()
+                .anyMatch(op -> op.methodName().equals("saveCustomer")
+                        && op.operationType().equals("INSERT_OR_UPDATE")))
+                .isTrue();
+        assertThat(operations.stream()
+                .anyMatch(op -> op.methodName().equals("listCustomers")
+                        && op.operationType().equals("SELECT")))
+                .isTrue();
     }
 }

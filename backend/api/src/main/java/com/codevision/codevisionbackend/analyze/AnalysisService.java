@@ -9,6 +9,7 @@ import com.codevision.codevisionbackend.analyze.diagram.DiagramBuilderService;
 import com.codevision.codevisionbackend.analyze.diagram.DiagramGenerationResult;
 import com.codevision.codevisionbackend.analyze.scanner.ApiEndpointRecord;
 import com.codevision.codevisionbackend.analyze.scanner.ApiScanner;
+import com.codevision.codevisionbackend.analyze.scanner.AnalysisExclusions;
 import com.codevision.codevisionbackend.analyze.scanner.AssetScanner;
 import com.codevision.codevisionbackend.analyze.scanner.BuildMetadataExtractor;
 import com.codevision.codevisionbackend.analyze.scanner.BuildMetadataExtractor.BuildMetadata;
@@ -228,6 +229,11 @@ public class AnalysisService {
             List<ClassMetadataRecord> newClassRecords =
                     javaSourceScanner.scan(cloneResult.directory(), effectiveModuleRoots);
             List<ClassMetadataRecord> classRecords = mergeLists(reusedData.classMetadata(), newClassRecords);
+            classRecords = classRecords.stream()
+                    .filter(record -> record.sourceSet() != SourceSet.TEST)
+                    .filter(record -> !AnalysisExclusions.isExcludedPath(record.relativePath()))
+                    .filter(record -> !AnalysisExclusions.isMockClassName(record.className()))
+                    .toList();
             replaceClassMetadata(persistedProject, classRecords);
 
             List<DbEntityRecord> entityRecords =
@@ -248,11 +254,22 @@ public class AnalysisService {
             List<PiiPciFindingRecord> piiFindings = includeSecurity
                     ? mergeLists(reusedData.piiFindings(), piiPciInspector.scan(cloneResult.directory(), piiScanRoots))
                     : List.of();
+            if (!piiFindings.isEmpty()) {
+                piiFindings = piiFindings.stream()
+                        .filter(record -> !AnalysisExclusions.isExcludedPath(record.filePath()))
+                        .toList();
+            }
             replacePiiPciFindings(persistedProject, piiFindings);
 
             List<LogStatementRecord> logStatements = includeSecurity
                     ? mergeLists(reusedData.logStatements(), loggerScanner.scan(cloneResult.directory(), effectiveModuleRoots))
                     : List.of();
+            if (!logStatements.isEmpty()) {
+                logStatements = logStatements.stream()
+                        .filter(record -> !AnalysisExclusions.isExcludedPath(record.filePath()))
+                        .filter(record -> !AnalysisExclusions.isMockClassName(record.className()))
+                        .toList();
+            }
             replaceLogStatements(persistedProject, logStatements);
 
             List<GherkinFeatureSummary> gherkinFeatures = gherkinScanner.scan(cloneResult.directory());
