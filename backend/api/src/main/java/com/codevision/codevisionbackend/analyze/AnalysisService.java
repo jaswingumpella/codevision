@@ -2,8 +2,13 @@ package com.codevision.codevisionbackend.analyze;
 
 import static com.codevision.codevisionbackend.git.BranchUtils.normalize;
 
-import com.codevision.codevisionbackend.analysis.CompiledAnalysisService;
-import com.codevision.codevisionbackend.analysis.CompiledAnalysisService.CompiledAnalysisParameters;
+import com.codevision.codevisionbackend.analysis.ClasspathBuilder;
+import com.codevision.codevisionbackend.analysis.BytecodeEntityScanner;
+import com.codevision.codevisionbackend.analysis.GraphModel;
+import com.codevision.codevisionbackend.analysis.GraphModel.ClassNode;
+import com.codevision.codevisionbackend.analysis.GraphModel.FieldModel;
+import com.codevision.codevisionbackend.analysis.config.CompiledAnalysisProperties;
+ 
 import com.codevision.codevisionbackend.analyze.GherkinFeatureSummary;
 import com.codevision.codevisionbackend.analyze.diagram.DiagramBuilderService;
 import com.codevision.codevisionbackend.analyze.diagram.DiagramGenerationResult;
@@ -106,7 +111,9 @@ public class AnalysisService {
     private final DiagramService diagramService;
     private final ObjectMapper objectMapper;
     private final GherkinScanner gherkinScanner;
-    private final CompiledAnalysisService compiledAnalysisService;
+    private final ClasspathBuilder classpathBuilder;
+    private final BytecodeEntityScanner bytecodeEntityScanner;
+    private final CompiledAnalysisProperties compiledAnalysisProperties;
 
     public AnalysisService(
             GitCloneService gitCloneService,
@@ -132,7 +139,9 @@ public class AnalysisService {
             DiagramBuilderService diagramBuilderService,
             DiagramService diagramService,
             ObjectMapper objectMapper,
-            CompiledAnalysisService compiledAnalysisService) {
+            ClasspathBuilder classpathBuilder,
+            BytecodeEntityScanner bytecodeEntityScanner,
+            CompiledAnalysisProperties compiledAnalysisProperties) {
         this.gitCloneService = gitCloneService;
         this.buildMetadataExtractor = buildMetadataExtractor;
         this.javaSourceScanner = javaSourceScanner;
@@ -156,7 +165,9 @@ public class AnalysisService {
         this.diagramBuilderService = diagramBuilderService;
         this.diagramService = diagramService;
         this.objectMapper = objectMapper;
-        this.compiledAnalysisService = compiledAnalysisService;
+        this.classpathBuilder = classpathBuilder;
+        this.bytecodeEntityScanner = bytecodeEntityScanner;
+        this.compiledAnalysisProperties = compiledAnalysisProperties;
     }
 
     @Transactional
@@ -173,6 +184,7 @@ public class AnalysisService {
             log.debug("Repository {} cloned to {}", repoUrl, cloneResult.directory());
             BuildMetadata buildMetadata = buildMetadataExtractor.extract(cloneResult.directory());
             List<ModuleDescriptor> moduleDescriptors = describeModules(cloneResult.directory(), buildMetadata.moduleRoots());
+            boolean rootHasSources = hasMainSources(cloneResult.directory());
             Map<String, String> moduleFingerprints =
                     computeModuleFingerprints(cloneResult.directory(), moduleDescriptors, cloneResult.commitHash());
             Project persistedProject = projectService.overwriteProject(
@@ -209,14 +221,16 @@ public class AnalysisService {
                 }
             }
 
-            Set<String> changedModules = determineChangedModules(previousFingerprints, moduleFingerprints);
+            Set<String> changedModules =
+                    determineChangedModules(previousFingerprints, moduleFingerprints, rootHasSources);
             ModuleIndex moduleIndex = new ModuleIndex(moduleDescriptors);
-            List<Path> modulesToScan = selectModulesToScan(moduleDescriptors, changedModules);
+            List<Path> modulesToScan = filterModulesWithSources(selectModulesToScan(moduleDescriptors, changedModules));
             boolean scanAllModules = modulesToScan.isEmpty();
             boolean hasSubModules = moduleDescriptors.stream().anyMatch(descriptor -> descriptor.depth() > 0);
             List<Path> effectiveModuleRoots = scanAllModules
                     ? moduleDescriptors.stream()
-                            .filter(descriptor -> !hasSubModules || descriptor.depth() > 0)
+                            .filter(descriptor -> !hasSubModules || descriptor.depth() > 0 || rootHasSources)
+                            .filter(descriptor -> hasMainSources(descriptor.absolutePath()))
                             .map(ModuleDescriptor::absolutePath)
                             .toList()
                     : modulesToScan;
@@ -238,8 +252,12 @@ public class AnalysisService {
 
             List<DbEntityRecord> entityRecords =
                     jpaEntityScanner.scan(cloneResult.directory(), effectiveModuleRoots);
+            List<DbEntityRecord> bytecodeEntities =
+                    scanBytecodeEntities(cloneResult.directory(), moduleDescriptors);
+            List<DbEntityRecord> mergedEntities =
+                    mergeEntityRecords(entityRecords, bytecodeEntities);
             DbAnalysisResult dbAnalysisResult =
-                    daoAnalysisService.analyze(cloneResult.directory(), effectiveModuleRoots, entityRecords);
+                    daoAnalysisService.analyze(cloneResult.directory(), effectiveModuleRoots, mergedEntities);
             replaceDbEntities(persistedProject, dbAnalysisResult.entities());
             replaceDaoOperations(persistedProject, dbAnalysisResult.operationsByClass());
 
@@ -276,7 +294,13 @@ public class AnalysisService {
             DbAnalysisSummary dbAnalysisSummary = toDbAnalysisSummary(dbAnalysisResult);
             DiagramGenerationResult diagramGeneration =
                     diagramBuilderService.generate(
-                            cloneResult.directory(), classRecords, apiEndpoints, dbAnalysisResult);
+                            cloneResult.directory(),
+                            classRecords,
+                            apiEndpoints,
+                            dbAnalysisResult,
+                            moduleDescriptors.stream()
+                                    .map(ModuleDescriptor::absolutePath)
+                                    .toList());
             List<Diagram> persistedDiagrams =
                     diagramService.replaceProjectDiagrams(persistedProject, diagramGeneration.diagrams());
             List<DiagramSummary> diagramSummaries = persistedDiagrams.stream()
@@ -302,17 +326,6 @@ public class AnalysisService {
                     persistedProject,
                     parsedData,
                     new SnapshotMetadata(cloneResult.branchName(), cloneResult.commitHash(), moduleFingerprints));
-
-            try {
-                compiledAnalysisService.analyze(new CompiledAnalysisParameters(
-                        cloneResult.directory(), null, null, persistedProject.getId()));
-            } catch (Exception compiledEx) {
-                log.warn(
-                        "Compiled analysis failed for projectId={} repo={} : {}",
-                        persistedProject.getId(),
-                        repoUrl,
-                        compiledEx.getMessage());
-            }
 
             log.info(
                     "Completed analysis for {} ({}) with projectId={} snapshotId={}",
@@ -719,14 +732,17 @@ public class AnalysisService {
         }
     }
 
-    private Set<String> determineChangedModules(Map<String, String> previous, Map<String, String> current) {
+    private Set<String> determineChangedModules(
+            Map<String, String> previous,
+            Map<String, String> current,
+            boolean rootHasSources) {
         if (previous.isEmpty()) {
             return new LinkedHashSet<>(current.keySet());
         }
         Set<String> changed = new LinkedHashSet<>();
         boolean hasSubModules = current.keySet().stream().anyMatch(key -> !ROOT_MODULE_KEY.equals(key));
         current.forEach((key, value) -> {
-            if (hasSubModules && ROOT_MODULE_KEY.equals(key)) {
+            if (hasSubModules && ROOT_MODULE_KEY.equals(key) && !rootHasSources) {
                 return;
             }
             if (!Objects.equals(value, previous.get(key))) {
@@ -736,7 +752,7 @@ public class AnalysisService {
         previous.keySet().stream()
                 .filter(key -> !current.containsKey(key))
                 .forEach(changed::add);
-        if (changed.isEmpty() && !current.isEmpty() && !hasSubModules) {
+        if (changed.isEmpty() && !current.isEmpty() && (!hasSubModules || rootHasSources)) {
             changed.add(ROOT_MODULE_KEY);
         }
         return changed;
@@ -759,6 +775,217 @@ public class AnalysisService {
                 .map(pathByKey::get)
                 .filter(Objects::nonNull)
                 .toList();
+    }
+
+    private List<Path> filterModulesWithSources(List<Path> moduleRoots) {
+        if (moduleRoots == null || moduleRoots.isEmpty()) {
+            return List.of();
+        }
+        return moduleRoots.stream()
+                .filter(this::hasMainSources)
+                .toList();
+    }
+
+    private boolean hasMainSources(Path moduleRoot) {
+        if (moduleRoot == null) {
+            return false;
+        }
+        return Files.isDirectory(moduleRoot.resolve("src/main/java"));
+    }
+
+    private List<DbEntityRecord> scanBytecodeEntities(Path repoRoot, List<ModuleDescriptor> modules) {
+        if (classpathBuilder == null || bytecodeEntityScanner == null || compiledAnalysisProperties == null) {
+            return List.of();
+        }
+        List<Path> moduleRoots = modules == null
+                ? List.of(repoRoot)
+                : modules.stream().map(ModuleDescriptor::absolutePath).toList();
+        moduleRoots = filterModulesWithSources(moduleRoots);
+        if (moduleRoots.isEmpty()) {
+            return List.of();
+        }
+        try {
+            ClasspathBuilder.ClasspathDescriptor classpath =
+                    classpathBuilder.buildForModules(
+                            repoRoot,
+                            moduleRoots,
+                            compiledAnalysisProperties.isIncludeDependencies());
+            GraphModel model = bytecodeEntityScanner.scan(
+                    classpath,
+                    compiledAnalysisProperties.getAcceptPackages());
+            return toDbEntityRecords(model);
+        } catch (Exception ex) {
+            log.warn("Bytecode entity scan failed: {}", ex.getMessage());
+            return List.of();
+        }
+    }
+
+    private List<DbEntityRecord> mergeEntityRecords(
+            List<DbEntityRecord> sourceRecords,
+            List<DbEntityRecord> bytecodeRecords) {
+        if ((sourceRecords == null || sourceRecords.isEmpty())
+                && (bytecodeRecords == null || bytecodeRecords.isEmpty())) {
+            return List.of();
+        }
+        Map<String, DbEntityRecord> merged = new LinkedHashMap<>();
+        if (sourceRecords != null) {
+            sourceRecords.forEach(record -> merged.put(entityKey(record), record));
+        }
+        if (bytecodeRecords != null) {
+            bytecodeRecords.forEach(record -> merged.putIfAbsent(entityKey(record), record));
+        }
+        return new ArrayList<>(merged.values());
+    }
+
+    private String entityKey(DbEntityRecord record) {
+        if (record == null) {
+            return "";
+        }
+        if (record.fullyQualifiedName() != null && !record.fullyQualifiedName().isBlank()) {
+            return record.fullyQualifiedName();
+        }
+        return record.className() == null ? "" : record.className();
+    }
+
+    private List<DbEntityRecord> toDbEntityRecords(GraphModel model) {
+        if (model == null) {
+            return List.of();
+        }
+        List<DbEntityRecord> records = new ArrayList<>();
+        for (ClassNode node : model.sortedClasses()) {
+            if (!node.isEntity()) {
+                continue;
+            }
+            String className = node.getSimpleName() != null ? node.getSimpleName() : simpleName(node.getName());
+            String tableName = node.getTableName() != null ? node.getTableName() : className;
+            List<String> primaryKeys = new ArrayList<>();
+            List<DbEntityRecord.EntityField> fields = new ArrayList<>();
+            List<DbEntityRecord.EntityRelationship> relationships = new ArrayList<>();
+
+            for (FieldModel field : node.getFields()) {
+                String normalizedType = normalizeBytecodeType(field.getType());
+                fields.add(new DbEntityRecord.EntityField(
+                        field.getName(),
+                        normalizedType == null ? field.getType() : normalizedType,
+                        null));
+
+                if (hasPrimaryKeyAnnotation(field.getAnnotations())) {
+                    primaryKeys.add(field.getName());
+                }
+
+                String relType = relationshipLabel(field.getAnnotations());
+                if (field.isRelationship() || relType != null) {
+                    String targetType = extractRelationshipTarget(field.getType());
+                    relationships.add(new DbEntityRecord.EntityRelationship(
+                            field.getName(),
+                            targetType,
+                            relType == null ? "RELATIONSHIP" : relType));
+                }
+            }
+
+            records.add(new DbEntityRecord(
+                    className,
+                    node.getName(),
+                    tableName,
+                    primaryKeys,
+                    fields,
+                    relationships));
+        }
+        return records;
+    }
+
+    private boolean hasPrimaryKeyAnnotation(List<String> annotations) {
+        if (annotations == null || annotations.isEmpty()) {
+            return false;
+        }
+        for (String annotation : annotations) {
+            if (annotation == null) {
+                continue;
+            }
+            String normalized = annotation.toLowerCase();
+            if (normalized.endsWith(".id") || normalized.endsWith(".embeddedid")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String relationshipLabel(List<String> annotations) {
+        if (annotations == null || annotations.isEmpty()) {
+            return null;
+        }
+        for (String annotation : annotations) {
+            if (annotation == null) {
+                continue;
+            }
+            String normalized = annotation.toLowerCase();
+            if (normalized.endsWith(".onetomany")) {
+                return "ONE_TO_MANY";
+            }
+            if (normalized.endsWith(".manytoone")) {
+                return "MANY_TO_ONE";
+            }
+            if (normalized.endsWith(".manytomany")) {
+                return "MANY_TO_MANY";
+            }
+            if (normalized.endsWith(".onetoone")) {
+                return "ONE_TO_ONE";
+            }
+        }
+        return null;
+    }
+
+    private String extractRelationshipTarget(String rawType) {
+        if (rawType == null || rawType.isBlank()) {
+            return null;
+        }
+        String candidate = extractGenericType(rawType);
+        if (candidate == null) {
+            candidate = rawType;
+        }
+        return normalizeBytecodeType(candidate);
+    }
+
+    private String extractGenericType(String rawType) {
+        int genericStart = rawType.indexOf('<');
+        if (genericStart < 0) {
+            return null;
+        }
+        int genericEnd = rawType.indexOf('>', genericStart + 1);
+        String inner = genericEnd > genericStart
+                ? rawType.substring(genericStart + 1, genericEnd)
+                : rawType.substring(genericStart + 1);
+        if (inner.contains(",")) {
+            inner = inner.split(",")[0];
+        }
+        return inner.trim();
+    }
+
+    private String normalizeBytecodeType(String rawType) {
+        if (rawType == null || rawType.isBlank()) {
+            return null;
+        }
+        String candidate = rawType;
+        int genericStart = candidate.indexOf('<');
+        if (genericStart >= 0) {
+            candidate = candidate.substring(0, genericStart);
+        }
+        candidate = candidate.replace('/', '.').replace(";", "");
+        if (candidate.startsWith("L") && candidate.length() > 1) {
+            candidate = candidate.substring(1);
+        }
+        return candidate;
+    }
+
+    private String simpleName(String fqcn) {
+        if (fqcn == null || fqcn.isBlank()) {
+            return fqcn;
+        }
+        int lastDot = fqcn.lastIndexOf('.');
+        if (lastDot >= 0 && lastDot + 1 < fqcn.length()) {
+            return fqcn.substring(lastDot + 1);
+        }
+        return fqcn;
     }
 
     private ReusedData reusePreviousData(

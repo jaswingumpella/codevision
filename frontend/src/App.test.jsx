@@ -1,4 +1,4 @@
-import { render, screen, waitFor, act, within } from '@testing-library/react';
+import { render, screen, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import App from './App';
 import axios from './lib/apiClient';
@@ -192,7 +192,7 @@ describe('App', () => {
     expect(failureNotices.length).toBeGreaterThan(0);
   });
 
-  it('loads compiled analysis, metadata, export preview, and allows panel interactions', async () => {
+  it('loads metadata, export preview, and allows panel interactions', async () => {
     const user = userEvent.setup();
     const projectId = 202;
     const jobId = 'job-456';
@@ -285,22 +285,6 @@ describe('App', () => {
         soapServices: []
       }
     };
-    const compiledResponse = {
-      analysisId: 900,
-      status: 'SUCCEEDED',
-      entityCount: 1,
-      endpointCount: 1,
-      dependencyCount: 1,
-      sequenceCount: 1,
-      outputDirectory: '/tmp/analysis',
-      exports: [
-        { name: 'compiled-report.zip', size: 2048, downloadUrl: '/compiled/export.zip' },
-        { name: 'diagram.mmd', downloadUrl: '/compiled/diagram.mmd' }
-      ]
-    };
-    const compiledEntities = { items: [{ className: 'OrderEntity', tableName: 'orders', origin: 'JPA', inCycle: true }] };
-    const compiledSequences = { items: [{ generatorName: 'orderSeq', sequenceName: 'order_seq', allocationSize: 50, initialValue: 1 }] };
-    const compiledEndpoints = { items: [{ httpMethod: 'GET', path: '/orders', controllerClass: 'OrderController', framework: 'Spring' }] };
     let diffCallCount = 0;
     axios.post.mockResolvedValueOnce({ data: jobResponse });
     axios.get.mockImplementation((url) => {
@@ -351,21 +335,6 @@ describe('App', () => {
       }
       if (url === `/project/${projectId}/export/confluence.html`) {
         return Promise.resolve({ data: '<html>preview</html>' });
-      }
-      if (url === `/api/project/${projectId}/compiled-analysis`) {
-        return Promise.resolve({ data: compiledResponse });
-      }
-      if (url === '/api/entities') {
-        return Promise.resolve({ data: compiledEntities });
-      }
-      if (url === '/api/sequences') {
-        return Promise.resolve({ data: compiledSequences });
-      }
-      if (url === '/api/endpoints') {
-        return Promise.resolve({ data: compiledEndpoints });
-      }
-      if (url === compiledResponse.exports[1].downloadUrl) {
-        return Promise.resolve({ data: 'erDiagram Order' });
       }
       if (url === diagrams[0].svgDownloadUrl) {
         return Promise.resolve({ data: '<svg>diagram</svg>' });
@@ -418,12 +387,6 @@ describe('App', () => {
       await user.click(screen.getByRole('button', { name: /Refresh preview/i }));
       await screen.findByTitle(/Confluence Export Preview/i);
       await user.click(screen.getByRole('button', { name: /Download Snapshot JSON/i }));
-
-      await user.click(screen.getByRole('tab', { name: 'Compiled Analysis' }));
-      await screen.findByText(/Status:/i);
-      const compiledItem = screen.getByText('compiled-report.zip').closest('li');
-      await user.click(within(compiledItem).getByRole('button', { name: /Download/i }));
-      await screen.findByText(/erDiagram Order/i);
 
       await user.click(screen.getByRole('tab', { name: 'Diagrams' }));
       await screen.findByRole('button', { name: /Download SVG/i });

@@ -11,8 +11,7 @@ import {
   GherkinPanel,
   MetadataPanel,
   ExportPanel,
-  SnapshotsPanel,
-  CompiledAnalysisPanel
+  SnapshotsPanel
 } from './components/panels';
 import GlobalSearchBar from './components/search/GlobalSearchBar';
 import SearchResultsPanel from './components/search/SearchResultsPanel';
@@ -76,14 +75,6 @@ function App() {
   const [selectedBaseSnapshot, setSelectedBaseSnapshot] = useState(null);
   const [selectedCompareSnapshot, setSelectedCompareSnapshot] = useState(null);
   const [snapshotDiff, setSnapshotDiff] = useState(null);
-  const [compiledAnalysis, setCompiledAnalysis] = useState(null);
-  const [compiledExports, setCompiledExports] = useState([]);
-  const [compiledEntities, setCompiledEntities] = useState({ items: [] });
-  const [compiledSequencesTable, setCompiledSequencesTable] = useState({ items: [] });
-  const [compiledEndpointsTable, setCompiledEndpointsTable] = useState({ items: [] });
-  const [compiledMermaidSource, setCompiledMermaidSource] = useState('');
-  const [compiledLoading, setCompiledLoading] = useState(false);
-  const [compiledError, setCompiledError] = useState(null);
   const isCompactLayout = useMediaQuery('(max-width: 960px)');
   const tabRefs = useRef({});
   const jobPollRef = useRef({ cancelled: false });
@@ -884,89 +875,6 @@ const handleSearchNavigate = useCallback(
   const downloadSnapshotJson = () =>
     projectId && handleExport(`/project/${projectId}/export/snapshot`, `snapshot-${projectId}.json`);
   const refreshExportPreview = () => loadExportPreview(true);
-  const fetchCompiledMermaid = async (analysisId, exportedFiles) => {
-    if (!exportedFiles || exportedFiles.length === 0) {
-      setCompiledMermaidSource('');
-      return;
-    }
-    const mermaidFile = exportedFiles.find(
-      (file) => typeof file.name === 'string' && file.name.toLowerCase().endsWith('.mmd')
-    );
-    if (!mermaidFile) {
-      setCompiledMermaidSource('');
-      return;
-    }
-    try {
-      const response = await axios.get(mermaidFile.downloadUrl, {
-        headers: authHeaders(),
-        responseType: 'text'
-      });
-      const payload = typeof response.data === 'string' ? response.data : JSON.stringify(response.data, null, 2);
-      setCompiledMermaidSource(payload);
-    } catch (mermaidError) {
-      console.warn(`Failed to load Mermaid ERD for analysis ${analysisId}`, mermaidError);
-    }
-  };
-  const loadCompiledAnalysis = async () => {
-    if (!projectId) {
-      return;
-    }
-    setCompiledLoading(true);
-    setCompiledError(null);
-    try {
-      const { data } = await axios.get(`/api/project/${projectId}/compiled-analysis`, {
-        headers: authHeaders()
-      });
-      setCompiledAnalysis(data);
-      const exportList = data.exports || [];
-      setCompiledExports(exportList);
-      try {
-        const [entitiesRes, sequencesRes, endpointsRes] = await Promise.all([
-          axios.get('/api/entities', { params: { page: 0, size: 10 }, headers: authHeaders() }),
-          axios.get('/api/sequences', { params: { page: 0, size: 10 }, headers: authHeaders() }),
-          axios.get('/api/endpoints', { params: { page: 0, size: 10 }, headers: authHeaders() })
-        ]);
-        setCompiledEntities(entitiesRes.data);
-        setCompiledSequencesTable(sequencesRes.data);
-        setCompiledEndpointsTable(endpointsRes.data);
-      } catch (tableError) {
-        console.warn('Failed to load compiled analysis tables', tableError);
-      }
-      await fetchCompiledMermaid(data.analysisId, exportList);
-    } catch (analysisError) {
-      if (analysisError?.response?.status === 404) {
-        setCompiledAnalysis(null);
-        setCompiledExports([]);
-        setCompiledMermaidSource('');
-      } else {
-        setCompiledError(buildFriendlyError(analysisError));
-      }
-    } finally {
-      setCompiledLoading(false);
-    }
-  };
-
-  const refreshCompiledExports = () => {
-    loadCompiledAnalysis();
-  };
-
-  useEffect(() => {
-    if (!projectId) {
-      setCompiledAnalysis(null);
-      setCompiledExports([]);
-      setCompiledMermaidSource('');
-      return;
-    }
-    loadCompiledAnalysis();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId]);
-  const downloadCompiledExport = (exportFile) => {
-    if (!exportFile || !exportFile.downloadUrl) {
-      return;
-    }
-    const safeName = exportFile.name || 'compiled-analysis-export';
-    handleExport(exportFile.downloadUrl, safeName);
-  };
 
   const downloadDiagramSvg = (diagram) => {
     if (!diagram || !diagram.svgAvailable || !diagram.svgDownloadUrl) {
@@ -980,7 +888,6 @@ const handleSearchNavigate = useCallback(
   const tabItems = useMemo(
     () => [
       { value: 'overview', label: 'Overview', disabled: false },
-      { value: 'compiled', label: 'Compiled Analysis', disabled: false },
       { value: 'api', label: 'API Specs', disabled: !overview && !apiCatalog },
       { value: 'db', label: 'Database', disabled: !overview && !dbAnalysis && !dbLoading },
       {
@@ -1283,19 +1190,6 @@ const handleSearchNavigate = useCallback(
           >
             {activeTab === 'overview' ? (
               <OverviewPanel overview={overview} loading={loading && !overview} searchQuery={globalSearchQuery} />
-            ) : activeTab === 'compiled' ? (
-              <CompiledAnalysisPanel
-                analysis={compiledAnalysis}
-                exports={compiledExports}
-                entities={compiledEntities}
-                sequences={compiledSequencesTable}
-                endpoints={compiledEndpointsTable}
-                mermaidSource={compiledMermaidSource}
-                loading={compiledLoading}
-                error={compiledError}
-                onDownloadExport={downloadCompiledExport}
-                onRefresh={refreshCompiledExports}
-              />
             ) : activeTab === 'api' ? (
               <ApiSpecsPanel
                 overview={overview}

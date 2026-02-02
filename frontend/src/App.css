@@ -976,6 +976,17 @@ button:not([disabled]):hover {
   margin: 1rem 0;
 }
 
+.metadata-context {
+  margin: 0;
+  padding: 0.75rem;
+  border-radius: 12px;
+  border: 1px solid #dfe3f0;
+  background: #f6f7fb;
+  font-family: 'SFMono-Regular', 'Consolas', 'Liberation Mono', monospace;
+  font-size: 0.85rem;
+  white-space: pre-wrap;
+}
+
 .metadata-summary div {
   display: flex;
   flex-direction: column;

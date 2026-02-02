@@ -33,6 +33,7 @@ public class DiagramBuilderService {
     private static final int MAX_ENDPOINTS = 6;
     private static final int MAX_SEQUENCE_DEPTH = 8;
     private static final int MAX_SEQUENCE_STEPS = 42;
+    private static final String ROOT_MODULE_KEY = "/";
 
     private final CallGraphBuilder callGraphBuilder;
 
@@ -44,14 +45,24 @@ public class DiagramBuilderService {
             Path repoRoot,
             List<ClassMetadataRecord> classRecords,
             List<ApiEndpointRecord> apiEndpoints,
-            DbAnalysisResult dbAnalysisResult) {
+            DbAnalysisResult dbAnalysisResult,
+            List<Path> moduleRoots) {
         CallGraph graph = callGraphBuilder.build(repoRoot, classRecords);
         List<ApiEndpointRecord> limitedEndpoints = selectEndpoints(apiEndpoints, MAX_ENDPOINTS);
         List<DiagramDefinition> diagrams = new ArrayList<>();
         Map<String, List<String>> callFlows = buildCallFlows(apiEndpoints, graph, MAX_ENDPOINTS * 2);
+        ModuleMapping moduleMapping = buildModuleMapping(repoRoot, moduleRoots, classRecords);
 
-        Optional.ofNullable(buildClassDiagram(classRecords, graph)).ifPresent(diagrams::add);
+        Optional.ofNullable(buildClassDiagram("Core Class Relationships", classRecords, graph, MAX_CLASS_NODES))
+                .ifPresent(diagrams::add);
+        if (classRecords != null && classRecords.size() > MAX_CLASS_NODES) {
+            Optional.ofNullable(buildClassDiagram(
+                    "Full Class Relationships", classRecords, graph, 0))
+                    .ifPresent(diagrams::add);
+        }
         Optional.ofNullable(buildComponentDiagram(classRecords, graph)).ifPresent(diagrams::add);
+        Optional.ofNullable(buildModuleComponentDiagram(moduleMapping, graph)).ifPresent(diagrams::add);
+        diagrams.addAll(buildModuleClassDiagrams(moduleMapping, graph));
         Optional.ofNullable(buildUseCaseDiagram(apiEndpoints)).ifPresent(diagrams::add);
         Optional.ofNullable(buildErdDiagram(dbAnalysisResult)).ifPresent(diagrams::add);
         Optional.ofNullable(buildDbSchemaDiagram(dbAnalysisResult)).ifPresent(diagrams::add);
@@ -61,11 +72,15 @@ public class DiagramBuilderService {
         return new DiagramGenerationResult(diagrams, callFlows);
     }
 
-    private DiagramDefinition buildClassDiagram(List<ClassMetadataRecord> classes, CallGraph graph) {
+    private DiagramDefinition buildClassDiagram(
+            String title,
+            List<ClassMetadataRecord> classes,
+            CallGraph graph,
+            int limit) {
         if (classes == null || classes.isEmpty()) {
             return null;
         }
-        List<ClassMetadataRecord> selected = selectClassesForDiagram(classes, graph);
+        List<ClassMetadataRecord> selected = selectClassesForDiagram(classes, graph, limit);
         if (selected.isEmpty()) {
             return null;
         }
@@ -150,7 +165,7 @@ public class DiagramBuilderService {
         }
 
         return new DiagramDefinition(
-                DiagramType.CLASS, "Core Class Relationships", plantuml.toString(), mermaid.toString(), Map.of());
+                DiagramType.CLASS, title, plantuml.toString(), mermaid.toString(), Map.of());
     }
 
     private DiagramDefinition buildComponentDiagram(List<ClassMetadataRecord> classes, CallGraph graph) {
@@ -234,6 +249,82 @@ public class DiagramBuilderService {
                 Map.of("componentCount", orderedClasses.size()));
     }
 
+    private DiagramDefinition buildModuleComponentDiagram(ModuleMapping mapping, CallGraph graph) {
+        if (mapping == null || mapping.moduleKeys().size() <= 1) {
+            return null;
+        }
+        List<String> moduleKeys = mapping.moduleKeys();
+        Map<String, String> aliases = buildAliases(moduleKeys);
+        Set<Edge> moduleEdges = new LinkedHashSet<>();
+
+        mapping.classToModule().forEach((sourceClass, sourceModule) -> {
+            Set<String> targets = graph.targets(sourceClass);
+            targets.forEach(target -> {
+                String targetModule = mapping.classToModule().get(target);
+                if (targetModule == null || targetModule.equals(sourceModule)) {
+                    return;
+                }
+                moduleEdges.add(new Edge(sourceModule, targetModule));
+            });
+        });
+
+        StringBuilder plantuml = new StringBuilder("@startuml\n");
+        plantuml.append("skinparam rectangleStyle rounded\n");
+        plantuml.append("skinparam shadowing false\n");
+        moduleKeys.forEach(key -> plantuml
+                .append("rectangle \"")
+                .append(moduleLabel(key, mapping.classesByModule().get(key)))
+                .append("\" as ")
+                .append(aliases.get(key))
+                .append("\n"));
+        moduleEdges.forEach(edge -> plantuml
+                .append(aliases.get(edge.from()))
+                .append(" --> ")
+                .append(aliases.get(edge.to()))
+                .append(" : depends\n"));
+        plantuml.append("@enduml");
+
+        StringBuilder mermaid = new StringBuilder("flowchart LR\n");
+        moduleKeys.forEach(key -> mermaid
+                .append("    ")
+                .append(aliases.get(key))
+                .append("[[")
+                .append(moduleLabel(key, mapping.classesByModule().get(key)).replace("\\n", "<br/>"))
+                .append("]]\n"));
+        moduleEdges.forEach(edge -> mermaid
+                .append("    ")
+                .append(aliases.get(edge.from()))
+                .append(" --> ")
+                .append(aliases.get(edge.to()))
+                .append("\n"));
+
+        return new DiagramDefinition(
+                DiagramType.COMPONENT,
+                "Module Dependencies",
+                plantuml.toString(),
+                mermaid.toString(),
+                Map.of("moduleCount", moduleKeys.size()));
+    }
+
+    private List<DiagramDefinition> buildModuleClassDiagrams(ModuleMapping mapping, CallGraph graph) {
+        if (mapping == null || mapping.moduleKeys().size() <= 1) {
+            return List.of();
+        }
+        List<DiagramDefinition> diagrams = new ArrayList<>();
+        for (String moduleKey : mapping.moduleKeys()) {
+            List<ClassMetadataRecord> moduleClasses = mapping.classesByModule().get(moduleKey);
+            if (moduleClasses == null || moduleClasses.isEmpty()) {
+                continue;
+            }
+            String title = "Module Class Relationships: " + moduleLabelPlain(moduleKey);
+            DiagramDefinition diagram = buildClassDiagram(title, moduleClasses, graph, 0);
+            if (diagram != null) {
+                diagrams.add(diagram);
+            }
+        }
+        return diagrams;
+    }
+
     private List<ApiEndpointRecord> selectEndpoints(List<ApiEndpointRecord> endpoints, int limit) {
         if (endpoints == null || endpoints.isEmpty()) {
             return List.of();
@@ -282,7 +373,92 @@ public class DiagramBuilderService {
 
     private record HeuristicEdge(String fromAlias, String toAlias, String label) {}
 
-    private List<ClassMetadataRecord> selectClassesForDiagram(List<ClassMetadataRecord> classes, CallGraph graph) {
+    private ModuleMapping buildModuleMapping(
+            Path repoRoot,
+            List<Path> moduleRoots,
+            List<ClassMetadataRecord> classes) {
+        if (classes == null || classes.isEmpty()) {
+            return ModuleMapping.empty();
+        }
+        Path normalizedRoot = repoRoot == null ? null : repoRoot.toAbsolutePath().normalize();
+        List<ModuleKey> moduleKeys = new ArrayList<>();
+        if (moduleRoots != null) {
+            for (Path moduleRoot : moduleRoots) {
+                if (moduleRoot == null || normalizedRoot == null) {
+                    continue;
+                }
+                Path normalizedModule = moduleRoot.toAbsolutePath().normalize();
+                if (!normalizedModule.startsWith(normalizedRoot)) {
+                    continue;
+                }
+                Path relative = normalizedRoot.relativize(normalizedModule);
+                String key = relative.getNameCount() == 0
+                        ? ROOT_MODULE_KEY
+                        : relative.toString().replace('\\', '/');
+                moduleKeys.add(new ModuleKey(key, relative, relative.getNameCount()));
+            }
+        }
+        if (moduleKeys.stream().noneMatch(key -> ROOT_MODULE_KEY.equals(key.key()))) {
+            moduleKeys.add(new ModuleKey(ROOT_MODULE_KEY, Path.of(""), 0));
+        }
+        moduleKeys = moduleKeys.stream()
+                .distinct()
+                .sorted(Comparator.comparingInt(ModuleKey::depth).reversed())
+                .toList();
+
+        Map<String, List<ClassMetadataRecord>> classesByModule = new LinkedHashMap<>();
+        Map<String, String> classToModule = new LinkedHashMap<>();
+        for (ClassMetadataRecord record : classes) {
+            String moduleKey = detectModuleKey(record.relativePath(), moduleKeys);
+            classesByModule
+                    .computeIfAbsent(moduleKey, key -> new ArrayList<>())
+                    .add(record);
+            if (record.fullyQualifiedName() != null) {
+                classToModule.put(record.fullyQualifiedName(), moduleKey);
+            }
+        }
+        List<String> orderedModules = classesByModule.keySet().stream()
+                .sorted()
+                .toList();
+        return new ModuleMapping(classesByModule, classToModule, orderedModules);
+    }
+
+    private String detectModuleKey(String relativePath, List<ModuleKey> moduleKeys) {
+        Path candidate = normalizePath(relativePath);
+        for (ModuleKey moduleKey : moduleKeys) {
+            if (moduleKey.depth() == 0) {
+                continue;
+            }
+            if (candidate.startsWith(moduleKey.relativePath())) {
+                return moduleKey.key();
+            }
+        }
+        return ROOT_MODULE_KEY;
+    }
+
+    private Path normalizePath(String value) {
+        if (value == null || value.isBlank()) {
+            return Path.of("");
+        }
+        return Path.of(value.replace('\\', '/')).normalize();
+    }
+
+    private String moduleLabel(String moduleKey, List<ClassMetadataRecord> classes) {
+        int count = classes == null ? 0 : classes.size();
+        return moduleLabelPlain(moduleKey) + "\\n" + count + " classes";
+    }
+
+    private String moduleLabelPlain(String moduleKey) {
+        if (moduleKey == null || moduleKey.isBlank() || ROOT_MODULE_KEY.equals(moduleKey)) {
+            return "root";
+        }
+        return moduleKey;
+    }
+
+    private List<ClassMetadataRecord> selectClassesForDiagram(
+            List<ClassMetadataRecord> classes,
+            CallGraph graph,
+            int limit) {
         if (classes == null || classes.isEmpty()) {
             return List.of();
         }
@@ -307,7 +483,10 @@ public class DiagramBuilderService {
                             .thenComparing(ClassMetadataRecord::className, Comparator.nullsLast(String::compareToIgnoreCase)))
                     .collect(Collectors.toList());
         }
-        return sorted.stream().limit(MAX_CLASS_NODES).toList();
+        if (limit > 0) {
+            return sorted.stream().limit(limit).toList();
+        }
+        return sorted;
     }
 
     private Map<String, List<ClassMetadataRecord>> groupClassesByStereotype(List<ClassMetadataRecord> classes) {
@@ -877,6 +1056,18 @@ public class DiagramBuilderService {
     private record SequenceDiagramSources(String plantuml, String mermaid) {}
 
     private record MethodPointer(String className, String methodName) {}
+
+    private record ModuleKey(String key, Path relativePath, int depth) {}
+
+    private record ModuleMapping(
+            Map<String, List<ClassMetadataRecord>> classesByModule,
+            Map<String, String> classToModule,
+            List<String> moduleKeys) {
+
+        private static ModuleMapping empty() {
+            return new ModuleMapping(Map.of(), Map.of(), List.of());
+        }
+    }
 
     private static class SequenceStep {
         private final String source;

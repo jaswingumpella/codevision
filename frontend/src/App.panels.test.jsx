@@ -12,8 +12,7 @@ import {
   GherkinPanel,
   MetadataPanel,
   ExportPanel,
-  SnapshotsPanel,
-  CompiledAnalysisPanel
+  SnapshotsPanel
 } from './components/panels';
 
 describe('utility helpers', () => {
@@ -459,8 +458,8 @@ describe('MetadataPanel', () => {
       }
     };
     render(<MetadataPanel metadata={metadata} loading={false} />);
-    expect(screen.getByText(/openapi\.yaml/i)).toBeInTheDocument();
-    expect(screen.getByText(/legacy\.wsdl/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/openapi\.yaml/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/legacy\.wsdl/i).length).toBeGreaterThan(0);
     expect(screen.getByText(metadata.snapshotDownloadUrl)).toBeInTheDocument();
   });
 });
@@ -504,76 +503,5 @@ describe('ExportPanel', () => {
     expect(onDownloadSnapshot).toHaveBeenCalled();
     expect(onRefreshPreview).toHaveBeenCalled();
     expect(screen.getByText(/Run an analysis and refresh to view the Confluence-ready HTML/i)).toBeInTheDocument();
-  });
-});
-
-describe('CompiledAnalysisPanel', () => {
-  it('renders compiled stats, export links, tables, and ERD source', async () => {
-    const user = userEvent.setup();
-    const downloadMock = vi.fn();
-    render(
-      <CompiledAnalysisPanel
-        analysis={{
-          status: 'SUCCEEDED',
-          entityCount: 3,
-          endpointCount: 2,
-          dependencyCount: 5,
-          sequenceCount: 1,
-          outputDirectory: '/tmp/out'
-        }}
-        exports={[{ name: 'entities.csv', size: 256 }]}
-        entities={{ items: [{ className: 'CustomerEntity', tableName: 'customers', origin: 'JPA', inCycle: true }] }}
-        sequences={{ items: [{ generatorName: 'custGen', sequenceName: 'cust_seq', allocationSize: 50, initialValue: 1 }] }}
-        endpoints={{ items: [{ httpMethod: 'GET', path: '/customers', controllerClass: 'CustomerController', framework: 'Spring' }] }}
-        mermaidSource="erDiagram"
-        loading={false}
-        error={null}
-        onDownloadExport={downloadMock}
-        onRefresh={vi.fn()}
-      />
-    );
-    expect(screen.getByText(/Compiled Analysis/i)).toBeInTheDocument();
-    expect(screen.getByText(/Status:/i)).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: /Download/i }));
-    expect(downloadMock).toHaveBeenCalledWith({ name: 'entities.csv', size: 256 });
-    expect(screen.getByText(/erDiagram/i)).toBeInTheDocument();
-  });
-
-  it('shows loading state, empty tables, and error banner', () => {
-    render(
-      <CompiledAnalysisPanel
-        analysis={null}
-        exports={[]}
-        entities={{ items: [] }}
-        sequences={{ items: [] }}
-        endpoints={{ items: [] }}
-        mermaidSource=""
-        loading
-        error="Unable to fetch compiled analysis"
-        onDownloadExport={vi.fn()}
-        onRefresh={vi.fn()}
-      />
-    );
-    expect(screen.getByText(/Unable to fetch compiled analysis/i)).toBeInTheDocument();
-    expect(screen.getByText(/Loading compiled analysis/i)).toBeInTheDocument();
-    expect(screen.getByText(/No exports yet/i)).toBeInTheDocument();
-  });
-
-  it('encourages running a new analysis when compiled data is missing', () => {
-    render(
-      <CompiledAnalysisPanel
-        analysis={null}
-        exports={[]}
-        entities={{ items: [] }}
-        sequences={{ items: [] }}
-        endpoints={{ items: [] }}
-        mermaidSource=""
-        loading={false}
-        error={null}
-        onDownloadExport={vi.fn()}
-        onRefresh={vi.fn()}
-      />
-    );
-    expect(screen.getByText(/Compiled analysis runs automatically/i)).toBeInTheDocument();
   });
 });

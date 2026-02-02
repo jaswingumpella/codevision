@@ -24,6 +24,16 @@ const MetadataPanel = ({ metadata, loading }) => {
   const wsdlDocs = dump.wsdlDocuments || [];
   const xsdDocs = dump.xsdDocuments || [];
   const soapServices = dump.soapServices || [];
+  const snapshotUrl = metadata.snapshotDownloadUrl || `/project/${metadata.projectId}/export/snapshot`;
+  const summaryText = [
+    `Service: ${metadata.projectName || '—'}`,
+    `Last analyzed: ${formatDate(metadata.analyzedAt)}`,
+    `Snapshot JSON: ${snapshotUrl}`,
+    `OpenAPI specs: ${openApiSpecs.length || 0}${openApiSpecs.length ? ` (${openApiSpecs.map((spec) => spec.fileName).join(', ')})` : ''}`,
+    `WSDL docs: ${wsdlDocs.length || 0}${wsdlDocs.length ? ` (${wsdlDocs.map((doc) => doc.fileName).join(', ')})` : ''}`,
+    `XSD docs: ${xsdDocs.length || 0}${xsdDocs.length ? ` (${xsdDocs.map((doc) => doc.fileName).join(', ')})` : ''}`,
+    `SOAP services: ${soapServices.length || 0}${soapServices.length ? ` (${soapServices.map((service) => service.serviceName).join(', ')})` : ''}`
+  ].join('\n');
 
   return (
     <div className="overview-content">
@@ -32,6 +42,10 @@ const MetadataPanel = ({ metadata, loading }) => {
         Download the snapshot JSON and feed it to GitLab Duo, ChatGPT, or other copilots for deeper reasoning. Specs listed here
         mirror the raw artifacts captured on disk.
       </p>
+      <section className="api-section">
+        <h3>Export Context</h3>
+        <pre className="metadata-context">{summaryText}</pre>
+      </section>
       <dl className="metadata-summary">
         <div>
           <dt>Project</dt>
@@ -44,7 +58,7 @@ const MetadataPanel = ({ metadata, loading }) => {
         <div>
           <dt>Snapshot API</dt>
           <dd>
-            <code>{metadata.snapshotDownloadUrl || `/project/${metadata.projectId}/export/snapshot`}</code>
+            <code>{snapshotUrl}</code>
           </dd>
         </div>
       </dl>
