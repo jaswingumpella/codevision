@@ -210,21 +210,11 @@ Every property in `application.yml` can be overridden the same way (for example 
   }
   ```
 
-### Compiled Artefact Analysis (automatic)
+### Dependency Bytecode Enrichment (automatic)
 
-After each repository analysis finishes, the backend now runs the compiled bytecode scanner automatically using the freshly cloned workspace. The React “Compiled Analysis” tab simply pulls the latest run via:
+After each repository analysis finishes, the backend builds a merged compile-scope classpath across Maven modules and dependencies, then runs a lightweight bytecode scan to pick up JPA entities and related metadata that live outside `src/main/java`. Those entities are merged into the Database panel and class/ERD diagrams, so multi-module projects and external libraries are represented without a separate “compiled analysis” pass.
 
-```bash
-curl 'http://localhost:8080/api/project/{projectId}/compiled-analysis'
-curl 'http://localhost:8080/api/entities?page=0&size=50'
-curl 'http://localhost:8080/api/sequences?page=0&size=50'
-curl 'http://localhost:8080/api/endpoints?page=0&size=50'
-```
-
-Each response lists the run metadata plus download URLs for `analysis.json`, CSV exports, and PlantUML/Mermaid artifacts. When you need to refresh the exports, re-run the full `/analyze` workflow; the compiled pass will execute in-line.
-For multi-module Maven repositories, the compiled pass aggregates module classpaths so entities and dependencies declared in module-specific POMs show up in the compiled tables and diagrams.
-
-> Advanced: `POST /api/analyze` is still available if you really do want to point the scanner at an arbitrary local checkout (for example, a one-off experiment). Supply `repoPath` and optional `acceptPackages`/`includeDependencies` exactly as before—the UI just doesn’t require it anymore.
+> Optional: the compiled export pipeline is still available via `POST /api/analyze` and `GET /api/project/{projectId}/compiled-analysis` when you need the full artifact bundle (`analysis.json`, CSVs, PlantUML/Mermaid). It is not run automatically and the UI no longer exposes a dedicated Compiled Analysis tab.
 
 ## Frontend (React + Vite)
 
@@ -388,7 +378,7 @@ Use the focused Maven targets below while iterating on the backend:
    ```bash
    mvn -pl backend/api test
    ```
-   This runs all unit and MVC slice tests (including the compiled-analysis fixtures) and wires JaCoCo so coverage data is ready.
+   This runs all unit and MVC slice tests and wires JaCoCo so coverage data is ready.
 
 2. **Integration suite + coverage gates**
    ```bash
@@ -398,7 +388,7 @@ Use the focused Maven targets below while iterating on the backend:
    ```
    The `verify` phase now runs the full unit/MVC suite, executes the Postgres/Testcontainers integration tests, and then runs `jacoco:check`, failing if line or branch coverage for `backend/api` drops below 90%. Because the integration suite needs Docker, pass `-DskipITs=true` when you explicitly want to skip the containerized tests.
 
-   > The JaCoCo gate currently targets the compiled-analysis stack (classpath builder, bytecode scanners, graph writers, export/persist services, and the compiled-analysis REST controllers) so we get deterministic protection on the Iterations 12–18 work while we backfill coverage for the rest of the service.
+   > The JaCoCo gate currently targets the bytecode/analysis stack (classpath builder, bytecode scanners, graph writers, export/persist services, and analysis REST controllers) while we backfill coverage for the rest of the service.
 
 ### Frontend & E2E suites
 
@@ -422,6 +412,4 @@ Use the focused Maven targets below while iterating on the backend:
    npx playwright install --with-deps chromium
    npm run test:e2e
    ```
-   The Playwright harness copies the deterministic fixture repo out of `backend/api/src/test/resources/fixtures/compiled-app`, initializes it as a local Git remote, launches the backend on port **8090** (H2/in-memory, compiled analysis auto-build disabled), and starts the Vite dev server on **4173**. It then runs the full “analyze → dashboard → compiled analysis” flow headlessly, enforces a 120s SLA, and downloads every compiled export to verify their SHA-256 hashes against `frontend/e2e/regression-hashes.json`. The suite writes temporary artifacts under `.codevision-e2e/`. Because the backend and dev server bind to local ports, run the suite in an environment that permits opening loopback sockets.
-
-   > When fixtures change, run `mvn -f backend/pom.xml -pl api -Dtest=CompiledFixtureSnapshotTest -Dcodevision.e2e.printHashes=true test` to reprint the export hashes, then update `frontend/e2e/regression-hashes.json` so the Playwright assertions continue to match the canonical artifacts.
+   The Playwright harness copies the deterministic fixture repo out of `backend/api/src/test/resources/fixtures/compiled-app`, initializes it as a local Git remote, launches the backend on port **8090** (H2/in-memory), and starts the Vite dev server on **4173**. It then runs the full “analyze → dashboard → database/diagrams” flow headlessly, enforcing a 120s SLA. The suite writes temporary artifacts under `.codevision-e2e/`. Because the backend and dev server bind to local ports, run the suite in an environment that permits opening loopback sockets.

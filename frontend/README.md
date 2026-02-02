@@ -41,7 +41,7 @@ Coverage reports are emitted to `frontend/coverage`. The Vitest config blocks th
 
 ## End-to-end Workflow Guard
 
-The Playwright suite spins up the backend on an in-memory H2 profile, starts the Vite dev server, drives the “analyze → dashboard → compiled analysis” flow, and validates the exported artifact hashes.
+The Playwright suite spins up the backend on an in-memory H2 profile, starts the Vite dev server, and drives the “analyze → dashboard → database/diagrams” flow.
 
 ```bash
 # one-time browser download
@@ -49,4 +49,4 @@ npx playwright install --with-deps chromium
 npm run test:e2e
 ```
 
-The harness copies the deterministic fixture repo into `.codevision-e2e/`, initializes it as a local Git remote, and verifies the SHA-256 hashes listed in `frontend/e2e/regression-hashes.json`. Run the suite in an environment that allows binding to localhost ports 8090 and 4173.
+The harness copies the deterministic fixture repo into `.codevision-e2e/`, initializes it as a local Git remote, and runs through the main dashboard tabs. Run the suite in an environment that allows binding to localhost ports 8090 and 4173.
