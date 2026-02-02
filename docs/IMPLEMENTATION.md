@@ -20,6 +20,7 @@ The primary analysis pipeline lives under `backend/api/src/main/java/com/codevis
 | `ClasspathBuilder` | Builds/validates `target/classes` per module, resolves a merged compile-scope classpath, and filters jars using `analysis.filters.excludeJars`. |
 | `BytecodeEntityScanner` | Uses ClassGraph to discover stereotypes, endpoints, Spring beans, JPA metadata, Kafka listeners, schedulers, and generator annotations from compiled bytecode. |
 | `DiagramBuilderService` | Emits module-aware class/component diagrams plus ERD/sequence outputs from the combined graph. |
+| `ControlFlowSequenceBuilder` | Builds control-flow aware sequence flows (if/else, loops, try/catch/finally, short-circuit conditions) and inlines inter-method calls with cycle/depth guards. |
 | `CompiledAnalysisService` | Optional pipeline that generates the full export bundle and persists compiled-analysis summary tables. |
 | `BytecodeCallGraphScanner` | (Compiled analysis only) Uses ASM to record `INVOKE*` instructions and aggregate them to class-level `DependencyEdge` instances of type `CALL`. |
 | `GraphMerger` | (Compiled analysis only) Merges source + bytecode nodes for export writers. |

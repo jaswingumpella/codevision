@@ -40,12 +40,12 @@ import com.github.javaparser.ast.stmt.ThrowStmt;
 import com.github.javaparser.ast.stmt.TryStmt;
 import com.github.javaparser.ast.stmt.WhileStmt;
 import com.github.javaparser.resolution.UnsolvedSymbolException;
+import com.github.javaparser.resolution.TypeSolver;
 import com.github.javaparser.resolution.declarations.ResolvedConstructorDeclaration;
 import com.github.javaparser.resolution.declarations.ResolvedMethodDeclaration;
 import com.github.javaparser.resolution.types.ResolvedReferenceType;
 import com.github.javaparser.symbolsolver.JavaSymbolSolver;
 import com.github.javaparser.symbolsolver.javaparsermodel.JavaParserFacade;
-import com.github.javaparser.symbolsolver.model.resolution.TypeSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.JavaParserTypeSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeSolver;
@@ -177,11 +177,24 @@ final class ControlFlowSequenceBuilder {
             boolean includeExternal,
             Deque<MethodKey> stack,
             int depth) {
-        if (callable == null || callable.getBody().isEmpty()) {
+        if (callable == null) {
             return FlowBlock.empty();
         }
-        BlockStmt body = callable.getBody().get();
+        BlockStmt body = extractBody(callable);
+        if (body == null) {
+            return FlowBlock.empty();
+        }
         return buildBlock(body, new MethodContext(methodKey, includeExternal, stack, depth));
+    }
+
+    private BlockStmt extractBody(CallableDeclaration<?> callable) {
+        if (callable instanceof MethodDeclaration method) {
+            return method.getBody().orElse(null);
+        }
+        if (callable instanceof ConstructorDeclaration constructorDeclaration) {
+            return constructorDeclaration.getBody();
+        }
+        return null;
     }
 
     private FlowBlock buildBlock(BlockStmt blockStmt, MethodContext context) {
@@ -710,7 +723,7 @@ final class ControlFlowSequenceBuilder {
             try {
                 ResolvedConstructorDeclaration resolved = creationExpr.resolve();
                 String signature = resolved.getQualifiedSignature();
-                String className = resolved.getDeclaringType().getQualifiedName();
+                String className = resolved.declaringType().getQualifiedName();
                 MethodKey key = new MethodKey(className, "<init>", signature);
                 return resolveDispatch(key);
             } catch (RuntimeException ex) {

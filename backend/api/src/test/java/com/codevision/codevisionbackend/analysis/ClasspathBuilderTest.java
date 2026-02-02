@@ -1,7 +1,6 @@
 package com.codevision.codevisionbackend.analysis;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.codevision.codevisionbackend.analysis.ClasspathBuilder.ClasspathDescriptor;
 import com.codevision.codevisionbackend.analysis.config.CompiledAnalysisProperties;
@@ -56,9 +55,10 @@ class ClasspathBuilderTest {
         CompiledAnalysisProperties properties = new CompiledAnalysisProperties();
         ClasspathBuilder builder = new ClasspathBuilder(properties, runner);
 
-        assertThatThrownBy(() -> builder.build(fixtureRoot, true))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("timeout");
+        ClasspathDescriptor descriptor = builder.build(fixtureRoot, true);
+        assertThat(descriptor.getClassesDirectory()).isEqualTo(fixtureRoot.resolve("target").resolve("classes"));
+        assertThat(descriptor.getClasspathEntries())
+                .contains(fixtureRoot.resolve("target").resolve("classes"));
     }
 
     private static final class RecordingRunner extends MavenCommandRunner {
