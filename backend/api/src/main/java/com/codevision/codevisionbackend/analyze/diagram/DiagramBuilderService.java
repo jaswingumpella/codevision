@@ -1,18 +1,14 @@
 package com.codevision.codevisionbackend.analyze.diagram;
 
-import com.codevision.codevisionbackend.analyze.diagram.CallGraph.GraphNode;
-import com.codevision.codevisionbackend.analyze.diagram.CallGraph.MethodInvocation;
 import com.codevision.codevisionbackend.analyze.scanner.ApiEndpointRecord;
 import com.codevision.codevisionbackend.analyze.scanner.ClassMetadataRecord;
 import com.codevision.codevisionbackend.analyze.scanner.DbAnalysisResult;
 import com.codevision.codevisionbackend.analyze.scanner.DbEntityRecord;
 import com.codevision.codevisionbackend.project.diagram.DiagramType;
 import java.nio.file.Path;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.Deque;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -32,7 +28,6 @@ public class DiagramBuilderService {
     private static final int MAX_COMPONENT_EDGES = 40;
     private static final int MAX_ENDPOINTS = 6;
     private static final int MAX_SEQUENCE_DEPTH = 8;
-    private static final int MAX_SEQUENCE_STEPS = 42;
     private static final String ROOT_MODULE_KEY = "/";
 
     private final CallGraphBuilder callGraphBuilder;
@@ -48,9 +43,11 @@ public class DiagramBuilderService {
             DbAnalysisResult dbAnalysisResult,
             List<Path> moduleRoots) {
         CallGraph graph = callGraphBuilder.build(repoRoot, classRecords);
+        ControlFlowSequenceBuilder sequenceBuilder =
+                new ControlFlowSequenceBuilder(repoRoot, moduleRoots, classRecords, MAX_SEQUENCE_DEPTH);
         List<ApiEndpointRecord> limitedEndpoints = selectEndpoints(apiEndpoints, MAX_ENDPOINTS);
         List<DiagramDefinition> diagrams = new ArrayList<>();
-        Map<String, List<String>> callFlows = buildCallFlows(apiEndpoints, graph, MAX_ENDPOINTS * 2);
+        Map<String, List<String>> callFlows = buildCallFlows(apiEndpoints, sequenceBuilder, MAX_ENDPOINTS * 2);
         ModuleMapping moduleMapping = buildModuleMapping(repoRoot, moduleRoots, classRecords);
 
         Optional.ofNullable(buildClassDiagram("Core Class Relationships", classRecords, graph, MAX_CLASS_NODES))
@@ -66,8 +63,8 @@ public class DiagramBuilderService {
         Optional.ofNullable(buildUseCaseDiagram(apiEndpoints)).ifPresent(diagrams::add);
         Optional.ofNullable(buildErdDiagram(dbAnalysisResult)).ifPresent(diagrams::add);
         Optional.ofNullable(buildDbSchemaDiagram(dbAnalysisResult)).ifPresent(diagrams::add);
-        diagrams.addAll(buildSequenceDiagrams(limitedEndpoints, graph, dbAnalysisResult, false));
-        diagrams.addAll(buildSequenceDiagrams(limitedEndpoints, graph, dbAnalysisResult, true));
+        diagrams.addAll(buildSequenceDiagrams(limitedEndpoints, sequenceBuilder, dbAnalysisResult, false));
+        diagrams.addAll(buildSequenceDiagrams(limitedEndpoints, sequenceBuilder, dbAnalysisResult, true));
 
         return new DiagramGenerationResult(diagrams, callFlows);
     }
@@ -686,7 +683,7 @@ public class DiagramBuilderService {
 
     private List<DiagramDefinition> buildSequenceDiagrams(
             List<ApiEndpointRecord> endpoints,
-            CallGraph graph,
+            ControlFlowSequenceBuilder sequenceBuilder,
             DbAnalysisResult dbAnalysis,
             boolean includeExternal) {
         if (endpoints == null || endpoints.isEmpty()) {
@@ -695,7 +692,8 @@ public class DiagramBuilderService {
         Map<String, List<String>> operationsByClass = dbAnalysis == null ? Map.of() : buildOperationsByClass(dbAnalysis);
         List<DiagramDefinition> definitions = new ArrayList<>();
         for (ApiEndpointRecord endpoint : endpoints) {
-            DiagramDefinition definition = buildSequenceDiagramForEndpoint(endpoint, graph, operationsByClass, includeExternal);
+            DiagramDefinition definition =
+                    buildSequenceDiagramForEndpoint(endpoint, sequenceBuilder, operationsByClass, includeExternal);
             if (definition != null) {
                 definitions.add(definition);
             }
@@ -716,19 +714,14 @@ public class DiagramBuilderService {
 
     private DiagramDefinition buildSequenceDiagramForEndpoint(
             ApiEndpointRecord endpoint,
-            CallGraph graph,
+            ControlFlowSequenceBuilder sequenceBuilder,
             Map<String, List<String>> operationsByClass,
             boolean includeExternal) {
         if (endpoint == null) {
             return null;
         }
-        String controller = endpoint.controllerClass();
-        if (controller == null || !graph.nodes().containsKey(controller)) {
-            return null;
-        }
-
         SequenceDiagramSources sources =
-                renderSequenceDiagram(endpoint, graph, operationsByClass, includeExternal);
+                renderSequenceDiagram(endpoint, sequenceBuilder, operationsByClass, includeExternal);
         if (sources == null) {
             return null;
         }
@@ -749,11 +742,10 @@ public class DiagramBuilderService {
 
     private SequenceDiagramSources renderSequenceDiagram(
             ApiEndpointRecord endpoint,
-            CallGraph graph,
+            ControlFlowSequenceBuilder sequenceBuilder,
             Map<String, List<String>> operationsByClass,
             boolean includeExternal) {
-        String controller = endpoint.controllerClass();
-        if (controller == null || !graph.nodes().containsKey(controller)) {
+        if (endpoint == null) {
             return null;
         }
 
@@ -777,7 +769,7 @@ public class DiagramBuilderService {
         if (includeExternal) {
             declaredParticipants.add("ExternalLib");
         }
-        int aliasCounter = 1;
+        java.util.concurrent.atomic.AtomicInteger aliasCounter = new java.util.concurrent.atomic.AtomicInteger(1);
 
         plantuml.append("== ")
                 .append(formatEndpointLabel(endpoint))
@@ -786,9 +778,10 @@ public class DiagramBuilderService {
                 .append(formatEndpointLabel(endpoint))
                 .append("\n");
 
+        String controller = endpoint.controllerClass();
         String controllerAlias = aliasByClass.get(controller);
         if (controllerAlias == null) {
-            controllerAlias = "C" + aliasCounter++;
+            controllerAlias = "C" + aliasCounter.getAndIncrement();
             aliasByClass.put(controller, controllerAlias);
         }
         if (declaredParticipants.add(controllerAlias)) {
@@ -819,80 +812,359 @@ public class DiagramBuilderService {
                 .append(endpoint.pathOrOperation())
                 .append("\n");
 
-        List<SequenceStep> steps =
-                buildSequenceSteps(controller, endpoint.controllerMethod(), graph, includeExternal);
-        int stepBudget = MAX_SEQUENCE_STEPS;
-        for (SequenceStep step : steps) {
-            if (stepBudget-- <= 0) {
-                break;
-            }
-            String sourceAlias = aliasByClass.get(step.source());
-            if (sourceAlias == null) {
-                sourceAlias = "N" + aliasCounter++;
-                aliasByClass.put(step.source(), sourceAlias);
-            }
-            if (declaredParticipants.add(sourceAlias)) {
-                plantuml.append("participant \"")
-                        .append(step.sourceLabel())
-                        .append("\" as ")
-                        .append(sourceAlias)
-                        .append("\n");
-                mermaid.append("    participant ")
-                        .append(sourceAlias)
-                        .append(" as \"")
-                        .append(step.sourceLabel())
-                        .append("\"\n");
-            }
-
-            String targetAlias = aliasByClass.get(step.target());
-            if (targetAlias == null) {
-                targetAlias = "N" + aliasCounter++;
-                aliasByClass.put(step.target(), targetAlias);
-            }
-            if (declaredParticipants.add(targetAlias)) {
-                plantuml.append("participant \"")
-                        .append(step.targetLabel())
-                        .append("\" as ")
-                        .append(targetAlias)
-                        .append("\n");
-                mermaid.append("    participant ")
-                        .append(targetAlias)
-                        .append(" as \"")
-                        .append(step.targetLabel())
-                        .append("\"\n");
-            }
-
-            plantuml.append(sourceAlias)
-                    .append(" -> ")
-                    .append(targetAlias)
-                    .append(" : ")
-                    .append(step.message())
-                    .append("\n");
-            mermaid.append("    ")
-                    .append(sourceAlias)
-                    .append("->>")
-                    .append(targetAlias)
-                    .append(": ")
-                    .append(step.message())
-                    .append("\n");
-
-            List<String> daoOps = operationsByClass.get(step.target());
-            if (daoOps != null && !daoOps.isEmpty()) {
-                String dbLabel = formatOperationLabel(daoOps);
-                plantuml.append(targetAlias)
-                        .append(" -> Database : ")
-                        .append(dbLabel)
-                        .append("\n");
-                mermaid.append("    ")
-                        .append(targetAlias)
-                        .append("->>Database: ")
-                        .append(dbLabel)
-                        .append("\n");
-            }
+        ControlFlowSequenceBuilder.SequenceFlow sequenceFlow = sequenceBuilder.build(endpoint, includeExternal);
+        if (sequenceFlow == null || sequenceFlow.root() == null) {
+            return null;
         }
+        renderFlow(
+                sequenceFlow.root(),
+                controller,
+                plantuml,
+                mermaid,
+                aliasByClass,
+                declaredParticipants,
+                operationsByClass,
+                includeExternal,
+                aliasCounter);
 
         plantuml.append("@enduml");
         return new SequenceDiagramSources(plantuml.toString(), mermaid.toString());
+    }
+
+    private void renderFlow(
+            ControlFlowSequenceBuilder.FlowBlock block,
+            String currentClass,
+            StringBuilder plantuml,
+            StringBuilder mermaid,
+            Map<String, String> aliasByClass,
+            Set<String> declaredParticipants,
+            Map<String, List<String>> operationsByClass,
+            boolean includeExternal,
+            java.util.concurrent.atomic.AtomicInteger aliasCounter) {
+        if (block == null) {
+            return;
+        }
+        for (ControlFlowSequenceBuilder.FlowElement element : block.elements()) {
+            if (element instanceof ControlFlowSequenceBuilder.CallFlow call) {
+                renderCall(call, currentClass, plantuml, mermaid, aliasByClass, declaredParticipants,
+                        operationsByClass, aliasCounter);
+                if (call.inline() != null) {
+                    renderFlow(call.inline(), call.targetClass(), plantuml, mermaid, aliasByClass, declaredParticipants,
+                            operationsByClass, includeExternal, aliasCounter);
+                }
+            } else if (element instanceof ControlFlowSequenceBuilder.DispatchFlow dispatch) {
+                renderDispatch(dispatch, currentClass, plantuml, mermaid, aliasByClass, declaredParticipants,
+                        operationsByClass, includeExternal, aliasCounter);
+            } else if (element instanceof ControlFlowSequenceBuilder.IfFlow ifFlow) {
+                renderIf(ifFlow, currentClass, plantuml, mermaid, aliasByClass, declaredParticipants,
+                        operationsByClass, includeExternal, aliasCounter);
+            } else if (element instanceof ControlFlowSequenceBuilder.LoopFlow loopFlow) {
+                renderLoop(loopFlow, currentClass, plantuml, mermaid, aliasByClass, declaredParticipants,
+                        operationsByClass, includeExternal, aliasCounter);
+            } else if (element instanceof ControlFlowSequenceBuilder.SwitchFlow switchFlow) {
+                renderSwitch(switchFlow, currentClass, plantuml, mermaid, aliasByClass, declaredParticipants,
+                        operationsByClass, includeExternal, aliasCounter);
+            } else if (element instanceof ControlFlowSequenceBuilder.TryFlow tryFlow) {
+                renderTry(tryFlow, currentClass, plantuml, mermaid, aliasByClass, declaredParticipants,
+                        operationsByClass, includeExternal, aliasCounter);
+            } else if (element instanceof ControlFlowSequenceBuilder.GroupFlow groupFlow) {
+                renderGroup(groupFlow, currentClass, plantuml, mermaid, aliasByClass, declaredParticipants,
+                        operationsByClass, includeExternal, aliasCounter);
+            } else if (element instanceof ControlFlowSequenceBuilder.NoteFlow noteFlow) {
+                renderNote(noteFlow.message(), currentClass, plantuml, mermaid, aliasByClass, declaredParticipants, aliasCounter);
+            } else if (element instanceof ControlFlowSequenceBuilder.ReturnFlow) {
+                renderNote("return", currentClass, plantuml, mermaid, aliasByClass, declaredParticipants, aliasCounter);
+            } else if (element instanceof ControlFlowSequenceBuilder.ThrowFlow) {
+                renderNote("throw", currentClass, plantuml, mermaid, aliasByClass, declaredParticipants, aliasCounter);
+            } else if (element instanceof ControlFlowSequenceBuilder.BreakFlow) {
+                renderNote("break", currentClass, plantuml, mermaid, aliasByClass, declaredParticipants, aliasCounter);
+            } else if (element instanceof ControlFlowSequenceBuilder.ContinueFlow) {
+                renderNote("continue", currentClass, plantuml, mermaid, aliasByClass, declaredParticipants, aliasCounter);
+            }
+        }
+    }
+
+    private void renderCall(
+            ControlFlowSequenceBuilder.CallFlow call,
+            String currentClass,
+            StringBuilder plantuml,
+            StringBuilder mermaid,
+            Map<String, String> aliasByClass,
+            Set<String> declaredParticipants,
+            Map<String, List<String>> operationsByClass,
+            java.util.concurrent.atomic.AtomicInteger aliasCounter) {
+        if (call == null) {
+            return;
+        }
+        String sourceClass = call.sourceClass() == null ? currentClass : call.sourceClass();
+        String targetClass = call.targetClass();
+        if (sourceClass == null || targetClass == null) {
+            return;
+        }
+        String sourceAlias = ensureParticipant(sourceClass, plantuml, mermaid, aliasByClass, declaredParticipants, aliasCounter);
+        String targetAlias = ensureParticipant(targetClass, plantuml, mermaid, aliasByClass, declaredParticipants, aliasCounter);
+        String label = call.methodName() == null ? "call" : call.methodName() + "()";
+
+        plantuml.append(sourceAlias)
+                .append(" -> ")
+                .append(targetAlias)
+                .append(" : ")
+                .append(label)
+                .append("\n");
+        mermaid.append("    ")
+                .append(sourceAlias)
+                .append("->>")
+                .append(targetAlias)
+                .append(": ")
+                .append(label)
+                .append("\n");
+
+        List<String> daoOps = operationsByClass.get(targetClass);
+        if (daoOps != null && !daoOps.isEmpty()) {
+            String dbLabel = formatOperationLabel(daoOps);
+            plantuml.append(targetAlias)
+                    .append(" -> Database : ")
+                    .append(dbLabel)
+                    .append("\n");
+            mermaid.append("    ")
+                    .append(targetAlias)
+                    .append("->>Database: ")
+                    .append(dbLabel)
+                    .append("\n");
+        }
+    }
+
+    private void renderDispatch(
+            ControlFlowSequenceBuilder.DispatchFlow dispatch,
+            String currentClass,
+            StringBuilder plantuml,
+            StringBuilder mermaid,
+            Map<String, String> aliasByClass,
+            Set<String> declaredParticipants,
+            Map<String, List<String>> operationsByClass,
+            boolean includeExternal,
+            java.util.concurrent.atomic.AtomicInteger aliasCounter) {
+        if (dispatch.cases().isEmpty()) {
+            renderCall(new ControlFlowSequenceBuilder.CallFlow(
+                    dispatch.sourceClass(), dispatch.targetClass(), dispatch.methodName(), null),
+                    currentClass, plantuml, mermaid, aliasByClass, declaredParticipants, operationsByClass, aliasCounter);
+            return;
+        }
+        boolean started = false;
+        for (ControlFlowSequenceBuilder.DispatchCase dispatchCase : dispatch.cases()) {
+            String label = "impl " + dispatchCase.label();
+            if (!started) {
+                plantuml.append("alt ").append(label).append("\n");
+                mermaid.append("    alt ").append(label).append("\n");
+                started = true;
+            } else {
+                plantuml.append("else ").append(label).append("\n");
+                mermaid.append("    else ").append(label).append("\n");
+            }
+            ControlFlowSequenceBuilder.CallFlow call = new ControlFlowSequenceBuilder.CallFlow(
+                    dispatch.sourceClass(), dispatchCase.label(), dispatch.methodName(), null);
+            renderCall(call, currentClass, plantuml, mermaid, aliasByClass, declaredParticipants, operationsByClass, aliasCounter);
+            renderFlow(dispatchCase.body(), dispatchCase.label(), plantuml, mermaid, aliasByClass, declaredParticipants,
+                    operationsByClass, includeExternal, aliasCounter);
+        }
+        if (started) {
+            plantuml.append("end\n");
+            mermaid.append("    end\n");
+        }
+    }
+
+    private void renderIf(
+            ControlFlowSequenceBuilder.IfFlow ifFlow,
+            String currentClass,
+            StringBuilder plantuml,
+            StringBuilder mermaid,
+            Map<String, String> aliasByClass,
+            Set<String> declaredParticipants,
+            Map<String, List<String>> operationsByClass,
+            boolean includeExternal,
+            java.util.concurrent.atomic.AtomicInteger aliasCounter) {
+        boolean hasElse = ifFlow.elseBlock() != null;
+        if (hasElse) {
+            plantuml.append("alt ").append(ifFlow.condition()).append("\n");
+            mermaid.append("    alt ").append(ifFlow.condition()).append("\n");
+        } else {
+            plantuml.append("opt ").append(ifFlow.condition()).append("\n");
+            mermaid.append("    opt ").append(ifFlow.condition()).append("\n");
+        }
+        renderFlow(ifFlow.thenBlock(), currentClass, plantuml, mermaid, aliasByClass, declaredParticipants,
+                operationsByClass, includeExternal, aliasCounter);
+        if (hasElse) {
+            plantuml.append("else\n");
+            mermaid.append("    else\n");
+            renderFlow(ifFlow.elseBlock(), currentClass, plantuml, mermaid, aliasByClass, declaredParticipants,
+                    operationsByClass, includeExternal, aliasCounter);
+        }
+        plantuml.append("end\n");
+        mermaid.append("    end\n");
+    }
+
+    private void renderLoop(
+            ControlFlowSequenceBuilder.LoopFlow loopFlow,
+            String currentClass,
+            StringBuilder plantuml,
+            StringBuilder mermaid,
+            Map<String, String> aliasByClass,
+            Set<String> declaredParticipants,
+            Map<String, List<String>> operationsByClass,
+            boolean includeExternal,
+            java.util.concurrent.atomic.AtomicInteger aliasCounter) {
+        plantuml.append("loop ").append(loopFlow.condition()).append("\n");
+        mermaid.append("    loop ").append(loopFlow.condition()).append("\n");
+        renderFlow(loopFlow.body(), currentClass, plantuml, mermaid, aliasByClass, declaredParticipants,
+                operationsByClass, includeExternal, aliasCounter);
+        plantuml.append("end\n");
+        mermaid.append("    end\n");
+    }
+
+    private void renderSwitch(
+            ControlFlowSequenceBuilder.SwitchFlow switchFlow,
+            String currentClass,
+            StringBuilder plantuml,
+            StringBuilder mermaid,
+            Map<String, String> aliasByClass,
+            Set<String> declaredParticipants,
+            Map<String, List<String>> operationsByClass,
+            boolean includeExternal,
+            java.util.concurrent.atomic.AtomicInteger aliasCounter) {
+        boolean started = false;
+        for (ControlFlowSequenceBuilder.CaseFlow caseFlow : switchFlow.cases()) {
+            String label = switchFlow.selector() + " == " + caseFlow.label();
+            if (!started) {
+                plantuml.append("alt ").append(label).append("\n");
+                mermaid.append("    alt ").append(label).append("\n");
+                started = true;
+            } else {
+                plantuml.append("else ").append(label).append("\n");
+                mermaid.append("    else ").append(label).append("\n");
+            }
+            renderFlow(caseFlow.body(), currentClass, plantuml, mermaid, aliasByClass, declaredParticipants,
+                    operationsByClass, includeExternal, aliasCounter);
+        }
+        if (started) {
+            plantuml.append("end\n");
+            mermaid.append("    end\n");
+        }
+    }
+
+    private void renderTry(
+            ControlFlowSequenceBuilder.TryFlow tryFlow,
+            String currentClass,
+            StringBuilder plantuml,
+            StringBuilder mermaid,
+            Map<String, String> aliasByClass,
+            Set<String> declaredParticipants,
+            Map<String, List<String>> operationsByClass,
+            boolean includeExternal,
+            java.util.concurrent.atomic.AtomicInteger aliasCounter) {
+        plantuml.append("group try\n");
+        mermaid.append("    alt try\n");
+        renderFlow(tryFlow.tryBlock(), currentClass, plantuml, mermaid, aliasByClass, declaredParticipants,
+                operationsByClass, includeExternal, aliasCounter);
+        if (tryFlow.catches().isEmpty()) {
+            plantuml.append("end\n");
+            mermaid.append("    end\n");
+        } else {
+            for (ControlFlowSequenceBuilder.CatchFlow catchFlow : tryFlow.catches()) {
+                plantuml.append("else catch ").append(catchFlow.label()).append("\n");
+                mermaid.append("    else catch ").append(catchFlow.label()).append("\n");
+                renderFlow(catchFlow.body(), currentClass, plantuml, mermaid, aliasByClass, declaredParticipants,
+                        operationsByClass, includeExternal, aliasCounter);
+            }
+            plantuml.append("end\n");
+            mermaid.append("    end\n");
+        }
+        if (tryFlow.finallyBlock() != null) {
+            plantuml.append("opt finally (always)\n");
+            mermaid.append("    opt finally (always)\n");
+            renderFlow(tryFlow.finallyBlock(), currentClass, plantuml, mermaid, aliasByClass, declaredParticipants,
+                    operationsByClass, includeExternal, aliasCounter);
+            plantuml.append("end\n");
+            mermaid.append("    end\n");
+        }
+    }
+
+    private void renderGroup(
+            ControlFlowSequenceBuilder.GroupFlow groupFlow,
+            String currentClass,
+            StringBuilder plantuml,
+            StringBuilder mermaid,
+            Map<String, String> aliasByClass,
+            Set<String> declaredParticipants,
+            Map<String, List<String>> operationsByClass,
+            boolean includeExternal,
+            java.util.concurrent.atomic.AtomicInteger aliasCounter) {
+        plantuml.append("group ").append(groupFlow.label()).append("\n");
+        mermaid.append("    opt ").append(groupFlow.label()).append("\n");
+        renderFlow(groupFlow.body(), currentClass, plantuml, mermaid, aliasByClass, declaredParticipants,
+                operationsByClass, includeExternal, aliasCounter);
+        plantuml.append("end\n");
+        mermaid.append("    end\n");
+    }
+
+    private void renderNote(
+            String message,
+            String currentClass,
+            StringBuilder plantuml,
+            StringBuilder mermaid,
+            Map<String, String> aliasByClass,
+            Set<String> declaredParticipants,
+            java.util.concurrent.atomic.AtomicInteger aliasCounter) {
+        if (message == null || message.isBlank()) {
+            return;
+        }
+        String targetAlias = ensureParticipant(
+                currentClass == null ? "Unknown" : currentClass,
+                plantuml,
+                mermaid,
+                aliasByClass,
+                declaredParticipants,
+                aliasCounter);
+        plantuml.append("note over ")
+                .append(targetAlias)
+                .append(" : ")
+                .append(message)
+                .append("\n");
+        mermaid.append("    Note over ")
+                .append(targetAlias)
+                .append(": ")
+                .append(message)
+                .append("\n");
+    }
+
+    private String ensureParticipant(
+            String className,
+            StringBuilder plantuml,
+            StringBuilder mermaid,
+            Map<String, String> aliasByClass,
+            Set<String> declaredParticipants,
+            java.util.concurrent.atomic.AtomicInteger aliasCounter) {
+        if (className == null || className.isBlank()) {
+            return "Unknown";
+        }
+        String alias = aliasByClass.get(className);
+        if (alias == null) {
+            alias = "N" + aliasCounter.getAndIncrement();
+            aliasByClass.put(className, alias);
+        }
+        if (declaredParticipants.add(alias)) {
+            String label = simpleName(className);
+            plantuml.append("participant \"")
+                    .append(label)
+                    .append("\" as ")
+                    .append(alias)
+                    .append("\n");
+            mermaid.append("    participant ")
+                    .append(alias)
+                    .append(" as \"")
+                    .append(label)
+                    .append("\"\n");
+        }
+        return alias;
     }
 
     private String sequenceTitle(ApiEndpointRecord endpoint, boolean includeExternal) {
@@ -924,64 +1196,20 @@ public class DiagramBuilderService {
         return "Endpoint";
     }
 
-    private List<SequenceStep> buildSequenceSteps(
-            String startClass, String startMethod, CallGraph graph, boolean includeExternal) {
-        List<SequenceStep> steps = new ArrayList<>();
-        if (startClass == null || !graph.nodes().containsKey(startClass)) {
-            return steps;
-        }
-        MethodPointer entry = new MethodPointer(startClass, sanitizeMethodName(startMethod));
-        Deque<MethodPointer> stack = new ArrayDeque<>();
-        traverseSequence(entry, graph, includeExternal, stack, steps, 0);
-        return steps;
-    }
-
-    private void traverseSequence(
-            MethodPointer current,
-            CallGraph graph,
-            boolean includeExternal,
-            Deque<MethodPointer> stack,
-            List<SequenceStep> steps,
-            int depth) {
-        if (current == null || depth >= MAX_SEQUENCE_DEPTH) {
-            return;
-        }
-        stack.push(current);
-        List<MethodInvocation> invocations = current.methodName() == null
-                ? List.of()
-                : graph.methodCallsFrom(current.className(), current.methodName());
-        for (MethodInvocation invocation : invocations) {
-            if (!includeExternal && invocation.targetExternal()) {
-                continue;
-            }
-            MethodPointer target =
-                    new MethodPointer(invocation.targetClass(), sanitizeMethodName(invocation.targetMethod()));
-            if (stack.contains(target)) {
-                steps.add(SequenceStep.cycleMethod(current, target, graph.nodes().get(invocation.targetClass())));
-                continue;
-            }
-            steps.add(SequenceStep.callMethod(current, target, graph.nodes().get(invocation.targetClass())));
-            traverseSequence(target, graph, includeExternal, stack, steps, depth + 1);
-        }
-        stack.pop();
-    }
-
-    private Map<String, List<String>> buildCallFlows(List<ApiEndpointRecord> endpoints, CallGraph graph, int limit) {
-        if (endpoints == null) {
+    private Map<String, List<String>> buildCallFlows(
+            List<ApiEndpointRecord> endpoints, ControlFlowSequenceBuilder sequenceBuilder, int limit) {
+        if (endpoints == null || sequenceBuilder == null) {
             return Map.of();
         }
         Map<String, List<String>> flows = new LinkedHashMap<>();
         endpoints.stream()
                 .limit(Math.max(limit, 0))
                 .forEach(endpoint -> {
-                    String controller = endpoint.controllerClass();
-                    if (controller == null || !graph.nodes().containsKey(controller)) {
+                    ControlFlowSequenceBuilder.SequenceFlow sequenceFlow = sequenceBuilder.build(endpoint, false);
+                    if (sequenceFlow == null) {
                         return;
                     }
-                    List<String> flow = buildSequenceSteps(controller, endpoint.controllerMethod(), graph, false).stream()
-                            .map(step -> step.summaryLabel())
-                            .limit(12)
-                            .collect(Collectors.toList());
+                    List<String> flow = sequenceBuilder.summarize(sequenceFlow, Math.max(limit, 0));
                     if (!flow.isEmpty()) {
                         flows.put(formatEndpointLabel(endpoint), flow);
                     }
@@ -1063,8 +1291,6 @@ public class DiagramBuilderService {
 
     private record SequenceDiagramSources(String plantuml, String mermaid) {}
 
-    private record MethodPointer(String className, String methodName) {}
-
     private record ModuleKey(String key, Path relativePath, int depth) {}
 
     private record ModuleMapping(
@@ -1077,104 +1303,4 @@ public class DiagramBuilderService {
         }
     }
 
-    private static class SequenceStep {
-        private final String source;
-        private final String sourceMethod;
-        private final String target;
-        private final String targetMethod;
-        private final String message;
-        private final String sourceLabel;
-        private final String targetLabel;
-
-        private SequenceStep(
-                String source,
-                String sourceMethod,
-                String target,
-                String targetMethod,
-                String message,
-                String sourceLabel,
-                String targetLabel) {
-            this.source = source;
-            this.sourceMethod = sourceMethod;
-            this.target = target;
-            this.targetMethod = targetMethod;
-            this.message = message;
-            this.sourceLabel = sourceLabel;
-            this.targetLabel = targetLabel;
-        }
-
-        static SequenceStep callMethod(MethodPointer source, MethodPointer target, GraphNode targetNode) {
-            String label = formatMethodLabel(target.methodName());
-            return new SequenceStep(
-                    source.className(),
-                    source.methodName(),
-                    target.className(),
-                    target.methodName(),
-                    label,
-                    simple(source.className()),
-                    targetNode == null ? simple(target.className()) : targetNode.simpleName());
-        }
-
-        static SequenceStep cycleMethod(MethodPointer source, MethodPointer target, GraphNode targetNode) {
-            return new SequenceStep(
-                    source.className(),
-                    source.methodName(),
-                    target.className(),
-                    target.methodName(),
-                    "[cycle -> " + cycleLabel(target) + "]",
-                    simple(source.className()),
-                    targetNode == null ? simple(target.className()) : targetNode.simpleName());
-        }
-
-        private static String formatMethodLabel(String methodName) {
-            if (methodName == null || methodName.isBlank()) {
-                return "call";
-            }
-            return methodName.endsWith("()") ? methodName : methodName + "()";
-        }
-
-        private static String cycleLabel(MethodPointer pointer) {
-            if (pointer == null || pointer.className() == null) {
-                return "call";
-            }
-            if (pointer.methodName() != null) {
-                return formatMethodLabel(pointer.methodName());
-            }
-            return simple(pointer.className());
-        }
-
-        private static String simple(String value) {
-            if (value == null) {
-                return "";
-            }
-            int idx = value.lastIndexOf('.');
-            return idx >= 0 ? value.substring(idx + 1) : value;
-        }
-
-        public String source() {
-            return source;
-        }
-
-        public String target() {
-            return target;
-        }
-
-        public String message() {
-            return message;
-        }
-
-        public String sourceLabel() {
-            return sourceLabel;
-        }
-
-        public String targetLabel() {
-            return targetLabel;
-        }
-
-        public String summaryLabel() {
-            String left = sourceLabel + (sourceMethod == null ? "" : "." + formatMethodLabel(sourceMethod));
-            String right = targetLabel + (targetMethod == null ? "" : "." + formatMethodLabel(targetMethod));
-            return left + " -> " + right;
-        }
-    }
 }
