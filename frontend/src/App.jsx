@@ -885,6 +885,13 @@ const handleSearchNavigate = useCallback(
     handleExport(diagram.svgDownloadUrl, fileName);
   };
 
+  const openDiagramInNewTab = (diagram) => {
+    if (!diagram || !diagram.svgAvailable || !diagram.svgDownloadUrl) {
+      return;
+    }
+    window.open(diagram.svgDownloadUrl, '_blank', 'noopener');
+  };
+
   const tabItems = useMemo(
     () => [
       { value: 'overview', label: 'Overview', disabled: false },
@@ -1226,6 +1233,7 @@ const handleSearchNavigate = useCallback(
                 onSelectDiagram={setActiveDiagramId}
                 svgContent={diagramSvgContent}
                 onDownloadSvg={downloadDiagramSvg}
+                onOpenSvg={openDiagramInNewTab}
                 sequenceIncludeExternal={sequenceIncludeExternal}
                 onSequenceToggle={setSequenceIncludeExternal}
               />

@@ -20,6 +20,7 @@ const DiagramsPanel = ({
   onSelectDiagram,
   svgContent,
   onDownloadSvg,
+  onOpenSvg,
   sequenceIncludeExternal,
   onSequenceToggle
 }) => {
@@ -60,7 +61,7 @@ const DiagramsPanel = ({
                 <div className="diagram-card-title">
                   <strong>{diagram.title || 'Diagram'}</strong>
                   {diagram.metadata?.includeExternal ? (
-                    <span className="badge badge-info">codeviz2</span>
+                    <span className="badge badge-info">external deps</span>
                   ) : null}
                 </div>
                 <p className="diagram-card-hint">
@@ -139,6 +140,14 @@ const DiagramsPanel = ({
             <button type="button" onClick={() => onDownloadSvg(activeDiagram)} disabled={!activeDiagram.svgAvailable}>
               Download SVG
             </button>
+            <button
+              type="button"
+              className="ghost-button"
+              onClick={() => onOpenSvg(activeDiagram)}
+              disabled={!activeDiagram.svgAvailable || !activeDiagram.svgDownloadUrl}
+            >
+              Open in new tab
+            </button>
           </div>
         </div>
         <div className="diagram-svg">
@@ -194,7 +203,7 @@ const DiagramsPanel = ({
               checked={sequenceIncludeExternal}
               onChange={(event) => onSequenceToggle(event.target.checked)}
             />
-            Show codeviz2 externals
+            Show external dependencies
           </label>
         </div>
       ) : null}

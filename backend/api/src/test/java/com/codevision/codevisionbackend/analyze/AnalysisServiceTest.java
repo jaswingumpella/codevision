@@ -178,7 +178,7 @@ class AnalysisServiceTest {
                 bytecodeEntityScanner,
                 compiledAnalysisProperties);
 
-        BuildInfo buildInfo = new BuildInfo("com.barclays", "demo-app", "1.0.0", "21");
+        BuildInfo buildInfo = new BuildInfo("com.example", "demo-app", "1.0.0", "21");
         BuildMetadata metadata = new BuildMetadata(buildInfo, List.of(repoDir));
 
         Project project = new Project("https://example.com/repo.git", "demo-app", "main", OffsetDateTime.now());
@@ -188,14 +188,14 @@ class AnalysisServiceTest {
         when(projectSnapshotService.findLatestSnapshotEntity(101L)).thenReturn(Optional.empty());
 
         List<ClassMetadataRecord> classRecords = List.of(new ClassMetadataRecord(
-                "com.barclays.demo.Controller",
-                "com.barclays.demo",
+                "com.example.demo.Controller",
+                "com.example.demo",
                 "Controller",
                 List.of("RestController"),
                 List.of("Serializable"),
                 "CONTROLLER",
                 SourceSet.MAIN,
-                "src/main/java/com/barclays/demo/Controller.java",
+                "src/main/java/com/example/demo/Controller.java",
                 true));
         when(javaSourceScanner.scan(Mockito.eq(repoDir), Mockito.anyList())).thenReturn(classRecords);
 
@@ -203,7 +203,7 @@ class AnalysisServiceTest {
         when(yamlScanner.scan(repoDir)).thenReturn(metadataDump);
 
         List<ApiEndpointRecord> endpointRecords = List.of(new ApiEndpointRecord(
-                "REST", "GET", "/demo", "com.barclays.demo.Controller", "getDemo", List.of()));
+                "REST", "GET", "/demo", "com.example.demo.Controller", "getDemo", List.of()));
         when(apiScanner.scan(Mockito.eq(repoDir), Mockito.anyList(), Mockito.eq(metadataDump)))
                 .thenReturn(endpointRecords);
 
@@ -213,7 +213,7 @@ class AnalysisServiceTest {
 
         List<DbEntityRecord> entityRecords = List.of(new DbEntityRecord(
                 "Customer",
-                "com.barclays.demo.Customer",
+                "com.example.demo.Customer",
                 "customer",
                 List.of("id"),
                 List.of(),
@@ -223,11 +223,11 @@ class AnalysisServiceTest {
 
         DbAnalysisResult daoAnalysisResult = new DbAnalysisResult(
                 entityRecords,
-                Map.of("Customer", List.of("com.barclays.demo.CustomerRepository")),
+                Map.of("Customer", List.of("com.example.demo.CustomerRepository")),
                 Map.of(
-                        "com.barclays.demo.CustomerRepository",
+                        "com.example.demo.CustomerRepository",
                         List.of(new DaoOperationRecord(
-                                "com.barclays.demo.CustomerRepository",
+                                "com.example.demo.CustomerRepository",
                                 "findAll",
                                 "SELECT",
                                 "Customer",
@@ -240,8 +240,8 @@ class AnalysisServiceTest {
         when(piiPciInspector.scan(Mockito.eq(repoDir), Mockito.anyList())).thenReturn(piiRecords);
 
         List<LogStatementRecord> logRecords = List.of(new LogStatementRecord(
-                "com.barclays.demo.Controller",
-                "src/main/java/com/barclays/demo/Controller.java",
+                "com.example.demo.Controller",
+                "src/main/java/com/example/demo/Controller.java",
                 "INFO",
                 42,
                 "Processing request {}",
@@ -280,7 +280,7 @@ class AnalysisServiceTest {
         verify(classMetadataRepository).deleteByProject(project);
         verify(classMetadataRepository)
                 .saveAll(Mockito.<List<ClassMetadata>>argThat(list -> list.size() == 1
-                        && "com.barclays.demo.Controller".equals(list.get(0).getFullyQualifiedName())));
+                        && "com.example.demo.Controller".equals(list.get(0).getFullyQualifiedName())));
         verify(apiEndpointRepository).deleteByProject(project);
         verify(apiEndpointRepository).saveAll(Mockito.anyList());
         verify(assetImageRepository).deleteByProject(project);

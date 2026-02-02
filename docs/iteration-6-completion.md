@@ -6,7 +6,7 @@
 - Extend the React dashboard with an interactive Diagrams tab that surfaces SVG previews, source code, and filters/toggles.
 
 ## Backend Deliverables
-- **Diagram pipeline:** Added `DiagramBuilderService` with a JavaParser-powered call graph builder that captures method-level invocations (including self-calls), guards against cycles, and emits diagram definitions + call flow summaries. Sequence diagrams get both internal-only and `codeviz2`-external variants, and every diagram has synchronized PlantUML/Mermaid sources.
+- **Diagram pipeline:** Added `DiagramBuilderService` with a JavaParser-powered call graph builder that captures method-level invocations (including self-calls), guards against cycles, and emits diagram definitions + call flow summaries. Sequence diagrams get both internal-only and external-dependency variants, and every diagram has synchronized PlantUML/Mermaid sources.
 - **Per-endpoint call flows:** Sequence diagrams and `callFlows` entries are now emitted per REST/SOAP/legacy endpoint (using `HTTP_METHOD pathOrOperation` labels) so downstream consumers can reason about individual surfaces instead of a single merged flow. Arrow labels come straight from the recorded method names and DAO hops surface the CRUD methods that touch the shared Database participant, eliminating the generic “call” placeholders we had in earlier spikes.
 - **Class/component heuristics:** When the graph lacks explicit edges, we fall back to heuristic arrows (Controller→Service→Repository→Entity). Component nodes now include representative class names so documentation readers can immediately see which code was grouped.
 - **Persistence + storage:** Introduced the `diagram` table, `DiagramService`, and filesystem-backed SVG storage (`diagram.storage.root`, default `./data/diagrams`). Diagrams are regenerated each analysis run, saved alongside metadata JSON, and hydrated into snapshots when missing.
@@ -16,8 +16,8 @@
 
 ## Frontend Deliverables
 - **Diagrams tab:** New tab with type selectors (Class/Component/Use Case/ERD/DB Schema/Sequence), diagram list sidebar, SVG preview panel, PlantUML/Mermaid source toggles, and download button.
-- **Endpoint filtering:** Sequence diagrams can be filtered by endpoint and by whether they include `codeviz2` externals, aligning the UI with the per-endpoint backend data.
-- **Sequence toggle:** Adds an inline switch to include/exclude `codeviz2` externals by choosing the appropriate diagram variant.
+- **Endpoint filtering:** Sequence diagrams can be filtered by endpoint and by whether they include external dependency calls, aligning the UI with the per-endpoint backend data.
+- **Sequence toggle:** Adds an inline switch to include/exclude external dependency calls by choosing the appropriate diagram variant.
 - **Responsive layout:** Diagram cards and SVG panes resize gracefully between desktop and tablet widths; the analyzer form and diagram viewer no longer overflow horizontally.
 - **SVG streaming:** Fetches SVG content via authenticated AJAX and renders inline, caching responses per diagram ID.
 - **State management:** Diagrams are fetched post-analysis, stored per type, and integrated with the existing error/loading lifecycle; tests updated to expect the additional API calls.

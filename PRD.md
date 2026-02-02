@@ -151,7 +151,7 @@ All analyzers and diagram builders must:
 
 * Track visited / visiting nodes per traversal path
 * Stop recursion when a node is already on the path
-* Insert a placeholder in sequence diagrams such as `... (cyclic reference to com.barclays.CustomerService.updateCustomer())`
+* Insert a placeholder in sequence diagrams such as `... (cyclic reference to com.example.CustomerService.updateCustomer())`
 * Never infinite-loop or stack overflow due to cycles
 
 This applies to:
@@ -299,7 +299,7 @@ This applies to:
 **User code heuristic**
 
 * All Java sources are ingested; no packages are excluded.
-* We flag classes whose package starts with `com.barclays` or `com.codeviz2` as “first-party” (`userCode = true`) so diagrams and tables can highlight them.
+* Source classes are treated as “first-party” (`userCode = true`) so diagrams and tables can highlight them (no hardcoded package prefixes).
 * Additional prefixes can be introduced via configuration in later iterations.
 
 **Class Metadata**
@@ -605,7 +605,7 @@ Produce rich architectural visualizations for onboarding, audit, and documentati
    * Cycle-safe:
 
      * If a method call repeats within the current traversal path, insert a `"(cyclic reference...)"` node rather than recurse
-   * Generated per endpoint so every REST/SOAP/legacy operation gets its own visualisation and call-flow summary (labelled `HTTP_METHOD pathOrOperation`). Metadata captures whether the diagram includes codeviz2 externals, making it easy for the UI to offer a toggle between internal-only and “full” flows. DAO arrows into the shared “Database” participant display the concrete repository method list (e.g., `findById(), save(), delete()`) so reviewers understand which persistence operations fire inside the step.
+   * Generated per endpoint so every REST/SOAP/legacy operation gets its own visualisation and call-flow summary (labelled `HTTP_METHOD pathOrOperation`). Metadata captures whether the diagram includes external dependency calls, making it easy for the UI to offer a toggle between internal-only and “full” flows. DAO arrows into the shared “Database” participant display the concrete repository method list (e.g., `findById(), save(), delete()`) so reviewers understand which persistence operations fire inside the step.
    * If the call graph truly lacks a method edge (reflection or dynamic proxies), we stop the branch instead of emitting placeholder “call” arrows so diagrams stay trustworthy.
 
 **Outputs**
@@ -1327,7 +1327,7 @@ Cyclic Safety: Many codebases contain cyclic relationships (mutual class depende
 
 6.1 Repository Ingestion: (Iteration 1) The backend provides a POST /analyze endpoint to initiate analysis of a repo. It takes a JSON body with the repoUrl. On invocation, the service clones the repository to a temp location. If credentials are provided in config, they are used for the clone (otherwise assume public access). The root POM is parsed to detect if this is a multi-module project; if so, all sub-module directories are discovered and their source code will be included. A new entry is created in the project table (or an existing one is updated) with the project name (derived from the repo URL), the repo URL, and timestamp. Overwriting an existing project triggers deletion of old analysis data for that project (to avoid stale data). The /analyze call is synchronous for now – the client will receive a response when analysis is complete. (In the UI, a loading indicator is shown during this process.) Upon success, the response includes the projectId and a status. The API is secured by the API key filter (if a key is set) to prevent unauthorized triggering of analyses.
 
-6.2 Code Parsing & Metadata Extraction: (Iteration 2) Once the repo is cloned, CodeDocGen scans through all Java source files in src/main/java (and also test sources in src/test/java). It uses JavaParser to parse each Java file into an AST and extract class definitions. For each class, a ClassMetadata record is created capturing: the fully-qualified name, package, list of annotation names, list of implemented interfaces, and an inferred stereotype role. Stereotype heuristics are based on naming and annotations (e.g. classes annotated @Controller are Controllers, those extending Spring Data interfaces are Repositories, classes annotated @Entity are Entities, etc.). We also note whether the class came from main or test source (to track test coverage), and mark it as userCode=true if it belongs to configured first-party packages (by default, example prefixes like com.barclays or the tool’s own com.codeviz2, modifiable via config). All classes in the repo are recorded; we do not exclude any packages by default.
+6.2 Code Parsing & Metadata Extraction: (Iteration 2) Once the repo is cloned, CodeDocGen scans through all Java source files in src/main/java (and also test sources in src/test/java). It uses JavaParser to parse each Java file into an AST and extract class definitions. For each class, a ClassMetadata record is created capturing: the fully-qualified name, package, list of annotation names, list of implemented interfaces, and an inferred stereotype role. Stereotype heuristics are based on naming and annotations (e.g. classes annotated @Controller are Controllers, those extending Spring Data interfaces are Repositories, classes annotated @Entity are Entities, etc.). We also note whether the class came from main or test source (to track test coverage), and source classes are treated as first-party by default (configurable via allowlists). All classes in the repo are recorded; we do not exclude any packages by default.
 
 In addition to source parsing, the system can augment this with library class parsing for selected dependencies. After building a list of direct dependency artifacts from the Maven POM, the tool will inspect those JARs for classes whose package matches a user-defined prefix list. For each such class, a limited metadata record is created (since source might not be available): at least the class name, package, and perhaps method signatures via bytecode analysis. These classes can be flagged as userCode=false (external) or even userCode=true if they are part of an internal shared library. This allows diagrams and call graphs to include important external classes instead of treating them as black boxes.
 

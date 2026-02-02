@@ -26,7 +26,7 @@ class BuildMetadataExtractorTest {
                 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
                          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
                   <modelVersion>4.0.0</modelVersion>
-                  <groupId>com.barclays</groupId>
+                  <groupId>com.example</groupId>
                   <artifactId>demo-app</artifactId>
                   <version>1.2.3</version>
                   <properties>
@@ -46,7 +46,7 @@ class BuildMetadataExtractorTest {
                          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
                   <modelVersion>4.0.0</modelVersion>
                   <parent>
-                    <groupId>com.barclays</groupId>
+                    <groupId>com.example</groupId>
                     <artifactId>demo-app</artifactId>
                     <version>1.2.3</version>
                   </parent>
@@ -57,7 +57,7 @@ class BuildMetadataExtractorTest {
         BuildMetadataExtractor.BuildMetadata metadata = extractor.extract(tempDir);
 
         BuildInfo buildInfo = metadata.buildInfo();
-        assertEquals("com.barclays", buildInfo.groupId());
+        assertEquals("com.example", buildInfo.groupId());
         assertEquals("demo-app", buildInfo.artifactId());
         assertEquals("1.2.3", buildInfo.version());
         assertEquals("17", buildInfo.javaVersion());

@@ -55,9 +55,7 @@ diagram:
     enabled: true
 
 analysis:
-  acceptPackages:
-    - com.barclays
-    - com.codeviz2
+  acceptPackages: []
   includeDependencies: true
   maxCallDepth: 8
   compile:

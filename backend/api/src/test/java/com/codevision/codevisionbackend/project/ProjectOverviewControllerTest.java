@@ -40,7 +40,7 @@ class ProjectOverviewControllerTest {
                 "demo",
                 "https://example.com/repo.git",
                 OffsetDateTime.now(),
-                new BuildInfo("com.barclays", "demo", "1.0.0", "21"),
+                new BuildInfo("com.example", "demo", "1.0.0", "21"),
                 List.of(),
                 MetadataDump.empty(),
                 emptyDbAnalysis(),

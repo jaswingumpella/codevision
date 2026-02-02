@@ -39,27 +39,28 @@ public class ClasspathBuilder {
         Path classesDir = normalizedRoot.resolve("target").resolve("classes");
         if (!Files.isDirectory(classesDir) && properties.getCompile().isAuto()) {
             log.info("Compiled classes missing at {}. Triggering mvn compile.", classesDir);
-            runMaven(normalizedRoot, List.of(
+            runMavenSafely(normalizedRoot, List.of(
                     properties.getCompile().getMvnExecutable(),
                     "-q",
                     "-DskipTests",
-                    "compile"));
+                    "compile"), "compile");
         }
 
         if (!Files.isDirectory(classesDir)) {
-            throw new IllegalStateException("Classes directory not found at " + classesDir);
+            log.warn("Classes directory not found at {}. Bytecode scans will be skipped.", classesDir);
+            return toDescriptor(normalizedRoot, classesDir, List.of());
         }
 
         List<Path> entries = new ArrayList<>();
         entries.add(classesDir);
         if (includeDependencies) {
             Path classpathFile = normalizedRoot.resolve("target").resolve("classpath.txt");
-            runMaven(normalizedRoot, List.of(
+            runMavenSafely(normalizedRoot, List.of(
                     properties.getCompile().getMvnExecutable(),
                     "-q",
                     "-DincludeScope=compile",
                     "-DoutputFile=target/classpath.txt",
-                    "dependency:build-classpath"));
+                    "dependency:build-classpath"), "build dependency classpath");
             entries.addAll(readClasspathEntries(classpathFile));
         }
 
@@ -81,11 +82,11 @@ public class ClasspathBuilder {
             Path classesDir = normalizedRoot.resolve("target").resolve("classes");
             if (!Files.isDirectory(classesDir) && properties.getCompile().isAuto()) {
                 log.info("Compiled classes missing at {}. Triggering mvn compile.", classesDir);
-                runMaven(normalizedRoot, List.of(
+                runMavenSafely(normalizedRoot, List.of(
                         properties.getCompile().getMvnExecutable(),
                         "-q",
                         "-DskipTests",
-                        "compile"));
+                        "compile"), "compile");
             }
             if (Files.isDirectory(classesDir)) {
                 entries.add(classesDir);
@@ -96,18 +97,20 @@ public class ClasspathBuilder {
 
             if (includeDependencies) {
                 Path classpathFile = normalizedRoot.resolve("target").resolve("classpath.txt");
-                runMaven(normalizedRoot, List.of(
+                runMavenSafely(normalizedRoot, List.of(
                         properties.getCompile().getMvnExecutable(),
                         "-q",
                         "-DincludeScope=compile",
                         "-DoutputFile=target/classpath.txt",
-                        "dependency:build-classpath"));
+                        "dependency:build-classpath"), "build dependency classpath");
                 entries.addAll(readClasspathEntries(classpathFile));
             }
         }
 
         if (!foundClasses) {
-            throw new IllegalStateException("No classes directories found under " + repoRoot.toAbsolutePath().normalize());
+            Path normalizedRepo = repoRoot.toAbsolutePath().normalize();
+            log.warn("No classes directories found under {}. Bytecode scans will be skipped.", normalizedRepo);
+            return toDescriptor(normalizedRepo, normalizedRepo.resolve("target").resolve("classes"), List.of());
         }
 
         List<Path> filteredEntries = filterEntries(entries);
@@ -144,6 +147,17 @@ public class ClasspathBuilder {
     private void runMaven(Path workingDir, List<String> command) {
         Duration timeout = Duration.ofSeconds(Math.max(30, properties.getSafety().getMaxRuntimeSeconds()));
         commandRunner.run(workingDir, command, timeout, properties.getSafety().getMaxHeapMb());
+    }
+
+    private boolean runMavenSafely(Path workingDir, List<String> command, String purpose) {
+        try {
+            runMaven(workingDir, command);
+            return true;
+        } catch (RuntimeException ex) {
+            log.warn("Maven command failed while trying to {}. Bytecode scans will continue if possible.", purpose);
+            log.debug("Maven command error: {}", ex.getMessage());
+            return false;
+        }
     }
 
     private List<Path> filterEntries(List<Path> entries) {

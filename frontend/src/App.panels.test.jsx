@@ -371,6 +371,7 @@ describe('DiagramsPanel', () => {
         onSelectDiagram={vi.fn()}
         svgContent={{ 2: '<svg>mock</svg>' }}
         onDownloadSvg={vi.fn()}
+        onOpenSvg={vi.fn()}
         sequenceIncludeExternal={false}
         onSequenceToggle={vi.fn()}
       />
@@ -398,6 +399,7 @@ describe('DiagramsPanel', () => {
         onSelectDiagram={vi.fn()}
         svgContent={{}}
         onDownloadSvg={vi.fn()}
+        onOpenSvg={vi.fn()}
         sequenceIncludeExternal={false}
         onSequenceToggle={vi.fn()}
       />

@@ -44,7 +44,7 @@
   5. Reload `/project/{id}/overview` directly (with curl or browser) to verify the JSON snapshot.
 
 ## Known Constraints
-- The `userCode` heuristic currently treats packages under `com.barclays` and `com.codeviz2` as first-party; all other packages are scanned and stored but flagged as external.
+- Source classes are treated as first-party by default (no hardcoded package prefixes); external packages can be configured if needed.
 - WSDL/XSD assets are captured in the metadata dump but are not yet rendered in the UI; the dedicated SOAP viewer is scheduled for Iteration 3.
 - Static media assets (images, diagrams checked into the repo) are not yet inventoried. Iteration 3 adds the first image-scanning pass.
 - Gradle builds remain out of scope until a later iteration.

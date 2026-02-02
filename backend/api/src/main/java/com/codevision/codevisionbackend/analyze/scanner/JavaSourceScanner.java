@@ -44,7 +44,6 @@ public class JavaSourceScanner {
     private static final Set<String> ENTITY_ANNOTATIONS = Set.of("Entity", "Document");
     private static final Set<String> CONFIG_ANNOTATIONS = Set.of("Configuration");
 
-    private static final List<String> USER_CODE_PREFIXES = List.of("com.barclays", "com.codeviz2");
     private final JavaParser javaParser;
 
     public JavaSourceScanner() {
@@ -115,7 +114,7 @@ public class JavaSourceScanner {
             }
             String fullyQualifiedName = type.getFullyQualifiedName()
                     .orElseGet(() -> composeFqn(packageName, type.getNameAsString()));
-            boolean userCode = isUserCodePackage(fullyQualifiedName);
+            boolean userCode = true;
 
             List<String> annotations = extractAnnotations(type);
             List<String> implementedInterfaces = extractImplementedInterfaces(type);
@@ -228,25 +227,6 @@ public class JavaSourceScanner {
                 if (normalized.endsWith(target.toLowerCase(Locale.ROOT))) {
                     return true;
                 }
-            }
-        }
-        return false;
-    }
-
-    private boolean isUserCodePackage(String fullyQualifiedName) {
-        if (fullyQualifiedName == null || fullyQualifiedName.isBlank()) {
-            return false;
-        }
-        String normalized = fullyQualifiedName.trim();
-        if (USER_CODE_PREFIXES.isEmpty()) {
-            return true;
-        }
-        for (String prefix : USER_CODE_PREFIXES) {
-            if (normalized.equals(prefix)) {
-                return true;
-            }
-            if (normalized.startsWith(prefix + ".") || normalized.startsWith(prefix + "$")) {
-                return true;
             }
         }
         return false;

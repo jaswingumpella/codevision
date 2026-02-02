@@ -810,6 +810,10 @@ public class AnalysisService {
                             repoRoot,
                             moduleRoots,
                             compiledAnalysisProperties.isIncludeDependencies());
+            if (classpath.getClasspathEntries().isEmpty()) {
+                log.warn("Bytecode entity scan skipped because no classpath entries were resolved.");
+                return List.of();
+            }
             GraphModel model = bytecodeEntityScanner.scan(
                     classpath,
                     compiledAnalysisProperties.getAcceptPackages());

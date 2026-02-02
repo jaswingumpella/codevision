@@ -1,7 +1,6 @@
 package com.codevision.codevisionbackend.analyze.scanner;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.codevision.codevisionbackend.analyze.scanner.ClassMetadataRecord.SourceSet;
@@ -18,7 +17,7 @@ class JavaSourceScannerTest {
 
     @Test
     void scanCollectsAllClassesAndKeepsUserCodeFlag(@TempDir Path repoRoot) throws Exception {
-        Path mainSource = repoRoot.resolve("src/main/java/com/barclays/demo");
+        Path mainSource = repoRoot.resolve("src/main/java/com/example/demo");
         Path externalSource = repoRoot.resolve("src/main/java/com/example/external");
         Files.createDirectories(mainSource);
         Files.createDirectories(externalSource);
@@ -26,7 +25,7 @@ class JavaSourceScannerTest {
         Files.writeString(
                 mainSource.resolve("MyController.java"),
                 """
-                package com.barclays.demo;
+                package com.example.demo;
 
                 import org.springframework.web.bind.annotation.RestController;
 
@@ -38,7 +37,7 @@ class JavaSourceScannerTest {
         Files.writeString(
                 mainSource.resolve("MyService.java"),
                 """
-                package com.barclays.demo;
+                package com.example.demo;
 
                 import org.springframework.stereotype.Service;
 
@@ -69,7 +68,7 @@ class JavaSourceScannerTest {
         assertTrue(controller.isPresent());
         assertEquals("CONTROLLER", controller.get().stereotype());
         assertEquals(SourceSet.MAIN, controller.get().sourceSet());
-        assertEquals("src/main/java/com/barclays/demo/MyController.java", controller.get().relativePath());
+        assertEquals("src/main/java/com/example/demo/MyController.java", controller.get().relativePath());
         assertTrue(controller.get().userCode());
 
         assertTrue(service.isPresent());
@@ -78,6 +77,6 @@ class JavaSourceScannerTest {
 
         assertTrue(external.isPresent());
         assertEquals("OTHER", external.get().stereotype());
-        assertFalse(external.get().userCode());
+        assertTrue(external.get().userCode());
     }
 }

@@ -36,6 +36,26 @@ class DaoAnalysisServiceImplTest {
                         }
                         """);
 
+        Files.writeString(
+                sourceRoot.resolve("CustomerService.java"),
+                """
+                        package com.example;
+
+                        public class CustomerService {
+                            private final CustomerRepository repository;
+
+                            public CustomerService(CustomerRepository repository) {
+                                this.repository = repository;
+                            }
+
+                            public void refreshCustomers() {
+                                repository.findByStatus("ACTIVE");
+                                repository.findByRegion("EU");
+                                repository.save(new Customer());
+                            }
+                        }
+                        """);
+
         DbEntityRecord entityRecord = new DbEntityRecord(
                 "Customer",
                 "com.example.Customer",

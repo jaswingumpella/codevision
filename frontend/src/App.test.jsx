@@ -18,20 +18,20 @@ const mockOverview = {
   repoUrl: 'https://example.com/org/repo.git',
   analyzedAt: new Date('2024-05-01T12:00:00Z').toISOString(),
   buildInfo: {
-    groupId: 'com.barclays',
+    groupId: 'com.example',
     artifactId: 'app',
     version: '1.0.0',
     javaVersion: '21'
   },
   classes: [
     {
-      fullyQualifiedName: 'com.barclays.Controller',
-      packageName: 'com.barclays',
+      fullyQualifiedName: 'com.example.Controller',
+      packageName: 'com.example',
       className: 'Controller',
       stereotype: 'CONTROLLER',
       userCode: true,
       sourceSet: 'MAIN',
-      relativePath: 'src/main/java/com/barclays/Controller.java',
+      relativePath: 'src/main/java/com/example/Controller.java',
       annotations: ['RestController'],
       interfacesImplemented: []
     }
@@ -143,7 +143,7 @@ describe('App', () => {
 
     expect(await screen.findByText(/latest analysis/i)).toBeInTheDocument();
     expect(screen.getByText(/demo-project/)).toBeInTheDocument();
-    expect(screen.getAllByText(/com\.barclays/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/com\.example/).length).toBeGreaterThan(0);
     expect(screen.getByText(/openapi\.yml/)).toBeInTheDocument();
   });
 

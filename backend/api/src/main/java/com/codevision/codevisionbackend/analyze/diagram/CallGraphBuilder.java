@@ -122,7 +122,7 @@ public class CallGraphBuilder {
                     }
                     boolean known = byFqn.containsKey(resolved);
                     if (!known) {
-                        if (!resolved.contains("codeviz2")) {
+                        if (!shouldIncludeExternal(resolved)) {
                             continue;
                         }
                         builder.addNode(new GraphNode(
@@ -339,10 +339,10 @@ public class CallGraphBuilder {
         }
         String resolvedTarget = resolveImplementationTarget(targetClass, implementersByInterface);
         boolean known = byFqn.containsKey(resolvedTarget);
-        if (!known && (resolvedTarget.isBlank() || !resolvedTarget.contains("codeviz2"))) {
-            return;
-        }
         if (!known) {
+            if (!shouldIncludeExternal(resolvedTarget)) {
+                return;
+            }
             builder.addNode(new GraphNode(resolvedTarget, simpleName(resolvedTarget), "EXTERNAL", false, true));
         }
         String edgeTarget = byFqn.containsKey(targetClass) ? targetClass : resolvedTarget;
@@ -372,6 +372,23 @@ public class CallGraphBuilder {
         }
         return resolveScopeType(
                 scope.get(), currentClass, knownTypes, packageName, explicitImports, wildcardImports, bySimpleName);
+    }
+
+    private boolean shouldIncludeExternal(String className) {
+        if (className == null || className.isBlank()) {
+            return false;
+        }
+        String normalized = className.toLowerCase(Locale.ROOT);
+        if (normalized.startsWith("java.")
+                || normalized.startsWith("javax.")
+                || normalized.startsWith("jakarta.")
+                || normalized.startsWith("jdk.")
+                || normalized.startsWith("sun.")
+                || normalized.startsWith("kotlin.")
+                || normalized.startsWith("scala.")) {
+            return false;
+        }
+        return true;
     }
 
     private String resolveScopeType(

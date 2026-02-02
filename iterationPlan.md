@@ -428,7 +428,7 @@ Generate and view diagrams, including call flows, ERDs, components, class diagra
 
       * Build from a call graph of method→method calls.
       * Include inter-service calls (RestTemplate/WebClient/etc.).
-      * Include external classes only if package contains `codeviz2`.
+      * Include external classes only when they fall outside the project packages and are explicitly opted-in.
       * Respect cycles:
 
         * Track current path stack; if we encounter a node that’s already on stack, insert a note like `... (cyclic reference to X)` instead of recursing. This is where your cycle requirement is enforced for diagrams.
@@ -457,7 +457,7 @@ Generate and view diagrams, including call flows, ERDs, components, class diagra
     * “View PlantUML Source”
     * “View Mermaid Source”
     * “Download SVG”
-* Add a toggle for “Show external codeviz2 calls” on the Sequence tab.
+* Add a toggle for “Show external dependency calls” on the Sequence tab.
 * Add basic filtering UI (e.g. by package prefix) where data supports it.
 
 ### Persistence
@@ -559,7 +559,7 @@ We explicitly bake in cycle handling in multiple places:
    * We generate diagrams using bounded DFS:
 
      * Maintain `currentPath` stack.
-     * If we try to revisit a method already in `currentPath`, we output a placeholder like `... -> [cycle to com.barclays.CustomerService.updateCustomer()]` and stop that branch.
+     * If we try to revisit a method already in `currentPath`, we output a placeholder like `... -> [cycle to com.example.CustomerService.updateCustomer()]` and stop that branch.
    * This guarantees no infinite loop and protects both PlantUML/Mermaid generation.
 
 4. Export (Iteration 7)
@@ -585,7 +585,7 @@ Iteration 2 – Source Discovery & Metadata (✅ Completed)
 
 Goal: Extend the analysis to actually parse the repository’s source code and collect basic metadata, providing an initial project “overview”. Ensure cycle-safe handling in this process.
 
-Backend Deliverables: Introduce JavaSourceScanner to walk through the repository’s src/main/java and src/test/java directories (for each Maven module, as detected from the root POM). Integrate JavaParser to parse each Java file. For every class, create a ClassMetadataRecord capturing its fully-qualified name, package, implemented interfaces, annotations, source set (Main or Test), and an inferred stereotype (e.g. CONTROLLER, SERVICE, etc.). Implement the heuristic to mark classes under certain packages as first-party (userCode=true) – initially using default prefixes (com.barclays, com.codeviz2) with the intent to make this configurable later. All parsed classes are saved to a new class_metadata table in PostgreSQL.
+Backend Deliverables: Introduce JavaSourceScanner to walk through the repository’s src/main/java and src/test/java directories (for each Maven module, as detected from the root POM). Integrate JavaParser to parse each Java file. For every class, create a ClassMetadataRecord capturing its fully-qualified name, package, implemented interfaces, annotations, source set (Main or Test), and an inferred stereotype (e.g. CONTROLLER, SERVICE, etc.). All parsed classes are saved to a new class_metadata table in PostgreSQL, and source classes are treated as first-party by default (no hardcoded package prefixes).
 
 Add a BuildMetadataExtractor to parse pom.xml: retrieve the project’s Maven groupId, artifactId, version, and the Java target version (from plugin or properties). If the project is multi-module (root POM has modules), iterate through modules to ensure their sources are scanned too. Store build info in the project record (new columns for group, artifact, version, java version) and also prepare it for the overview JSON.
 

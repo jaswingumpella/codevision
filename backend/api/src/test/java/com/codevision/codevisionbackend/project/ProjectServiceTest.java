@@ -30,7 +30,7 @@ class ProjectServiceTest {
 
     @Test
     void overwriteProjectDeletesExistingAndSavesNew() {
-        BuildInfo buildInfo = new BuildInfo("com.barclays", "codevision", "1.0.0", "21");
+        BuildInfo buildInfo = new BuildInfo("com.example", "codevision", "1.0.0", "21");
         Project savedProject = new Project("https://example.com/repo.git", "codevision", "main", OffsetDateTime.now());
         savedProject.setId(7L);
         when(projectRepository.findByRepoUrlAndBranchName("https://example.com/repo.git", "main"))
@@ -42,7 +42,7 @@ class ProjectServiceTest {
 
         verify(projectRepository).findByRepoUrlAndBranchName("https://example.com/repo.git", "main");
         verify(projectRepository).saveAndFlush(argThat(project -> {
-            assertEquals("com.barclays", project.getBuildGroupId());
+            assertEquals("com.example", project.getBuildGroupId());
             assertEquals("codevision", project.getProjectName());
             assertEquals("codevision", project.getBuildArtifactId());
             assertEquals("1.0.0", project.getBuildVersion());
@@ -56,7 +56,7 @@ class ProjectServiceTest {
 
     @Test
     void overwriteProjectUpdatesExistingRecord() {
-        BuildInfo buildInfo = new BuildInfo("com.barclays", "codevision", "1.0.1", "21");
+        BuildInfo buildInfo = new BuildInfo("com.example", "codevision", "1.0.1", "21");
         Project existing = new Project("https://example.com/repo.git", "old-name", "main", OffsetDateTime.now().minusDays(1));
         existing.setId(9L);
 
@@ -70,7 +70,7 @@ class ProjectServiceTest {
         assertEquals("codevision", existing.getProjectName());
         assertEquals("1.0.1", existing.getBuildVersion());
         assertEquals("codevision", existing.getBuildArtifactId());
-        assertEquals("com.barclays", existing.getBuildGroupId());
+        assertEquals("com.example", existing.getBuildGroupId());
         assertNotNull(existing.getLastAnalyzedAt());
         verify(projectRepository).saveAndFlush(existing);
     }

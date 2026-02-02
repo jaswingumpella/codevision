@@ -11,7 +11,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "analysis")
 public class CompiledAnalysisProperties {
 
-    private List<String> acceptPackages = new ArrayList<>(List.of("com.barclays", "com.codeviz2"));
+    private List<String> acceptPackages = new ArrayList<>();
     private boolean includeDependencies = true;
     private int maxCallDepth = 8;
     private CompileProperties compile = new CompileProperties();

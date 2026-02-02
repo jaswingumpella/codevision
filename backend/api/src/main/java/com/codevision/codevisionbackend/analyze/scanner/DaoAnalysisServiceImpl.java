@@ -11,11 +11,14 @@ import com.github.javaparser.ast.body.FieldDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.body.TypeDeclaration;
 import com.github.javaparser.ast.expr.Expression;
+import com.github.javaparser.ast.expr.FieldAccessExpr;
 import com.github.javaparser.ast.expr.MemberValuePair;
 import com.github.javaparser.ast.expr.MethodCallExpr;
+import com.github.javaparser.ast.expr.NameExpr;
 import com.github.javaparser.ast.expr.NormalAnnotationExpr;
 import com.github.javaparser.ast.expr.SingleMemberAnnotationExpr;
 import com.github.javaparser.ast.expr.StringLiteralExpr;
+import com.github.javaparser.ast.expr.VariableDeclarationExpr;
 import com.github.javaparser.ast.type.ClassOrInterfaceType;
 import java.io.IOException;
 import java.nio.file.FileVisitOption;
@@ -54,25 +57,6 @@ public class DaoAnalysisServiceImpl implements DaoAnalysisService {
             "jdbctemplate",
             "namedparameterjdbctemplate",
             "hibernatetemplate");
-    private static final Map<String, String> DEFAULT_REPOSITORY_OPERATIONS = Map.ofEntries(
-            Map.entry("save", "INSERT_OR_UPDATE"),
-            Map.entry("saveAll", "INSERT_OR_UPDATE"),
-            Map.entry("saveAndFlush", "INSERT_OR_UPDATE"),
-            Map.entry("saveAllAndFlush", "INSERT_OR_UPDATE"),
-            Map.entry("delete", "DELETE"),
-            Map.entry("deleteById", "DELETE"),
-            Map.entry("deleteAll", "DELETE"),
-            Map.entry("deleteAllById", "DELETE"),
-            Map.entry("deleteAllInBatch", "DELETE"),
-            Map.entry("deleteAllByIdInBatch", "DELETE"),
-            Map.entry("deleteInBatch", "DELETE"),
-            Map.entry("findById", "SELECT"),
-            Map.entry("findAll", "SELECT"),
-            Map.entry("findAllById", "SELECT"),
-            Map.entry("getById", "SELECT"),
-            Map.entry("getReferenceById", "SELECT"),
-            Map.entry("existsById", "SELECT"),
-            Map.entry("count", "SELECT"));
     private static final Set<String> DAO_INSERT_UPDATE_METHODS =
             Set.of("save", "saveorupdate", "persist", "merge");
     private static final Set<String> DAO_UPDATE_METHODS =
@@ -139,6 +123,8 @@ public class DaoAnalysisServiceImpl implements DaoAnalysisService {
                                 (left, right) -> left,
                                 HashMap::new));
 
+        Map<String, RepositoryDescriptor> repositoryIndex = new HashMap<>();
+        Map<String, Set<String>> usedRepositoryMethods = new HashMap<>();
         Map<String, Set<String>> classesByEntity = new HashMap<>();
         Map<String, List<DaoOperationRecord>> operationsByClass = new HashMap<>();
         Set<Path> visitedSourceRoots = new HashSet<>();
@@ -148,9 +134,25 @@ public class DaoAnalysisServiceImpl implements DaoAnalysisService {
             if (!Files.isDirectory(sourceRoot) || !visitedSourceRoots.add(sourceRoot)) {
                 continue;
             }
-            traverseSourceRoot(sourceRoot, entityBySimpleName, classesByEntity, operationsByClass);
+            indexRepositoryInterfaces(sourceRoot, entityBySimpleName, repositoryIndex);
         }
 
+        visitedSourceRoots.clear();
+        for (Path moduleRoot : moduleRoots) {
+            Path sourceRoot = moduleRoot.resolve("src/main/java").toAbsolutePath().normalize();
+            if (!Files.isDirectory(sourceRoot) || !visitedSourceRoots.add(sourceRoot)) {
+                continue;
+            }
+            traverseSourceRoot(
+                    sourceRoot,
+                    entityBySimpleName,
+                    repositoryIndex,
+                    usedRepositoryMethods,
+                    classesByEntity,
+                    operationsByClass);
+        }
+
+        appendRepositoryOperations(repositoryIndex, usedRepositoryMethods, classesByEntity, operationsByClass);
         mergeBytecodeOperations(repoRoot, moduleRoots, entityBySimpleName, classesByEntity, operationsByClass);
 
         if (!entityBySimpleName.isEmpty()) {
@@ -177,13 +179,21 @@ public class DaoAnalysisServiceImpl implements DaoAnalysisService {
     private void traverseSourceRoot(
             Path sourceRoot,
             Map<String, DbEntityRecord> entities,
+            Map<String, RepositoryDescriptor> repositoryIndex,
+            Map<String, Set<String>> usedRepositoryMethods,
             Map<String, Set<String>> classesByEntity,
             Map<String, List<DaoOperationRecord>> operationsByClass) {
         try (Stream<Path> paths = Files.walk(sourceRoot, MAX_WALK_DEPTH, FileVisitOption.FOLLOW_LINKS)) {
             paths.filter(Files::isRegularFile)
                     .filter(path -> path.toString().endsWith(".java"))
                     .filter(path -> !AnalysisExclusions.isExcludedPath(path))
-                    .forEach(path -> parseSource(path, entities, classesByEntity, operationsByClass));
+                    .forEach(path -> parseSource(
+                            path,
+                            entities,
+                            repositoryIndex,
+                            usedRepositoryMethods,
+                            classesByEntity,
+                            operationsByClass));
         } catch (IOException e) {
             log.warn("Failed traversing {} for DAO analysis: {}", sourceRoot, e.getMessage());
         }
@@ -203,6 +213,10 @@ public class DaoAnalysisServiceImpl implements DaoAnalysisService {
             boolean includeDependencies = compiledAnalysisProperties.isIncludeDependencies();
             ClasspathBuilder.ClasspathDescriptor classpath =
                     classpathBuilder.buildForModules(repoRoot, moduleRoots, includeDependencies);
+            if (classpath.getClasspathEntries().isEmpty()) {
+                log.warn("Bytecode DAO scanning skipped because no classpath entries were resolved.");
+                return;
+            }
             Map<String, List<DaoOperationRecord>> bytecodeOps =
                     bytecodeDaoScanner.scan(classpath, acceptPackages, entities);
             if (bytecodeOps.isEmpty()) {
@@ -225,6 +239,8 @@ public class DaoAnalysisServiceImpl implements DaoAnalysisService {
     private void parseSource(
             Path sourceFile,
             Map<String, DbEntityRecord> entities,
+            Map<String, RepositoryDescriptor> repositoryIndex,
+            Map<String, Set<String>> usedRepositoryMethods,
             Map<String, Set<String>> classesByEntity,
             Map<String, List<DaoOperationRecord>> operationsByClass) {
         try {
@@ -245,54 +261,185 @@ public class DaoAnalysisServiceImpl implements DaoAnalysisService {
                     continue;
                 }
                 if (classDeclaration.isInterface()) {
-                    processRepositoryInterface(
-                            classDeclaration, packageName, entities, classesByEntity, operationsByClass);
-                } else {
-                    processDaoClass(classDeclaration, packageName, entities, classesByEntity, operationsByClass);
+                    continue;
                 }
+                collectRepositoryUsage(classDeclaration, repositoryIndex, usedRepositoryMethods);
+                processDaoClass(classDeclaration, packageName, entities, classesByEntity, operationsByClass);
             }
         } catch (IOException | ParseProblemException ex) {
             log.debug("Failed parsing {} for repository metadata: {}", sourceFile, ex.getMessage());
         }
     }
 
-    private void processRepositoryInterface(
-            ClassOrInterfaceDeclaration declaration,
-            String packageName,
+    private void indexRepositoryInterfaces(
+            Path sourceRoot,
             Map<String, DbEntityRecord> entities,
+            Map<String, RepositoryDescriptor> repositoryIndex) {
+        try (Stream<Path> paths = Files.walk(sourceRoot, MAX_WALK_DEPTH, FileVisitOption.FOLLOW_LINKS)) {
+            paths.filter(Files::isRegularFile)
+                    .filter(path -> path.toString().endsWith(".java"))
+                    .filter(path -> !AnalysisExclusions.isExcludedPath(path))
+                    .forEach(path -> indexRepositoryInterface(path, entities, repositoryIndex));
+        } catch (IOException e) {
+            log.warn("Failed traversing {} for repository index: {}", sourceRoot, e.getMessage());
+        }
+    }
+
+    private void indexRepositoryInterface(
+            Path sourceFile,
+            Map<String, DbEntityRecord> entities,
+            Map<String, RepositoryDescriptor> repositoryIndex) {
+        try {
+            Optional<CompilationUnit> unitOpt = javaParser.parse(sourceFile).getResult();
+            if (unitOpt.isEmpty()) {
+                return;
+            }
+            CompilationUnit unit = unitOpt.get();
+            String packageName = unit.getPackageDeclaration()
+                    .map(pkg -> pkg.getName().asString())
+                    .orElse("");
+            for (TypeDeclaration<?> declaration : unit.getTypes()) {
+                if (!(declaration instanceof ClassOrInterfaceDeclaration classDeclaration)
+                        || !classDeclaration.isInterface()) {
+                    continue;
+                }
+                Optional<ClassOrInterfaceType> repositoryBase = classDeclaration.getExtendedTypes().stream()
+                        .filter(type -> isRepositoryBase(type.getName().getIdentifier()))
+                        .findFirst();
+                if (repositoryBase.isEmpty()) {
+                    continue;
+                }
+                String repositoryName = classDeclaration.getNameAsString();
+                String repositoryFqn = classDeclaration.getFullyQualifiedName()
+                        .orElseGet(() -> composeFqn(packageName, repositoryName));
+
+                String entityType = resolveEntityType(repositoryBase.get());
+                if (entityType == null) {
+                    log.debug("Unable to resolve entity type for repository {}", repositoryFqn);
+                    continue;
+                }
+                String entitySimpleName = simpleName(entityType);
+                DbEntityRecord entityRecord = entities.get(entitySimpleName);
+                Map<String, String> declaredQueries = new HashMap<>();
+                for (MethodDeclaration method : classDeclaration.getMethods()) {
+                    extractQuery(method).ifPresent(query -> declaredQueries.put(method.getNameAsString(), query));
+                }
+                repositoryIndex.putIfAbsent(
+                        repositoryName,
+                        new RepositoryDescriptor(
+                                repositoryFqn,
+                                repositoryName,
+                                entityRecord,
+                                entitySimpleName,
+                                declaredQueries));
+            }
+        } catch (IOException | ParseProblemException ex) {
+            log.debug("Failed parsing {} for repository index: {}", sourceFile, ex.getMessage());
+        }
+    }
+
+    private void appendRepositoryOperations(
+            Map<String, RepositoryDescriptor> repositoryIndex,
+            Map<String, Set<String>> usedRepositoryMethods,
             Map<String, Set<String>> classesByEntity,
             Map<String, List<DaoOperationRecord>> operationsByClass) {
-        Optional<ClassOrInterfaceType> repositoryBase = declaration.getExtendedTypes().stream()
-                .filter(type -> isRepositoryBase(type.getName().getIdentifier()))
-                .findFirst();
-        if (repositoryBase.isEmpty()) {
+        if (repositoryIndex.isEmpty()) {
             return;
         }
+        for (RepositoryDescriptor descriptor : repositoryIndex.values()) {
+            Set<String> used = usedRepositoryMethods.getOrDefault(descriptor.simpleName(), Set.of());
+            if (used.isEmpty()) {
+                continue;
+            }
+            DbEntityRecord entityRecord = descriptor.entityRecord();
+            String targetDescriptor = buildTargetDescriptor(entityRecord, descriptor.entitySimpleName());
+            for (String methodName : used) {
+                if (methodName == null || methodName.isBlank()) {
+                    continue;
+                }
+                String querySnippet = descriptor.declaredQueries().get(methodName);
+                Optional<String> query = querySnippet == null ? Optional.empty() : Optional.of(querySnippet);
+                String operationType = inferOperationType(methodName, query);
+                if ("UNKNOWN".equals(operationType)) {
+                    continue;
+                }
+                DaoOperationRecord record = new DaoOperationRecord(
+                        descriptor.fullyQualifiedName(),
+                        methodName,
+                        operationType,
+                        targetDescriptor,
+                        querySnippet);
+                operationsByClass
+                        .computeIfAbsent(descriptor.fullyQualifiedName(), key -> new ArrayList<>())
+                        .add(record);
+            }
+            if (entityRecord != null) {
+                classesByEntity
+                        .computeIfAbsent(entityRecord.className(), key -> new HashSet<>())
+                        .add(descriptor.fullyQualifiedName());
+            }
+        }
+    }
 
-        String repositoryName = declaration.getNameAsString();
-        String repositoryFqn = declaration.getFullyQualifiedName()
-                .orElseGet(() -> composeFqn(packageName, repositoryName));
-
-        String entityType = resolveEntityType(repositoryBase.get());
-        if (entityType == null) {
-            log.debug("Unable to resolve entity type for repository {}", repositoryFqn);
+    private void collectRepositoryUsage(
+            ClassOrInterfaceDeclaration declaration,
+            Map<String, RepositoryDescriptor> repositoryIndex,
+            Map<String, Set<String>> usedRepositoryMethods) {
+        if (repositoryIndex.isEmpty()) {
             return;
         }
-        String entitySimpleName = simpleName(entityType);
-        DbEntityRecord entityRecord = entities.get(entitySimpleName);
-
-        String entityKey = entityRecord != null ? entityRecord.className() : entitySimpleName;
-        classesByEntity
-                .computeIfAbsent(entityKey, key -> new HashSet<>())
-                .add(repositoryFqn);
-
-        List<DaoOperationRecord> operations =
-                collectOperations(declaration, repositoryFqn, entityRecord, entitySimpleName);
-        if (!operations.isEmpty()) {
-            operationsByClass
-                    .computeIfAbsent(repositoryFqn, key -> new ArrayList<>())
-                    .addAll(operations);
+        Map<String, String> fieldTypes = new HashMap<>();
+        for (FieldDeclaration field : declaration.getFields()) {
+            String typeName = simpleName(stripTypeArguments(field.getElementType().asString()));
+            if (repositoryIndex.containsKey(typeName)) {
+                field.getVariables().forEach(variable -> fieldTypes.put(variable.getNameAsString(), typeName));
+            }
         }
+        for (MethodDeclaration method : declaration.getMethods()) {
+            if (method.getBody().isEmpty()) {
+                continue;
+            }
+            Map<String, String> knownTypes = new HashMap<>(fieldTypes);
+            method.getParameters().forEach(param -> {
+                String typeName = simpleName(stripTypeArguments(param.getType().asString()));
+                if (repositoryIndex.containsKey(typeName)) {
+                    knownTypes.put(param.getNameAsString(), typeName);
+                }
+            });
+            method.findAll(VariableDeclarationExpr.class).forEach(local -> {
+                String typeName = simpleName(stripTypeArguments(local.getElementType().asString()));
+                if (!repositoryIndex.containsKey(typeName)) {
+                    return;
+                }
+                local.getVariables().forEach(variable -> knownTypes.put(variable.getNameAsString(), typeName));
+            });
+            method.findAll(MethodCallExpr.class).forEach(call -> {
+                Optional<Expression> scope = call.getScope();
+                if (scope.isEmpty()) {
+                    return;
+                }
+                String repoSimpleName = resolveRepositoryFromScope(scope.get(), knownTypes);
+                if (repoSimpleName == null) {
+                    return;
+                }
+                usedRepositoryMethods
+                        .computeIfAbsent(repoSimpleName, key -> new HashSet<>())
+                        .add(call.getNameAsString());
+            });
+        }
+    }
+
+    private String resolveRepositoryFromScope(Expression scope, Map<String, String> knownTypes) {
+        if (scope instanceof NameExpr nameExpr) {
+            return knownTypes.get(nameExpr.getNameAsString());
+        }
+        if (scope instanceof FieldAccessExpr fieldAccess) {
+            Expression qualifier = fieldAccess.getScope();
+            if (qualifier.isThisExpr() || qualifier.isSuperExpr()) {
+                return knownTypes.get(fieldAccess.getNameAsString());
+            }
+        }
+        return null;
     }
 
     private void processDaoClass(
@@ -541,36 +688,12 @@ public class DaoAnalysisServiceImpl implements DaoAnalysisService {
 
     private record DaoOperationEvidence(String operationType, String querySnippet) {}
 
-    private List<DaoOperationRecord> collectOperations(
-            ClassOrInterfaceDeclaration declaration,
-            String repositoryFqn,
+    private record RepositoryDescriptor(
+            String fullyQualifiedName,
+            String simpleName,
             DbEntityRecord entityRecord,
-            String entityFallback) {
-        List<DaoOperationRecord> operations = new ArrayList<>();
-        String targetDescriptor = buildTargetDescriptor(entityRecord, entityFallback);
-        Set<String> declaredMethodNames = declaration.getMethods().stream()
-                .map(MethodDeclaration::getNameAsString)
-                .collect(Collectors.toCollection(HashSet::new));
-
-        for (MethodDeclaration method : declaration.getMethods()) {
-            if (method.isDefault() || method.isStatic()) {
-                continue;
-            }
-            Optional<String> query = extractQuery(method);
-            String methodName = method.getNameAsString();
-            String operationType = inferOperationType(methodName, query);
-            String querySnippet = query.orElse(null);
-            operations.add(new DaoOperationRecord(repositoryFqn, methodName, operationType, targetDescriptor, querySnippet));
-        }
-
-        DEFAULT_REPOSITORY_OPERATIONS.forEach((methodName, operationType) -> {
-            if (!declaredMethodNames.contains(methodName)) {
-                operations.add(new DaoOperationRecord(
-                        repositoryFqn, methodName, operationType, targetDescriptor, null));
-            }
-        });
-        return operations;
-    }
+            String entitySimpleName,
+            Map<String, String> declaredQueries) {}
 
     private String buildTargetDescriptor(DbEntityRecord entityRecord, String fallback) {
         if (entityRecord == null) {
@@ -682,6 +805,14 @@ public class DaoAnalysisServiceImpl implements DaoAnalysisService {
             return value.substring(lastDot + 1);
         }
         return value;
+    }
+
+    private String stripTypeArguments(String typeName) {
+        if (typeName == null || typeName.isBlank()) {
+            return typeName;
+        }
+        int idx = typeName.indexOf('<');
+        return idx > 0 ? typeName.substring(0, idx) : typeName;
     }
 
     private String composeFqn(String packageName, String simpleName) {

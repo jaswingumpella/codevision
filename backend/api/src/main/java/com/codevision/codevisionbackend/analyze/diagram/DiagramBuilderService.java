@@ -506,16 +506,24 @@ public class DiagramBuilderService {
         if (records == null || records.isEmpty()) {
             return stereotype;
         }
-        List<String> samples = records.stream()
+        List<String> names = records.stream()
                 .map(ClassMetadataRecord::className)
                 .filter(Objects::nonNull)
                 .distinct()
-                .limit(3)
                 .toList();
-        if (samples.isEmpty()) {
+        if (names.isEmpty()) {
             return stereotype;
         }
-        return stereotype + "\\n" + String.join("\\n", samples);
+        int limit = Math.min(names.size(), 8);
+        List<String> samples = names.subList(0, limit);
+        StringBuilder label = new StringBuilder(stereotype)
+                .append("\\n")
+                .append(String.join("\\n", samples));
+        if (names.size() > limit) {
+            label.append("\\n… +").append(names.size() - limit).append(" more");
+        }
+        label.append("\\n(").append(names.size()).append(" classes)");
+        return label.toString();
     }
 
     private DiagramDefinition buildUseCaseDiagram(List<ApiEndpointRecord> endpoints) {
@@ -755,13 +763,13 @@ public class DiagramBuilderService {
         plantuml.append("actor \"API Client\" as ApiClient\n");
         plantuml.append("participant \"Database\" as Database\n");
         if (includeExternal) {
-            plantuml.append("participant \"External codeviz2\" as ExternalLib\n");
+            plantuml.append("participant \"External dependencies\" as ExternalLib\n");
         }
         StringBuilder mermaid = new StringBuilder("sequenceDiagram\n");
         mermaid.append("    actor ApiClient as \"API Client\"\n");
         mermaid.append("    participant Database as \"Database\"\n");
         if (includeExternal) {
-            mermaid.append("    participant ExternalLib as \"External codeviz2\"\n");
+            mermaid.append("    participant ExternalLib as \"External dependencies\"\n");
         }
 
         Map<String, String> aliasByClass = new LinkedHashMap<>();
@@ -889,7 +897,7 @@ public class DiagramBuilderService {
 
     private String sequenceTitle(ApiEndpointRecord endpoint, boolean includeExternal) {
         String label = formatEndpointLabel(endpoint);
-        return includeExternal ? "Call Flow (External) – " + label : "Call Flow – " + label;
+        return includeExternal ? "Call Flow (External dependencies) – " + label : "Call Flow – " + label;
     }
 
     private String formatEndpointLabel(ApiEndpointRecord endpoint) {
