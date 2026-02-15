@@ -25,9 +25,12 @@ const DiagramsPanel = ({
   onSequenceToggle
 }) => {
   const [sourceVisibility, setSourceVisibility] = useState({ plantuml: false, mermaid: false });
+  const [zoom, setZoom] = useState(1);
+  const [focusMode, setFocusMode] = useState(false);
 
   useEffect(() => {
     setSourceVisibility({ plantuml: false, mermaid: false });
+    setZoom(activeType === 'SEQUENCE' ? 0.9 : 1);
   }, [activeDiagram]);
 
   const rawDiagrams = diagramsByType[activeType] || [];
@@ -95,7 +98,7 @@ const DiagramsPanel = ({
     const activeSvg = svgContent[activeDiagram.diagramId];
 
     return (
-      <div className="diagram-viewer">
+      <div className={`diagram-viewer ${focusMode ? 'focus-mode' : ''}`}>
         <div className="diagram-viewer-header">
           <div>
             <h3>{activeDiagram.title || DIAGRAM_TYPE_LABELS[activeType] || 'Diagram'}</h3>
@@ -113,6 +116,24 @@ const DiagramsPanel = ({
             )}
           </div>
           <div className="diagram-actions">
+            <button
+              type="button"
+              className="ghost-button"
+              onClick={() => setZoom((value) => Math.max(0.4, Number((value - 0.1).toFixed(2))))}
+            >
+              Zoom out
+            </button>
+            <span className="diagram-zoom-label">{Math.round(zoom * 100)}%</span>
+            <button
+              type="button"
+              className="ghost-button"
+              onClick={() => setZoom((value) => Math.min(2.5, Number((value + 0.1).toFixed(2))))}
+            >
+              Zoom in
+            </button>
+            <button type="button" className="ghost-button" onClick={() => setZoom(activeType === 'SEQUENCE' ? 0.9 : 1)}>
+              Reset zoom
+            </button>
             <button
               type="button"
               className="ghost-button"
@@ -148,12 +169,15 @@ const DiagramsPanel = ({
             >
               Open in new tab
             </button>
+            <button type="button" className="ghost-button" onClick={() => setFocusMode((value) => !value)}>
+              {focusMode ? 'Exit focus mode' : 'Focus mode'}
+            </button>
           </div>
         </div>
-        <div className="diagram-svg">
+        <div className="diagram-svg" style={{ '--diagram-scale': zoom }}>
           {activeDiagram.svgAvailable ? (
             activeSvg ? (
-              <div dangerouslySetInnerHTML={{ __html: activeSvg }} />
+              <div className="diagram-svg-canvas" dangerouslySetInnerHTML={{ __html: activeSvg }} />
             ) : (
               <p className="overview-hint">Rendering SVG…</p>
             )
