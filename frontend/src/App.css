@@ -1142,22 +1142,25 @@ button:not([disabled]):hover {
 }
 
 .diagram-layout {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: minmax(250px, 300px) minmax(0, 1fr);
+  align-items: start;
   gap: 1rem;
 }
 
-@media (min-width: 1040px) {
+@media (max-width: 1040px) {
   .diagram-layout {
-    flex-direction: row;
-    align-items: flex-start;
+    grid-template-columns: 1fr;
   }
 }
 
 .diagram-sidebar {
-  flex: 0 0 220px;
-  max-height: 560px;
+  max-height: 72vh;
   overflow-y: auto;
+  border: 1px solid #e3e8f4;
+  border-radius: 14px;
+  padding: 0.75rem;
+  background: #f8f9ff;
 }
 
 .diagram-list {
@@ -1218,6 +1221,10 @@ button:not([disabled]):hover {
   overflow: hidden;
 }
 
+.diagram-viewer.focus-mode {
+  box-shadow: 0 14px 36px rgba(15, 23, 42, 0.14);
+}
+
 .diagram-viewer-header {
   display: flex;
   justify-content: space-between;
@@ -1226,17 +1233,34 @@ button:not([disabled]):hover {
 }
 
 .diagram-svg {
-  border: 1px dashed #d0d6e6;
+  border: 1px solid #d0d6e6;
   border-radius: 12px;
-  min-height: 240px;
-  padding: 0.75rem;
-  background: #f8f9ff;
+  min-height: 420px;
+  padding: 1rem;
+  background: radial-gradient(circle at top, #f8f9ff 0%, #f2f5ff 100%);
   overflow: auto;
-  max-height: 65vh;
+  max-height: 72vh;
+}
+
+.diagram-svg-canvas {
+  width: max-content;
+  min-width: 100%;
 }
 
 .diagram-svg svg {
-  width: 100%;
+  width: auto;
+  max-width: none;
+  transform: scale(var(--diagram-scale, 1));
+  transform-origin: top left;
+}
+
+.diagram-zoom-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #3b4b78;
+  padding: 0.3rem 0.5rem;
+  border-radius: 999px;
+  background: #eef2ff;
 }
 
 .diagram-source-block {
@@ -1267,6 +1291,11 @@ button:not([disabled]):hover {
   .diagram-sidebar {
     flex: 1;
     max-height: none;
+  }
+
+  .diagram-svg {
+    min-height: 320px;
+    max-height: 60vh;
   }
 }
 
