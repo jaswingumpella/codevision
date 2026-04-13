@@ -6,6 +6,9 @@ import GraphFilterPanel from './GraphFilterPanel';
 import GraphLegend from './GraphLegend';
 import GraphContextMenu from './GraphContextMenu';
 import GuidedTourOverlay from './GuidedTourOverlay';
+import GraphMinimap from './GraphMinimap';
+import GraphTimeline from './GraphTimeline';
+import GraphDiffOverlay from './GraphDiffOverlay';
 import { useGraphData } from '../../hooks/useGraphData';
 import { useGraphFilters } from '../../hooks/useGraphFilters';
 
@@ -24,6 +27,11 @@ export default function GraphExplorer({ projectId, graphData }) {
   const [tourActive, setTourActive] = useState(false);
   const [highlightedNodes, setHighlightedNodes] = useState(new Set());
   const [focusNodeId, setFocusNodeId] = useState(null);
+  const [minimapVisible, setMinimapVisible] = useState(true);
+  const [timelineSnapshots, setTimelineSnapshots] = useState([]);
+  const [timelineIndex, setTimelineIndex] = useState(0);
+  const [diffData, setDiffData] = useState(null);
+  const [diffVisible, setDiffVisible] = useState(false);
 
   // Load graph data on mount or when graphData prop changes
   useEffect(() => {
@@ -206,6 +214,14 @@ export default function GraphExplorer({ projectId, graphData }) {
           onClose={handleCloseDetail}
         />
         <GraphLegend />
+        <GraphMinimap graph={graph} sigma={null} visible={minimapVisible} />
+        <GraphTimeline
+          snapshots={timelineSnapshots}
+          currentIndex={timelineIndex}
+          onSelect={setTimelineIndex}
+          visible={timelineSnapshots.length > 0}
+        />
+        <GraphDiffOverlay diffData={diffData} visible={diffVisible} />
 
         {contextMenu && (
           <GraphContextMenu
