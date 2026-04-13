@@ -1,0 +1,90 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git *)",
+      "Bash(mvn *)",
+      "Bash(npm *)",
+      "Bash(python *)",
+      "Bash(ls *)",
+      "Bash(mkdir *)",
+      "Read(*)",
+      "Write(backend/**)",
+      "Write(frontend/**)",
+      "Write(scripts/**)",
+      "Write(.claude/**)",
+      "Write(CLAUDE.md)",
+      "Write(docker-compose.yml)",
+      "Write(Dockerfile)",
+      "Glob(*)",
+      "Grep(*)"
+    ],
+    "deny": [
+      "Bash(git push --force *)",
+      "Bash(rm -rf /)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "command": "python .claude/hooks/action-logger.py",
+            "timeout": 5000
+          }
+        ]
+      },
+      {
+        "matcher": "Bash(mvn*test*)",
+        "hooks": [
+          {
+            "command": "python .claude/hooks/post-test.py",
+            "timeout": 10000
+          }
+        ]
+      },
+      {
+        "matcher": "Bash(npm*test*)",
+        "hooks": [
+          {
+            "command": "python .claude/hooks/post-test.py",
+            "timeout": 10000
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Write(backend/api/src/main/**/*.java)",
+        "hooks": [
+          {
+            "command": "python .claude/hooks/tdd-guard.py",
+            "timeout": 5000
+          }
+        ]
+      },
+      {
+        "matcher": "Write(backend/**/*.java)",
+        "hooks": [
+          {
+            "command": "python .claude/hooks/pre-write-check.py",
+            "timeout": 5000
+          }
+        ]
+      },
+      {
+        "matcher": "Write(frontend/**/*.jsx)",
+        "hooks": [
+          {
+            "command": "python .claude/hooks/pre-write-check.py",
+            "timeout": 5000
+          }
+        ]
+      }
+    ]
+  },
+  "env": {
+    "CLAUDE_PROJECT": "codevision",
+    "PYTHONPATH": ".claude/scripts"
+  }
+}

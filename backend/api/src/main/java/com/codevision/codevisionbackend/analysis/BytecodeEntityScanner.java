@@ -232,6 +232,9 @@ public class BytecodeEntityScanner {
                     .map(AnnotationInfo::getName)
                     .toList();
             fieldModel.setAnnotations(annotations);
+            fieldModel.setAnnotationDetails(extractAnnotationDetails(fieldInfo.getAnnotationInfo()));
+            fieldModel.setGenericSignature(
+                    fieldInfo.getTypeSignature() != null ? fieldInfo.getTypeSignature().toString() : null);
             boolean injected = annotations.stream().anyMatch(INJECTION_ANNOTATIONS::contains);
             fieldModel.setInjected(injected);
             boolean relationship = annotations.stream().anyMatch(RELATIONSHIP_ANNOTATIONS::contains);
@@ -265,6 +268,24 @@ public class BytecodeEntityScanner {
             String generatorName = generator.getValue().toString();
             model.addSequenceUsage(new SequenceUsage(classInfo.getName(), fieldInfo.getName(), generatorName));
         }
+    }
+
+    private List<Map<String, Object>> extractAnnotationDetails(Iterable<AnnotationInfo> annotationInfos) {
+        List<Map<String, Object>> details = new ArrayList<>();
+        for (AnnotationInfo info : annotationInfos) {
+            Map<String, Object> detail = new java.util.LinkedHashMap<>();
+            detail.put("name", info.getName());
+            Map<String, Object> params = new java.util.LinkedHashMap<>();
+            for (AnnotationParameterValue param : info.getParameterValues()) {
+                Object value = param.getValue();
+                params.put(param.getName(), value != null ? value.toString() : null);
+            }
+            if (!params.isEmpty()) {
+                detail.put("parameters", params);
+            }
+            details.add(detail);
+        }
+        return details;
     }
 
     private String normalizeType(String rawType) {

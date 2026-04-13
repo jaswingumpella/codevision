@@ -74,7 +74,7 @@ import org.slf4j.LoggerFactory;
 final class ControlFlowSequenceBuilder {
 
     private static final Logger log = LoggerFactory.getLogger(ControlFlowSequenceBuilder.class);
-    private static final int MAX_STATEMENT_DEPTH = 8000;
+    private static final int MAX_STATEMENT_DEPTH = Integer.MAX_VALUE;
 
     private final SourceIndex sourceIndex;
     private final int maxDepth;

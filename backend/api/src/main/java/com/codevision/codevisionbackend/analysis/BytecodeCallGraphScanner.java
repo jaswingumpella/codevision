@@ -128,6 +128,13 @@ public class BytecodeCallGraphScanner {
                     String signature,
                     String[] exceptions) {
                 return new MethodVisitor(Opcodes.ASM9) {
+                    private int currentLine = -1;
+
+                    @Override
+                    public void visitLineNumber(int line, org.objectweb.asm.Label start) {
+                        this.currentLine = line;
+                    }
+
                     @Override
                     public void visitMethodInsn(
                             int opcode,
@@ -141,13 +148,15 @@ public class BytecodeCallGraphScanner {
                                 || !shouldInclude(calleeClass, acceptPackages)) {
                             return;
                         }
-                        methodEdges.add(new GraphModel.MethodCallEdge(
-                                callerClass, name, descriptor, calleeClass, methodName, methodDescriptor));
+                        var edge = new GraphModel.MethodCallEdge(
+                                callerClass, name, descriptor, calleeClass, methodName, methodDescriptor);
+                        edge.setLineNumber(currentLine);
+                        methodEdges.add(edge);
                         classEdges.computeIfAbsent(callerClass, key -> new LinkedHashSet<>()).add(calleeClass);
                     }
                 };
             }
-        }, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+        }, ClassReader.SKIP_FRAMES);
     }
 
     private boolean shouldInclude(String className, List<String> acceptPackages) {

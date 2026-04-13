@@ -1,0 +1,189 @@
+/* Shared styles for use case view components */
+
+.usecase-panel {
+  padding: 16px;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+}
+
+.usecase-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.usecase-header h3 {
+  margin: 0;
+  font-size: 16px;
+  color: #333;
+}
+
+.usecase-btn {
+  padding: 8px 16px;
+  background: #4f46e5;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.usecase-btn:hover {
+  background: #4338ca;
+}
+
+.usecase-btn:disabled {
+  background: #c7d2fe;
+  cursor: not-allowed;
+}
+
+.usecase-error {
+  padding: 8px 12px;
+  color: #dc2626;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  font-size: 13px;
+  margin-top: 8px;
+}
+
+.usecase-loading {
+  padding: 16px;
+  text-align: center;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.usecase-results {
+  margin-top: 12px;
+}
+
+.usecase-stat {
+  display: inline-block;
+  padding: 4px 10px;
+  background: #f3f4f6;
+  border-radius: 12px;
+  font-size: 13px;
+  color: #374151;
+  margin-right: 8px;
+  margin-bottom: 4px;
+}
+
+.usecase-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  margin-left: 6px;
+}
+
+.usecase-badge--high {
+  background: #dc2626;
+}
+
+.usecase-badge--medium {
+  background: #f59e0b;
+}
+
+.usecase-badge--low {
+  background: #10b981;
+}
+
+.usecase-list {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0 0;
+}
+
+.usecase-list li {
+  padding: 6px 8px;
+  border-bottom: 1px solid #f3f4f6;
+  font-size: 13px;
+  color: #374151;
+}
+
+.usecase-list li:last-child {
+  border-bottom: none;
+}
+
+.usecase-link {
+  color: #4f46e5;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.usecase-link:hover {
+  text-decoration: underline;
+}
+
+.usecase-hint {
+  color: #9ca3af;
+  font-size: 13px;
+  font-style: italic;
+  padding: 12px 0;
+}
+
+.usecase-score {
+  font-size: 36px;
+  font-weight: 700;
+  text-align: center;
+  margin: 12px 0;
+}
+
+.usecase-score--good {
+  color: #10b981;
+}
+
+.usecase-score--warn {
+  color: #f59e0b;
+}
+
+.usecase-score--bad {
+  color: #dc2626;
+}
+
+.usecase-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin-top: 8px;
+}
+
+.usecase-table th {
+  text-align: left;
+  padding: 6px 8px;
+  border-bottom: 2px solid #e5e7eb;
+  color: #6b7280;
+  font-weight: 600;
+}
+
+.usecase-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid #f3f4f6;
+  color: #374151;
+}
+
+.usecase-expand-toggle {
+  cursor: pointer;
+  user-select: none;
+  padding: 6px 8px;
+  border-bottom: 1px solid #f3f4f6;
+  font-size: 13px;
+}
+
+.usecase-expand-toggle:hover {
+  background: #f9fafb;
+}
+
+.usecase-chain {
+  padding: 8px 16px;
+  font-size: 12px;
+  color: #6b7280;
+  background: #f9fafb;
+  border-bottom: 1px solid #f3f4f6;
+}

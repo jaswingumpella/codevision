@@ -14,7 +14,7 @@ public class KeycloakIdentityService {
 
     private static final Logger log = LoggerFactory.getLogger(KeycloakIdentityService.class);
     private static final int DEFAULT_LIMIT = 20;
-    private static final int MAX_LIMIT = 100;
+    private static final int PAGINATION_LIMIT = 100;
 
     private final KeycloakRealmRepository realmRepository;
     private final KeycloakUserRepository userRepository;
@@ -44,6 +44,6 @@ public class KeycloakIdentityService {
         if (requestedLimit <= 0) {
             return DEFAULT_LIMIT;
         }
-        return Math.min(requestedLimit, MAX_LIMIT);
+        return Math.min(requestedLimit, PAGINATION_LIMIT);
     }
 }

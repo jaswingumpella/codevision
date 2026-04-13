@@ -6,6 +6,7 @@ import com.codevision.codevisionbackend.analysis.GraphModel.EndpointNode;
 import com.codevision.codevisionbackend.analysis.GraphModel.FieldModel;
 import com.codevision.codevisionbackend.analysis.GraphModel.Origin;
 import com.codevision.codevisionbackend.analysis.GraphModel.SequenceNode;
+import com.codevision.codevisionbackend.graph.ConfidenceLevel;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -51,6 +52,7 @@ public class GraphMerger {
                 continue;
             }
             target.setOrigin(Origin.BOTH);
+            target.setConfidence(ConfidenceLevel.EXTRACTED);
             if (target.getTableName() == null) {
                 target.setTableName(sourceNode.getTableName());
             }

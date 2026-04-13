@@ -264,7 +264,6 @@ public class ExportService {
 
         List<List<String>> flaggedRows = insights.stream()
                 .filter(entry -> entry.piiRisk() || entry.pciRisk())
-                .limit(25)
                 .map(entry -> List.of(
                         escape(defaultString(entry.className())),
                         escape(defaultString(entry.logLevel())),
@@ -275,7 +274,7 @@ public class ExportService {
         if (flaggedRows.isEmpty()) {
             html.append("<p class=\"muted\">No potentially sensitive log entries detected.</p>");
         } else {
-            html.append("<h2>Flagged Statements (first 25)</h2>");
+            html.append("<h2>Flagged Statements</h2>");
             renderTable(
                     html,
                     List.of("Class", "Level", "Message", "Source", "Risk"),
@@ -302,7 +301,6 @@ public class ExportService {
                 .append("</p>");
 
         List<List<String>> rows = findings.stream()
-                .limit(50)
                 .map(finding -> List.of(
                         escape(defaultString(finding.filePath())),
                         escape(finding.lineNumber() > 0 ? Integer.toString(finding.lineNumber()) : "—"),
@@ -315,7 +313,7 @@ public class ExportService {
                 html,
                 List.of("File", "Line", "Snippet", "Type", "Severity", "Ignored"),
                 rows);
-        html.append("<p class=\"muted\">Showing first 50 findings. Download the CSV/PDF exports for the full list.</p>");
+        html.append("<p class=\"muted\">Download the CSV/PDF exports for the full list.</p>");
         html.append("</section>");
     }
 

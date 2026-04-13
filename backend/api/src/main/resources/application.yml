@@ -54,10 +54,36 @@ diagram:
   svg:
     enabled: true
 
+graph:
+  persistence:
+    batchSize: ${GRAPH_PERSISTENCE_BATCH_SIZE:500}
+
+codevision:
+  tree-sitter:
+    enabled: ${TREE_SITTER_ENABLED:true}
+    nodePath: ${TREE_SITTER_NODE_PATH:node}
+    scriptPath: ${TREE_SITTER_SCRIPT_PATH:scripts/tree-sitter-parse.js}
+    timeoutSeconds: ${TREE_SITTER_TIMEOUT_SECONDS:30}
+  algorithms:
+    leiden:
+      resolution: ${LEIDEN_RESOLUTION:1.0}
+      maxRuntimeSeconds: ${LEIDEN_MAX_RUNTIME_SECONDS:60}
+      maxOuterIterations: ${LEIDEN_MAX_OUTER_ITERATIONS:100}
+      maxLocalMovingIterations: ${LEIDEN_MAX_LOCAL_MOVING_ITERATIONS:10}
+    closeness-centrality:
+      maxRuntimeSeconds: ${CLOSENESS_CENTRALITY_MAX_RUNTIME_SECONDS:60}
+    dependency-risk:
+      maxRuntimeSeconds: ${DEPENDENCY_RISK_MAX_RUNTIME_SECONDS:60}
+  dependency:
+    gradle:
+      processTimeoutSeconds: ${GRADLE_PROCESS_TIMEOUT_SECONDS:120}
+    npm:
+      processTimeoutSeconds: ${NPM_PROCESS_TIMEOUT_SECONDS:120}
+
 analysis:
   acceptPackages: []
   includeDependencies: true
-  maxCallDepth: 8
+  maxCallDepth: -1
   compile:
     auto: true
     mvnExecutable: ${ANALYSIS_MAVEN_EXECUTABLE:mvn}
@@ -71,6 +97,7 @@ analysis:
   safety:
     maxRuntimeSeconds: ${ANALYSIS_MAX_RUNTIME_SECONDS:600}
     maxHeapMb: ${ANALYSIS_MAX_HEAP_MB:1500}
+    sequenceDiagramTimeoutSeconds: ${ANALYSIS_SEQUENCE_DIAGRAM_TIMEOUT:30}
   filters:
     excludeJars:
       - "*junit*"

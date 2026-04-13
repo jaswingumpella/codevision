@@ -29,7 +29,7 @@ public class BuildMetadataExtractor {
 
     private static final Logger log = LoggerFactory.getLogger(BuildMetadataExtractor.class);
     private static final String DEFAULT_JAVA_VERSION = "unknown";
-    private static final int MAX_POM_SCAN_DEPTH = 4;
+    private static final int MAX_POM_SCAN_DEPTH = Integer.MAX_VALUE;
 
     public BuildMetadata extract(Path repoRoot) {
         Path normalizedRoot = repoRoot.toAbsolutePath().normalize();

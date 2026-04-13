@@ -24,10 +24,10 @@ import org.springframework.stereotype.Service;
 @Service
 public class DiagramBuilderService {
 
-    private static final int MAX_CLASS_NODES = 30;
-    private static final int MAX_COMPONENT_EDGES = 40;
-    private static final int MAX_ENDPOINTS = 6;
-    private static final int MAX_SEQUENCE_DEPTH = 8;
+    private static final int MAX_CLASS_NODES = Integer.MAX_VALUE;
+    private static final int MAX_COMPONENT_EDGES = Integer.MAX_VALUE;
+    private static final int MAX_ENDPOINTS = Integer.MAX_VALUE;
+    private static final int MAX_SEQUENCE_DEPTH = Integer.MAX_VALUE;
     private static final String ROOT_MODULE_KEY = "/";
 
     private final CallGraphBuilder callGraphBuilder;
@@ -1277,14 +1277,9 @@ public class DiagramBuilderService {
         if (operations == null || operations.isEmpty()) {
             return "DAO ops";
         }
-        String joined = operations.stream()
+        return operations.stream()
                 .map(op -> op.endsWith("()") ? op : op + "()")
-                .limit(3)
                 .collect(Collectors.joining(", "));
-        if (operations.size() > 3) {
-            return joined + " +" + (operations.size() - 3) + " more";
-        }
-        return joined;
     }
 
     private record Edge(String from, String to) {}

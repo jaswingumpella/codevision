@@ -161,6 +161,7 @@ public class GraphModel {
         private boolean inCycle;
         private String jarOrDirectory;
         private boolean springBean;
+        private com.codevision.codevisionbackend.graph.ConfidenceLevel confidence;
 
         public ClassNode copy() {
             ClassNode clone = new ClassNode();
@@ -180,6 +181,7 @@ public class GraphModel {
             clone.setInCycle(this.inCycle);
             clone.setJarOrDirectory(this.jarOrDirectory);
             clone.setSpringBean(this.springBean);
+            clone.setConfidence(this.confidence);
             return clone;
         }
 
@@ -310,6 +312,14 @@ public class GraphModel {
         public void setSpringBean(boolean springBean) {
             this.springBean = springBean;
         }
+
+        public com.codevision.codevisionbackend.graph.ConfidenceLevel getConfidence() {
+            return confidence;
+        }
+
+        public void setConfidence(com.codevision.codevisionbackend.graph.ConfidenceLevel confidence) {
+            this.confidence = confidence;
+        }
     }
 
     public enum Origin {
@@ -344,6 +354,8 @@ public class GraphModel {
         private String name;
         private String type;
         private List<String> annotations = new ArrayList<>();
+        private List<Map<String, Object>> annotationDetails = new ArrayList<>();
+        private String genericSignature;
         private boolean injected;
         private boolean relationship;
 
@@ -352,6 +364,8 @@ public class GraphModel {
             clone.setName(this.name);
             clone.setType(this.type);
             clone.setAnnotations(new ArrayList<>(this.annotations));
+            clone.setAnnotationDetails(new ArrayList<>(this.annotationDetails));
+            clone.setGenericSignature(this.genericSignature);
             clone.setInjected(this.injected);
             clone.setRelationship(this.relationship);
             return clone;
@@ -395,6 +409,22 @@ public class GraphModel {
 
         public void setRelationship(boolean relationship) {
             this.relationship = relationship;
+        }
+
+        public List<Map<String, Object>> getAnnotationDetails() {
+            return annotationDetails;
+        }
+
+        public void setAnnotationDetails(List<Map<String, Object>> annotationDetails) {
+            this.annotationDetails = annotationDetails == null ? new ArrayList<>() : new ArrayList<>(annotationDetails);
+        }
+
+        public String getGenericSignature() {
+            return genericSignature;
+        }
+
+        public void setGenericSignature(String genericSignature) {
+            this.genericSignature = genericSignature;
         }
     }
 
@@ -561,6 +591,7 @@ public class GraphModel {
         private String calleeClass;
         private String calleeMethod;
         private String calleeDescriptor;
+        private int lineNumber = -1;
 
         public MethodCallEdge() {}
 
@@ -625,6 +656,14 @@ public class GraphModel {
 
         public void setCalleeDescriptor(String calleeDescriptor) {
             this.calleeDescriptor = calleeDescriptor;
+        }
+
+        public int getLineNumber() {
+            return lineNumber;
+        }
+
+        public void setLineNumber(int lineNumber) {
+            this.lineNumber = lineNumber;
         }
     }
 

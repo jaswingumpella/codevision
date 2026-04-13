@@ -1,5 +1,8 @@
 package com.codevision.codevisionbackend.analyze.scanner;
 
+import com.codevision.codevisionbackend.analysis.DocumentationExtractor;
+import com.codevision.codevisionbackend.analysis.MetricsCalculator;
+import com.codevision.codevisionbackend.analyze.scanner.ClassMetadataRecord.MethodMetrics;
 import com.codevision.codevisionbackend.analyze.scanner.ClassMetadataRecord.SourceSet;
 import com.github.javaparser.JavaParser;
 import com.github.javaparser.ParseProblemException;
@@ -7,6 +10,7 @@ import com.github.javaparser.ParserConfiguration;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.EnumDeclaration;
+import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.body.RecordDeclaration;
 import com.github.javaparser.ast.body.TypeDeclaration;
 import com.github.javaparser.ast.nodeTypes.NodeWithAnnotations;
@@ -16,9 +20,11 @@ import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -45,11 +51,19 @@ public class JavaSourceScanner {
     private static final Set<String> CONFIG_ANNOTATIONS = Set.of("Configuration");
 
     private final JavaParser javaParser;
+    private final MetricsCalculator metricsCalculator;
+    private final DocumentationExtractor documentationExtractor;
 
     public JavaSourceScanner() {
+        this(new MetricsCalculator(), new DocumentationExtractor());
+    }
+
+    public JavaSourceScanner(MetricsCalculator metricsCalculator, DocumentationExtractor documentationExtractor) {
         ParserConfiguration configuration = new ParserConfiguration()
                 .setLanguageLevel(ParserConfiguration.LanguageLevel.BLEEDING_EDGE);
         this.javaParser = new JavaParser(configuration);
+        this.metricsCalculator = metricsCalculator;
+        this.documentationExtractor = documentationExtractor;
     }
 
     public List<ClassMetadataRecord> scan(Path repoRoot, List<Path> moduleRoots) {
@@ -125,6 +139,11 @@ public class JavaSourceScanner {
                 continue;
             }
 
+            String documentation = documentationExtractor.extractClassDocumentation(type).orElse(null);
+            List<String> typeParameters = extractTypeParameters(type);
+            int loc = metricsCalculator.linesOfCode(type);
+            Map<String, MethodMetrics> methodMetricsMap = extractMethodMetrics(type);
+
             collector.add(new ClassMetadataRecord(
                     fullyQualifiedName,
                     packageName,
@@ -134,7 +153,11 @@ public class JavaSourceScanner {
                     stereotype,
                     sourceSet,
                     relativePath,
-                    userCode));
+                    userCode,
+                    documentation,
+                    typeParameters,
+                    loc,
+                    methodMetricsMap));
         }
     }
 
@@ -237,5 +260,39 @@ public class JavaSourceScanner {
             return simpleName;
         }
         return packageName + "." + simpleName;
+    }
+
+    private List<String> extractTypeParameters(TypeDeclaration<?> type) {
+        if (type instanceof ClassOrInterfaceDeclaration decl) {
+            return decl.getTypeParameters().stream()
+                    .map(tp -> tp.getNameAsString())
+                    .toList();
+        }
+        if (type instanceof RecordDeclaration recDecl) {
+            return recDecl.getTypeParameters().stream()
+                    .map(tp -> tp.getNameAsString())
+                    .toList();
+        }
+        return List.of();
+    }
+
+    private Map<String, MethodMetrics> extractMethodMetrics(TypeDeclaration<?> type) {
+        Map<String, MethodMetrics> metrics = new HashMap<>();
+        for (MethodDeclaration method : type.getMethods()) {
+            String key = method.getNameAsString();
+            int cyclomatic = metricsCalculator.cyclomaticComplexity(method);
+            int cognitive = metricsCalculator.cognitiveComplexity(method);
+            int loc = metricsCalculator.linesOfCode(method);
+            String doc = documentationExtractor.extractMethodDocumentation(method).orElse(null);
+            List<String> paramTypes = method.getParameters().stream()
+                    .map(p -> p.getType().asString())
+                    .toList();
+            String returnType = method.getType().asString();
+            List<String> thrown = method.getThrownExceptions().stream()
+                    .map(t -> t.asString())
+                    .toList();
+            metrics.put(key, new MethodMetrics(key, cyclomatic, cognitive, loc, doc, paramTypes, returnType, thrown));
+        }
+        return metrics;
     }
 }

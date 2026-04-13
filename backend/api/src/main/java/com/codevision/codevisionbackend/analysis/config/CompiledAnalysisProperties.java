@@ -13,7 +13,7 @@ public class CompiledAnalysisProperties {
 
     private List<String> acceptPackages = new ArrayList<>();
     private boolean includeDependencies = true;
-    private int maxCallDepth = 8;
+    private int maxCallDepth = Integer.MAX_VALUE;
     private CompileProperties compile = new CompileProperties();
     private OutputProperties output = new OutputProperties();
     private SafetyProperties safety = new SafetyProperties();
@@ -40,7 +40,7 @@ public class CompiledAnalysisProperties {
     }
 
     public void setMaxCallDepth(int maxCallDepth) {
-        this.maxCallDepth = maxCallDepth;
+        this.maxCallDepth = maxCallDepth < 0 ? Integer.MAX_VALUE : maxCallDepth;
     }
 
     public CompileProperties getCompile() {
@@ -120,6 +120,7 @@ public class CompiledAnalysisProperties {
     public static class SafetyProperties {
         private long maxRuntimeSeconds = 600;
         private int maxHeapMb = 1500;
+        private long sequenceDiagramTimeoutSeconds = 30;
 
         public long getMaxRuntimeSeconds() {
             return maxRuntimeSeconds;
@@ -135,6 +136,14 @@ public class CompiledAnalysisProperties {
 
         public void setMaxHeapMb(int maxHeapMb) {
             this.maxHeapMb = maxHeapMb;
+        }
+
+        public long getSequenceDiagramTimeoutSeconds() {
+            return sequenceDiagramTimeoutSeconds;
+        }
+
+        public void setSequenceDiagramTimeoutSeconds(long sequenceDiagramTimeoutSeconds) {
+            this.sequenceDiagramTimeoutSeconds = sequenceDiagramTimeoutSeconds;
         }
     }
 

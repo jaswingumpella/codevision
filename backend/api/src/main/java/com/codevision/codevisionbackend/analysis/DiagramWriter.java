@@ -12,10 +12,12 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Deque;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -44,7 +46,8 @@ public class DiagramWriter {
         Files.writeString(classDiagram, buildClassDiagram(model), StandardCharsets.UTF_8);
         Files.writeString(erdPuml, buildErdPlantUml(model), StandardCharsets.UTF_8);
         Files.writeString(erdMermaid, buildErdMermaid(model), StandardCharsets.UTF_8);
-        List<Path> sequences = writeSequenceDiagrams(model, outputDir, properties.getMaxCallDepth());
+        long timeoutSeconds = properties.getSafety().getSequenceDiagramTimeoutSeconds();
+        List<Path> sequences = writeSequenceDiagrams(model, outputDir, properties.getMaxCallDepth(), timeoutSeconds);
         return new DiagramArtifacts(classDiagram, erdPuml, erdMermaid, sequences);
     }
 
@@ -175,7 +178,7 @@ public class DiagramWriter {
         return builder.toString();
     }
 
-    private List<Path> writeSequenceDiagrams(GraphModel model, Path outputDir, int maxDepth) throws IOException {
+    private List<Path> writeSequenceDiagrams(GraphModel model, Path outputDir, int maxDepth, long timeoutSeconds) throws IOException {
         Map<String, Set<String>> adjacency = model.buildCallAdjacency();
         List<Path> written = new ArrayList<>();
         List<EndpointNode> httpEndpoints = model.getEndpoints().stream()
@@ -184,14 +187,13 @@ public class DiagramWriter {
                                 String.CASE_INSENSITIVE_ORDER))
                         .thenComparing(EndpointNode::getPath, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)))
                 .toList();
-        int limit = Math.min(httpEndpoints.size(), 25);
-        for (int i = 0; i < limit; i++) {
+        for (int i = 0; i < httpEndpoints.size(); i++) {
             EndpointNode endpoint = httpEndpoints.get(i);
             String filename = "seq_%02d_%s.puml".formatted(
                     i + 1,
                     sanitize(endpoint.getControllerClass() + "_" + endpoint.getControllerMethod()));
             Path path = outputDir.resolve(filename);
-            Files.writeString(path, buildSequenceDiagram(endpoint, adjacency, model, maxDepth), StandardCharsets.UTF_8);
+            Files.writeString(path, buildSequenceDiagram(endpoint, adjacency, model, maxDepth, timeoutSeconds), StandardCharsets.UTF_8);
             written.add(path);
         }
         return written;
@@ -201,7 +203,8 @@ public class DiagramWriter {
             EndpointNode endpoint,
             Map<String, Set<String>> adjacency,
             GraphModel model,
-            int maxDepth) {
+            int maxDepth,
+            long timeoutSeconds) {
         StringBuilder builder = new StringBuilder();
         builder.append("@startuml\n");
         builder.append("actor Client\n");
@@ -213,11 +216,15 @@ public class DiagramWriter {
                 .append(" ")
                 .append(endpoint.getPath())
                 .append("\n");
-        traverseSequence(endpoint.getControllerClass(), adjacency, model, maxDepth, new ArrayDeque<>(), builder);
+        Instant deadline = Instant.now().plusSeconds(timeoutSeconds);
+        traverseSequence(endpoint.getControllerClass(), adjacency, model, new HashSet<>(), new ArrayDeque<>(), deadline, builder);
         builder.append("@enduml\n");
         return builder.toString();
     }
 
+    /**
+     * Backward-compatible overload that delegates to the visited-set variant.
+     */
     private void traverseSequence(
             String className,
             Map<String, Set<String>> adjacency,
@@ -225,9 +232,22 @@ public class DiagramWriter {
             int depth,
             Deque<String> stack,
             StringBuilder builder) {
-        if (depth <= 0) {
+        Instant deadline = Instant.now().plusSeconds(30);
+        traverseSequence(className, adjacency, model, new HashSet<>(), stack, deadline, builder);
+    }
+
+    private void traverseSequence(
+            String className,
+            Map<String, Set<String>> adjacency,
+            GraphModel model,
+            Set<String> visited,
+            Deque<String> stack,
+            Instant deadline,
+            StringBuilder builder) {
+        if (visited.contains(className) || Instant.now().isAfter(deadline)) {
             return;
         }
+        visited.add(className);
         stack.push(className);
         for (String callee : adjacency.getOrDefault(className, Set.of())) {
             if (stack.contains(callee)) {
@@ -239,7 +259,7 @@ public class DiagramWriter {
                 continue;
             }
             builder.append(alias(className)).append(" -> ").append(alias(callee)).append(" : call\n");
-            traverseSequence(callee, adjacency, model, depth - 1, stack, builder);
+            traverseSequence(callee, adjacency, model, visited, stack, deadline, builder);
         }
         stack.pop();
     }
