@@ -58,6 +58,26 @@ public class KnowledgeGraph {
         return Collections.unmodifiableList(edges);
     }
 
+    // ── Jackson deserialization setters ────────────────────────────────
+
+    /**
+     * Sets nodes from JSON deserialization, rebuilding all secondary indices.
+     * Used by Jackson — prefer {@link #addNode} for programmatic use.
+     */
+    public void setNodes(Map<String, KgNode> incoming) {
+        if (incoming == null) return;
+        incoming.values().forEach(this::addNode);
+    }
+
+    /**
+     * Sets edges from JSON deserialization, rebuilding all secondary indices.
+     * Used by Jackson — prefer {@link #addEdge} for programmatic use.
+     */
+    public void setEdges(List<KgEdge> incoming) {
+        if (incoming == null) return;
+        incoming.forEach(this::addEdge);
+    }
+
     // ── Mutation ─────────────────────────────────────────────────────────
 
     /**
