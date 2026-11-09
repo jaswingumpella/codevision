@@ -49,12 +49,12 @@ Set `diagram.svg.enabled` to `false` (or the environment variable `DIAGRAM_SVG_E
 
 ### Database setup
 
-- **Runtime profile (PostgreSQL):** `application.yml` defaults to `jdbc:postgresql://localhost:5432/codevision`, but every property can be overridden via env vars. Point the service at the managed Render instance by exporting:
+- **Runtime profile (PostgreSQL):** `application.yml` defaults to `jdbc:postgresql://localhost:5432/codevision`, but every property can be overridden via env vars. Point the service at the managed Render instance by exporting the variables below. Replace `YOUR_RENDER_DB_PASSWORD` privately with your current database password; never commit it:
 
   ```bash
   export SPRING_DATASOURCE_URL=jdbc:postgresql://dpg-d480qabipnbc73d6felg-a.oregon-postgres.render.com:5432/codevision_postgres
   export SPRING_DATASOURCE_USERNAME=codevision_postgres_user
-  export SPRING_DATASOURCE_PASSWORD='N7f455H9K9YZxicckzibPgLF29fHU4h3'
+  export SPRING_DATASOURCE_PASSWORD='YOUR_RENDER_DB_PASSWORD'
   export SPRING_DATASOURCE_MAX_POOL_SIZE=5
   export SPRING_DATASOURCE_MIN_IDLE=1
   ```
@@ -359,7 +359,7 @@ If you previously ran CodeVision against the embedded H2 files, run the migratio
 # ensure the destination DB variables point at Render
 export PG_URL=jdbc:postgresql://dpg-d480qabipnbc73d6felg-a.oregon-postgres.render.com:5432/codevision_postgres
 export PG_USER=codevision_postgres_user
-export PG_PASSWORD='N7f455H9K9YZxicckzibPgLF29fHU4h3'
+export PG_PASSWORD='YOUR_RENDER_DB_PASSWORD'
 
 # pull the H2 jar if you don't already have it
 mvn dependency:get -Dartifact=com.h2database:h2:2.2.224

@@ -1,6 +1,6 @@
 # Render PostgreSQL wiring
 
-Deployments on Render should use the managed Postgres instance rather than the local Docker container. This document captures the exact connection details that Render generated for `codevision_postgres` plus the environment variables the Spring Boot backend expects.
+Deployments on Render should use the managed Postgres instance rather than the local Docker container. This document describes the connection settings for `codevision_postgres` and the environment variables the Spring Boot backend expects. `YOUR_RENDER_DB_PASSWORD` is a placeholder: set your current password privately in an untracked `.env` file or deployment secrets, and never commit real credentials.
 
 ## Connection details
 
@@ -11,7 +11,7 @@ Deployments on Render should use the managed Postgres instance rather than the l
 | Port         | `5432` |
 | Database     | `codevision_postgres` |
 | Username     | `codevision_postgres_user` |
-| Password     | `N7f455H9K9YZxicckzibPgLF29fHU4h3` |
+| Password     | `YOUR_RENDER_DB_PASSWORD` |
 
 Use the internal hostname for services that run inside the same Render region (no TLS overhead, no egress). Use the external hostname for local development or CI jobs that need to reach the managed database over the internet.
 
@@ -23,7 +23,7 @@ Add the following variables to your Render service (Dashboard → Service → En
 |----------|-------------------|
 | `SPRING_DATASOURCE_URL` | `jdbc:postgresql://dpg-d480qabipnbc73d6felg-a:5432/codevision_postgres` (internal) or `jdbc:postgresql://dpg-d480qabipnbc73d6felg-a.oregon-postgres.render.com:5432/codevision_postgres` (external) |
 | `SPRING_DATASOURCE_USERNAME` | `codevision_postgres_user` |
-| `SPRING_DATASOURCE_PASSWORD` | `N7f455H9K9YZxicckzibPgLF29fHU4h3` |
+| `SPRING_DATASOURCE_PASSWORD` | `YOUR_RENDER_DB_PASSWORD` |
 | `SPRING_DATASOURCE_MAX_POOL_SIZE` | `5` (keeps the pool under Render’s connection cap) |
 | `SPRING_DATASOURCE_MIN_IDLE` | `1` |
 | `SPRING_JPA_HIBERNATE_DDL_AUTO` | `update` (or `none` if you promote migrations separately) |
@@ -37,7 +37,7 @@ You can target the same managed instance from your laptop—helpful when Docker 
 ```bash
 SPRING_DATASOURCE_URL=jdbc:postgresql://dpg-d480qabipnbc73d6felg-a.oregon-postgres.render.com:5432/codevision_postgres \
 SPRING_DATASOURCE_USERNAME=codevision_postgres_user \
-SPRING_DATASOURCE_PASSWORD='N7f455H9K9YZxicckzibPgLF29fHU4h3' \
+SPRING_DATASOURCE_PASSWORD='YOUR_RENDER_DB_PASSWORD' \
 SPRING_DATASOURCE_MAX_POOL_SIZE=5 \
 SPRING_DATASOURCE_MIN_IDLE=1 \
 mvn -f backend/pom.xml -pl api spring-boot:run
@@ -50,7 +50,7 @@ mvn -f backend/pom.xml -pl api spring-boot:run
 From your laptop you can run:
 
 ```bash
-PGPASSWORD=N7f455H9K9YZxicckzibPgLF29fHU4h3 \
+PGPASSWORD=YOUR_RENDER_DB_PASSWORD \
 psql -h dpg-d480qabipnbc73d6felg-a.oregon-postgres.render.com \
      -U codevision_postgres_user \
      codevision_postgres
@@ -65,7 +65,7 @@ If you ran CodeVision before the Postgres switch, execute the migration helper o
 ```bash
 export PG_URL=jdbc:postgresql://dpg-d480qabipnbc73d6felg-a:5432/codevision_postgres   # or the external hostname
 export PG_USER=codevision_postgres_user
-export PG_PASSWORD='N7f455H9K9YZxicckzibPgLF29fHU4h3'
+export PG_PASSWORD='YOUR_RENDER_DB_PASSWORD'
 mvn dependency:get -Dartifact=com.h2database:h2:2.2.224
 scripts/migration/run-h2-to-postgres.sh
 ```
